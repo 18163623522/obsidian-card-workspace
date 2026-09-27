@@ -71,6 +71,7 @@ export function buildNavigationPanelState(input: {
     visible: navLayout.getNavVisible(), sectionCollapsed,
     showItemCounts: settings.showNavItemCounts, tooltipSide: input.tooltipSide,
     propertyFilterCount: settings.filter.properties.reduce((total, clause) => total + clause.values.length, 0),
+    visibleGroupProperties: (input.propertyFacets ?? []).map(({ key, label }) => ({ key, label })),
     projection, query: navLayout.getQuery(), focusId: navLayout.getFocusId(),
     focusRequest: navLayout.getFocusRequest(),
     revealRequest: navLayout.getRevealRequest(),

@@ -18,6 +18,7 @@ interface SortChangePayload {
 
 interface GroupChangePayload {
   dimension: string;
+  propertyKey?: string;
   orderBy: string;
   orderDirection: string;
 }
@@ -171,6 +172,7 @@ function mountToolbar(
         groupSegmentCount: values.groupSegmentCount ?? 0,
         metadataStatus: "ready",
       },
+      visibleGroupProperties: values.visibleGroupProperties ?? [],
       bulk: {
         bulkMode: values.bulkMode ?? false,
         selectedPaths: [],
@@ -574,6 +576,21 @@ describe("Toolbar.svelte", () => {
       { dimension: "box-rule", orderBy: "count", orderDirection: "desc" },
     ]);
 
+    await disposeMountedComponent(component);
+  });
+
+  it("routes a visible property selection with its normalized key", async () => {
+    const captured = createCapturedCallbacks();
+    const { component } = mountToolbar({
+      availableGroupDimensions: [...AVAILABLE_FOLDER_DIMENSIONS, "property"],
+      visibleGroupProperties: [{ key: "status", label: "Status" }],
+    }, captured.callbacks);
+    const menu = await openSortMenu();
+    expect(findMenuItem(menu, "Property")?.disabled).toBe(true);
+    clickMenuItem(menu, "Status");
+    expect(captured.groupChangeEvents).toEqual([
+      { dimension: "property", propertyKey: "status", orderBy: "default", orderDirection: "asc" },
+    ]);
     await disposeMountedComponent(component);
   });
 

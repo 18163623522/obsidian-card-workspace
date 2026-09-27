@@ -884,6 +884,19 @@ describe("card box rule property clauses", () => {
 });
 
 describe("card grouping settings normalization", () => {
+  it("restores visible property groups independently and clears hidden references", () => {
+    const boxes = [{ id: "a", name: "A", group: { dimension: "property", propertyKey: " Status " } }];
+    const visible = normalizeSettings({ visiblePropertyKeys: ["status"],
+      group: { dimension: "property", propertyKey: "status" }, boxes } as never);
+    expect(visible.group).toMatchObject({ dimension: "property", propertyKey: "status" });
+    expect(visible.boxes[0].group).toMatchObject({ dimension: "property", propertyKey: "status" });
+    const restored = migrateSettings(serializeSettings(visible));
+    expect(restored.group).toMatchObject({ dimension: "property", propertyKey: "status" });
+    expect(restored.boxes[0].group).toMatchObject({ dimension: "property", propertyKey: "status" });
+    const hidden = mergeSettings(visible, { visiblePropertyKeys: [] });
+    expect(hidden.group.dimension).toBe("none");
+    expect(hidden.boxes[0].group.dimension).toBe("none");
+  });
   it("defaults a v2 document with no preferences.group to the ungrouped spec", () => {
     const result = migrateSettings({
       schemaVersion: SETTINGS_SCHEMA_VERSION,

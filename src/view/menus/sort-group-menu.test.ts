@@ -19,6 +19,14 @@ class MockMenuItem {
   disabled = false;
   checked = false;
   clickHandler: (() => void) | null = null;
+  submenu: MockMenu | null = null;
+  submenuSupported = false;
+
+  setSubmenu(): MockMenu | undefined {
+    if (!this.submenuSupported) return undefined;
+    this.submenu = new MockMenu(true);
+    return this.submenu;
+  }
 
   setTitle(title: string | DocumentFragment): this {
     this.title = title;
@@ -49,9 +57,11 @@ class MockMenuItem {
 class MockMenu {
   items: MockMenuItem[] = [];
   separators = 0;
+  constructor(private readonly submenuSupported = false) {}
 
   addItem(configure: (item: MockMenuItem) => void): this {
     const item = new MockMenuItem();
+    item.submenuSupported = this.submenuSupported;
     configure(item);
     this.items.push(item);
     return this;
@@ -96,6 +106,7 @@ function createDeps(overrides: Partial<SortGroupMenuDeps> = {}): SortGroupMenuDe
     onSelectSort: vi.fn(),
     onSelectDirection: vi.fn(),
     onSelectDimension: vi.fn(),
+    onSelectProperty: vi.fn(),
     onSelectOrderBy: vi.fn(),
     onSelectOrderDirection: vi.fn(),
     onCollapseAll: vi.fn(),
@@ -114,6 +125,28 @@ function buildMenu(
 }
 
 describe("buildSortGroupMenu", () => {
+  it("offers visible source properties in a submenu and a flat fallback", () => {
+    const state = createState({ availableGroupDimensions: ["none", "property"],
+      visibleGroupProperties: [{ key: "status", label: "Status" }, { key: "priority", label: "Priority" }] });
+    const deps = createDeps();
+    const submenuMenu = new MockMenu(true);
+    buildSortGroupMenu(submenuMenu.asMenu(), state, deps);
+    const propertyItem = itemByTitle(submenuMenu, "Property");
+    expect(propertyItem?.submenu?.items.map(titleText)).toEqual(["Status", "Priority"]);
+    propertyItem?.submenu?.items[0].clickHandler?.();
+    expect(deps.onSelectProperty).toHaveBeenCalledWith("status");
+
+    const flatMenu = new MockMenu();
+    buildSortGroupMenu(flatMenu.asMenu(), state, deps);
+    expect(titles(flatMenu)).toContain("Status");
+    expect(itemByTitle(flatMenu, "Property")?.disabled).toBe(true);
+  });
+
+  it("disables property grouping with an enable-property hint when none are visible", () => {
+    const { menu } = buildMenu(createState({ availableGroupDimensions: ["none", "property"] }));
+    const item = itemByTitle(menu, "Property · Enable a property in navigation first");
+    expect(item?.disabled).toBe(true);
+  });
   it("lays out the four headed sections with separators and trailing commands", () => {
     const { menu } = buildMenu();
 

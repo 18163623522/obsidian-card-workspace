@@ -57,6 +57,11 @@ export function buildPropertyVisibilityPatch(
       visibleSet,
     ),
     filter: { properties: normalizePropertyFilterClauses(settings.filter.properties, visibleSet) },
+    ...(settings.group.dimension === "property" && !visibleSet.has(settings.group.propertyKey ?? "")
+      ? { group: { dimension: "none" as const, orderBy: settings.group.orderBy, orderDirection: settings.group.orderDirection } } : {}),
+    ...(settings.boxes.some((box) => box.group.dimension === "property" && !visibleSet.has(box.group.propertyKey ?? ""))
+      ? { boxes: settings.boxes.map((box) => box.group.dimension === "property" && !visibleSet.has(box.group.propertyKey ?? "")
+        ? { ...box, group: { dimension: "none" as const, orderBy: box.group.orderBy, orderDirection: box.group.orderDirection } } : box) } : {}),
   };
 }
 

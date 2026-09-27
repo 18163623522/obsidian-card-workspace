@@ -92,6 +92,19 @@ function createHarness(
 }
 
 describe("createPropertyActions", () => {
+  it("clears global and box property groups in the same visibility patch", () => {
+    const settings = mergeSettings(createSettings({ visiblePropertyKeys: ["status"] }), {
+      group: { dimension: "property", propertyKey: "status", orderBy: "default", orderDirection: "asc" },
+      boxes: [{ id: "box", name: "Box", rules: [], manualPaths: [], excludedPaths: [],
+        pinnedPaths: [], sort: { field: "mtime", direction: "desc" },
+        group: { dimension: "property", propertyKey: "status", orderBy: "default", orderDirection: "asc" } }],
+    });
+    const patch = buildPropertyVisibilityPatch(settings, []);
+    expect(patch.group?.dimension).toBe("none");
+    expect(patch.boxes?.[0].group.dimension).toBe("none");
+    expect(mergeSettings(settings, patch).visiblePropertyKeys).toEqual([]);
+  });
+
   beforeEach(() => {
     mockState.opened.length = 0;
     mockState.inventories.length = 0;

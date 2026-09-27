@@ -4,6 +4,7 @@ import type { UiStrings } from "../i18n";
 import { resolveRuleLabel } from "./box-rule-identity";
 import { matchesRule } from "./card-box-membership";
 import { getFileTagEntries } from "./metadata-utils";
+import { buildPropertyGroupBuckets } from "./property-grouping";
 import type { NoteCardRecord, Rule } from "./types";
 
 /**
@@ -182,6 +183,7 @@ function resolveTaskBucket(
   };
 }
 
+
 /**
  * Resolve one bucket per card, keyed by card path.
  *
@@ -223,6 +225,9 @@ export function buildGroupBuckets(
   const buckets = new Map<string, GroupBucket>();
   if (spec.dimension === "none") {
     return buckets;
+  }
+  if (spec.dimension === "property") {
+    return buildPropertyGroupBuckets(app, cards, spec.propertyKey ?? "", strings);
   }
 
   for (const card of cards) {

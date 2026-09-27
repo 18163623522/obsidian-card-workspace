@@ -16,7 +16,7 @@ An Obsidian plugin that shows folder notes as beautiful card stream in the sideb
 >
 > **Links.** The Links section turns the active note's outgoing links and backlinks into card sources. Open either entry to browse those notes as cards, pin the view to the current note or keep following whichever note is active, and save the current set as a card box.
 >
-> **Card grouping.** Sort and group the stream from the toolbar: sort by edited time, created time, or filename, and group by folder, tag, card box rule, or task status. Groups can be ordered by name or card count, and collapsed or expanded together. Cards with tasks also show progress as completed/total.
+> **Card grouping.** Sort and group the stream from the toolbar: sort by edited time, created time, or filename, and group by folder, tag, card box rule, task status, or a property enabled in navigation. Property grouping works in folders, card boxes, and links views. Folders and links share the global choice; each card box keeps its own. Hiding a selected property clears its grouping choice. Each card belongs to one group: a multi-value property uses its complete set of distinct values, regardless of array order; cards without a usable value (including non-Markdown cards) go into the final Unassigned group. Groups can be ordered by name or card count, and collapsed or expanded together. Cards with tasks also show progress as completed/total.
 
 ## Table of contents
 

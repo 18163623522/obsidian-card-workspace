@@ -89,6 +89,45 @@ function segmentKeys(result: GroupArrangement): string[] {
   return result.segments.map((segment) => segment.key);
 }
 
+describe("property grouping", () => {
+  it("uses complete type-sensitive sets, deduplicates values, and leaves unassigned last", () => {
+    const frontmatter: Record<string, Record<string, unknown>> = {
+      "a.md": { Status: ["open", 1, true, "open"] },
+      "b.md": { status: [true, "open", 1] },
+      "c.md": { status: "open" },
+      "d.md": { status: 1 },
+      "e.md": { status: false },
+      "f.md": { status: [] },
+    };
+    const app = { metadataCache: { getFileCache: (file: TFile) => ({ frontmatter: frontmatter[file.path] }) } } as unknown as App;
+    const cards = ["a.md", "b.md", "c.md", "d.md", "e.md", "f.md", "g.canvas"].map((path) =>
+      createCard(path, path.endsWith("canvas") ? { fileKind: "canvas" } : {}));
+    const spec: GroupSpec = { dimension: "property", propertyKey: "status", orderBy: "default", orderDirection: "asc" };
+    const result = arrange(app, cards, spec);
+    expect(result.segments.map(({ count }) => count).sort()).toEqual([1, 1, 1, 2, 2]);
+    expect(result.segments.at(-1)?.label).toBe("未赋值");
+    expect(result.segments.at(-1)?.isMissingBucket).toBe(true);
+    expect(result.cards.map(({ path }) => path)).toHaveLength(cards.length);
+    const buckets = buildGroupBuckets(app, cards, spec, [], LABELS, STRINGS);
+    expect(buckets.get("a.md")?.key).toBe(buckets.get("b.md")?.key);
+    expect(buckets.get("a.md")?.key).not.toBe(buckets.get("c.md")?.key);
+    expect(buckets.get("c.md")?.key).not.toBe(buckets.get("d.md")?.key);
+    expect(buckets.get("f.md")?.key).toBe(buckets.get("g.canvas")?.key);
+    const collapsed = arrange(app, cards, spec, [], new Set([buckets.get("a.md")!.key]));
+    expect(collapsed.segments.find(({ key }) => key === buckets.get("a.md")!.key)?.collapsed).toBe(true);
+    expect(collapsed.cards).toHaveLength(cards.length - 2);
+  });
+
+  it("disambiguates identical rendered values of different scalar types", () => {
+    const app = { metadataCache: { getFileCache: (file: TFile) => ({ frontmatter: {
+      status: file.path === "text.md" ? "1" : 1,
+    } }) } } as unknown as App;
+    const spec: GroupSpec = { dimension: "property", propertyKey: "status", orderBy: "default", orderDirection: "asc" };
+    const result = arrange(app, [createCard("text.md"), createCard("number.md")], spec);
+    expect(result.segments.map(({ label }) => label).sort()).toEqual(["1 (数字)", "1 (文本)"].sort());
+  });
+});
+
 function totalSegmentCount(result: GroupArrangement): number {
   return result.segments.reduce((total, segment) => total + segment.count, 0);
 }

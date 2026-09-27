@@ -16,6 +16,8 @@ export interface SortGroupStrings {
   dimensionTag: string;
   dimensionBoxRule: string;
   dimensionTask: string;
+  dimensionProperty: string;
+  enablePropertyHint: string;
   orderDefault: string;
   orderName: string;
   orderCount: string;
@@ -29,6 +31,7 @@ export interface SortGroupStrings {
   bucketTaskComplete: string;
   bucketNoTask: string;
   bucketManual: string;
+  bucketPropertyUnassigned: string;
 }
 
 export const sortGroupStrings: Record<UiLanguage, SortGroupStrings> = {
@@ -48,6 +51,8 @@ export const sortGroupStrings: Record<UiLanguage, SortGroupStrings> = {
     dimensionTag: "Tag",
     dimensionBoxRule: "Card box rule",
     dimensionTask: "Task status",
+    dimensionProperty: "Property",
+    enablePropertyHint: "Enable a property in navigation first",
     orderDefault: "Default",
     orderName: "Name",
     orderCount: "Card count",
@@ -62,6 +67,7 @@ export const sortGroupStrings: Record<UiLanguage, SortGroupStrings> = {
     bucketTaskComplete: "All tasks complete",
     bucketNoTask: "No tasks",
     bucketManual: "Manually added",
+    bucketPropertyUnassigned: "Unassigned",
   },
   zh: {
     title: "排序与分组",
@@ -79,6 +85,8 @@ export const sortGroupStrings: Record<UiLanguage, SortGroupStrings> = {
     dimensionTag: "标签",
     dimensionBoxRule: "卡片盒规则",
     dimensionTask: "任务状态",
+    dimensionProperty: "属性",
+    enablePropertyHint: "请先在导航栏启用属性",
     orderDefault: "默认",
     orderName: "名称",
     orderCount: "卡片数量",
@@ -92,5 +100,6 @@ export const sortGroupStrings: Record<UiLanguage, SortGroupStrings> = {
     bucketTaskComplete: "全部完成",
     bucketNoTask: "无任务",
     bucketManual: "手动添加",
+    bucketPropertyUnassigned: "未赋值",
   },
 };

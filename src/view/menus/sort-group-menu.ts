@@ -15,6 +15,7 @@ export interface SortGroupMenuState {
   sortDirection: SortDirection;
   group: GroupSpec;
   availableGroupDimensions: GroupDimension[];
+  visibleGroupProperties?: Array<{ key: string; label: string }>;
   hasSegments: boolean;
 }
 
@@ -23,6 +24,7 @@ export interface SortGroupMenuDeps {
   onSelectSort: (field: SortField) => void;
   onSelectDirection: (direction: SortDirection) => void;
   onSelectDimension: (dimension: GroupDimension) => void;
+  onSelectProperty?: (key: string) => void;
   onSelectOrderBy: (orderBy: GroupOrderBy) => void;
   onSelectOrderDirection: (direction: SortDirection) => void;
   onCollapseAll: () => void;
@@ -129,6 +131,37 @@ export function buildSortGroupMenu(
       disabled: !state.availableGroupDimensions.includes(dimension),
       onSelect: () => deps.onSelectDimension(dimension),
     });
+  }
+  if (state.availableGroupDimensions.includes("property")) {
+    const properties = state.visibleGroupProperties ?? [];
+    let flatFallback = false;
+    menu.addItem((item) => {
+      item.setTitle(properties.length === 0
+        ? `${strings.dimensionProperty} · ${strings.enablePropertyHint}`
+        : strings.dimensionProperty)
+        .setIcon("list-filter")
+        .setChecked(state.group.dimension === "property")
+        .setDisabled(properties.length === 0);
+      if (properties.length === 0) return;
+      const submenu = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.();
+      if (submenu && typeof submenu.addItem === "function") {
+        for (const property of properties) {
+          addOptionItem(submenu, { title: property.label, icon: "list-filter",
+            checked: state.group.dimension === "property" && state.group.propertyKey === property.key,
+            disabled: false, onSelect: () => deps.onSelectProperty?.(property.key) });
+        }
+      } else {
+        item.setDisabled(true);
+        flatFallback = true;
+      }
+    });
+    if (flatFallback) {
+      for (const property of properties) {
+        addOptionItem(menu, { title: property.label, icon: "list-filter",
+          checked: state.group.dimension === "property" && state.group.propertyKey === property.key,
+          disabled: false, onSelect: () => deps.onSelectProperty?.(property.key) });
+      }
+    }
   }
 
   menu.addSeparator();

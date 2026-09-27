@@ -6,7 +6,7 @@ import type { PropertyFilterClause } from "../../property-filter-settings";
 import { DEFAULT_SETTINGS, normalizeSettings } from "../../settings";
 import * as metadataUtils from "../metadata-utils";
 import * as pipeline from "../pipeline";
-import { createBoxScope, createFolderScope } from "../scope";
+import { createBoxScope, createFolderScope, createLinksScope } from "../scope";
 import type { CardBoxDefinition, NoteCardRecord, PipelineSearchInput, Rule } from "../types";
 import type { ViewContext } from "../view-context";
 import { createViewEpochs } from "../view-epochs";
@@ -118,6 +118,27 @@ function createHarness(options: {
 describe("ProjectionController", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("groups property values in folder, box, and links sources while box and links filters stay paused", () => {
+    const cards = [createCard("notes/a.md"), createCard("notes/b.md")];
+    const clause: PropertyFilterClause = { key: "status", values: [{ kind: "text", value: "open" }] };
+    const group: GroupSpec = { dimension: "property", propertyKey: "status", orderBy: "default", orderDirection: "asc" };
+    for (const scope of [createFolderScope("notes", true), createBoxScope("box-1"), createLinksScope("notes/root.md", "backlinks")]) {
+      const { controller } = createHarness({ scope, group, filterProperties: [clause],
+        fileCache: (file) => ({ frontmatter: { status: file.path.endsWith("a.md") ? "open" : "closed" } }) });
+      const result = controller.deriveArrangementFrom(cards);
+      expect(result.segments.length).toBe(scope.kind === "folder" ? 1 : 2);
+      expect(result.cards.length).toBe(scope.kind === "folder" ? 1 : 2);
+    }
+  });
+
+  it("pauses property grouping during search and restores it when the query clears", () => {
+    const cards = [createCard("notes/a.md"), createCard("notes/b.md")];
+    const group: GroupSpec = { dimension: "property", propertyKey: "status", orderBy: "default", orderDirection: "asc" };
+    const { controller } = createHarness({ group, search: { query: "open", execution: "indexed-ready", orderedPaths: ["notes/a.md"] },
+      fileCache: () => ({ frontmatter: { status: "open" } }) });
+    expect(controller.deriveArrangementFrom(cards).segments).toEqual([]);
   });
 
   it("applies folder projection in tag, search, then pin order", () => {
@@ -471,6 +492,21 @@ describe("ProjectionController group arrangement", () => {
   });
 
   describe("refreshMetadataGroupBuckets", () => {
+    it("moves a property group on frontmatter change and refreshes its header label", () => {
+      let status = "Open";
+      const { controller, store } = createHarness({
+        group: { ...DEFAULT_GROUP_SPEC, dimension: "property", propertyKey: "status" },
+        fileCache: () => ({ frontmatter: { Status: status } }),
+      });
+      store.replaceBaseCards([createCard("notes/a.md")]);
+      controller.reprojectCards();
+      expect(controller.getGroupSegments()[0]?.label).toBe("Open");
+      status = "Closed";
+      expect(controller.refreshMetadataGroupBuckets()).toBe(true);
+      controller.reprojectCards();
+      expect(controller.getGroupSegments()[0]?.label).toBe("Closed");
+    });
+
     it("retains a refreshed cache and reports a move when a card's tags changed", () => {
       let tag = "#work";
       const { controller, getFileCache, store } = createHarness({

@@ -1,6 +1,7 @@
 import type { SortDirection } from "./settings";
+import { normalizePropertyKey } from "./property-filter-settings";
 
-export type GroupDimension = "none" | "folder" | "tag" | "box-rule" | "task";
+export type GroupDimension = "none" | "folder" | "tag" | "box-rule" | "task" | "property";
 
 export type GroupOrderBy = "default" | "name" | "count";
 
@@ -13,6 +14,8 @@ export type GroupOrderBy = "default" | "name" | "count";
  */
 export interface GroupSpec {
   dimension: GroupDimension;
+  /** Present only for property grouping. */
+  propertyKey?: string;
   orderBy: GroupOrderBy;
   orderDirection: SortDirection;
 }
@@ -29,6 +32,7 @@ const KNOWN_GROUP_DIMENSIONS: ReadonlySet<string> = new Set<GroupDimension>([
   "tag",
   "box-rule",
   "task",
+  "property",
 ]);
 
 const KNOWN_GROUP_ORDER_BY: ReadonlySet<string> = new Set<GroupOrderBy>([
@@ -62,9 +66,20 @@ export function normalizeGroupSpec(value: unknown): GroupSpec {
     return { ...DEFAULT_GROUP_SPEC };
   }
 
+  const dimension = normalizeGroupDimension(value.dimension);
+  const propertyKey = dimension === "property" ? normalizePropertyKey(value.propertyKey) : null;
   return {
-    dimension: normalizeGroupDimension(value.dimension),
+    dimension: dimension === "property" && propertyKey === null ? "none" : dimension,
+    ...(propertyKey === null ? {} : { propertyKey }),
     orderBy: normalizeGroupOrderBy(value.orderBy),
     orderDirection: normalizeGroupOrderDirection(value.orderDirection),
   };
+}
+
+/** Clears a persisted property group when its key is no longer enabled. */
+export function normalizeVisibleGroupSpec(value: unknown, visibleKeys: ReadonlySet<string>): GroupSpec {
+  const group = normalizeGroupSpec(value);
+  return group.dimension === "property" && !visibleKeys.has(group.propertyKey ?? "")
+    ? { dimension: "none", orderBy: group.orderBy, orderDirection: group.orderDirection }
+    : group;
 }

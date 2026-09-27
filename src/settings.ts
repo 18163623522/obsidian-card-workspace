@@ -1,4 +1,4 @@
-import { DEFAULT_GROUP_SPEC, normalizeGroupSpec, type GroupSpec } from "./card-grouping-settings";
+import { DEFAULT_GROUP_SPEC, normalizeGroupSpec, normalizeVisibleGroupSpec, type GroupSpec } from "./card-grouping-settings";
 import { normalizeExpandedFolderPaths, normalizeExpandedTagPaths } from "./navigation-expansion-settings";
 import { defaultNavSectionOrder, normalizeNavSectionOrder } from "./navigation-section-order";
 import {
@@ -516,7 +516,7 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
       field: normalizeSortField(sort.field),
       direction: normalizeSortDirection(sort.direction),
     },
-    group: normalizeGroupSpec(data.group),
+    group: normalizeVisibleGroupSpec(data.group, visiblePropertyKeySet),
     filter: {
       tags: normalizeTags(filter.tags),
       properties: normalizePropertyFilterClauses(filter.properties, visiblePropertyKeySet),
@@ -533,7 +533,7 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
     expandedFolderPaths: normalizeExpandedFolderPaths(data.expandedFolderPaths), expandedTagPaths: normalizeExpandedTagPaths(data.expandedTagPaths),
     visiblePropertyKeys,
     expandedPropertyKeys: normalizeExpandedPropertyKeys(data.expandedPropertyKeys, visiblePropertyKeySet),
-    boxes,
+    boxes: boxes.map((box) => ({ ...box, group: normalizeVisibleGroupSpec(box.group, visiblePropertyKeySet) })),
     favorites: normalizeFavorites(data.favorites),
     activeBoxId: normalizeActiveBoxId(data.activeBoxId, boxes),
     navPaneWidth: normalizeNavPaneWidth(data.navPaneWidth),

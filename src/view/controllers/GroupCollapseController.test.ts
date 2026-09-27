@@ -8,6 +8,15 @@ const ARCHIVE = createFolderScope("archive", true);
 const BOX = createBoxScope("box-1");
 
 describe("GroupCollapseController", () => {
+  it("keeps collapsed property groups separate for each property key", () => {
+    const controller = new GroupCollapseController();
+    const scope = createFolderScope("notes", true);
+    const status = { dimension: "property" as const, propertyKey: "status", orderBy: "default" as const, orderDirection: "asc" as const };
+    const priority = { ...status, propertyKey: "priority" };
+    controller.toggle(scope, status, "value");
+    expect(controller.getCollapsedKeys(scope, status).has("value")).toBe(true);
+    expect(controller.getCollapsedKeys(scope, priority).has("value")).toBe(false);
+  });
   it("toggles a key on and back off", () => {
     const controller = new GroupCollapseController();
 

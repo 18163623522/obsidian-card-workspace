@@ -15,23 +15,20 @@
   import type { BulkRuntimePanelState, SearchStatus } from "./types";
   import ToolbarBoxPicker from "./ToolbarBoxPicker.svelte";
   import ToolbarBulkStrip from "./ToolbarBulkStrip.svelte";
-
   interface ToolbarActionPayload {
     action: string;
   }
-
   interface BoxCommandPayload {
     command: string;
     boxId?: string;
   }
-
   interface SortChangePayload {
     field: string;
     direction: string;
   }
-
   interface GroupChangePayload {
     dimension: string;
+    propertyKey?: string;
     orderBy: string;
     orderDirection: string;
   }
@@ -57,6 +54,7 @@
     scope?: PanelScopeState;
     search?: PanelSearchState;
     projection?: PanelProjectionState;
+    visibleGroupProperties?: Array<{ key: string; label: string }>;
     bulk?: BulkRuntimePanelState;
     boxSummaries?: BoxSummary[];
     navVisible?: boolean;
@@ -144,6 +142,7 @@
     scope = DEFAULT_SCOPE,
     search = DEFAULT_SEARCH,
     projection = DEFAULT_PROJECTION,
+    visibleGroupProperties = [],
     bulk = DEFAULT_BULK,
     boxSummaries = [],
     navVisible = false,
@@ -319,12 +318,13 @@
     const menu = new Menu();
     buildSortGroupMenu(
       menu,
-      { sortField, sortDirection, group, availableGroupDimensions, hasSegments },
+      { sortField, sortDirection, group, availableGroupDimensions, visibleGroupProperties, hasSegments },
       {
         strings: sortGroupStrings,
         onSelectSort: (field) => applySort(field, sortDirection),
         onSelectDirection: (direction) => applySort(sortField, direction),
         onSelectDimension: (dimension) => applyGroupSpec({ ...group, dimension }),
+        onSelectProperty: (propertyKey) => applyGroupSpec({ ...group, dimension: "property", propertyKey }),
         onSelectOrderBy: (orderBy) => applyGroupSpec({ ...group, orderBy }),
         onSelectOrderDirection: (orderDirection) => applyGroupSpec({ ...group, orderDirection }),
         onCollapseAll: () => emitGroupCollapseCommand("collapse-all"),
@@ -364,12 +364,12 @@
   }
 
   function applyGroupSpec(next: GroupSpec): void {
-    const { dimension, orderBy, orderDirection } = next;
-    if (dimension === group.dimension && orderBy === group.orderBy && orderDirection === group.orderDirection) {
+    const { dimension, orderBy, orderDirection, propertyKey } = next;
+    if (dimension === group.dimension && propertyKey === group.propertyKey && orderBy === group.orderBy && orderDirection === group.orderDirection) {
       return;
     }
 
-    onGroupChange?.({ dimension, orderBy, orderDirection });
+    onGroupChange?.({ dimension, ...(propertyKey ? { propertyKey } : {}), orderBy, orderDirection });
   }
 
   function emitGroupCollapseCommand(command: string): void {

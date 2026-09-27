@@ -201,6 +201,20 @@ describe("ArrangementActions", () => {
     expect(boxHarness.calls).toEqual(["base-sort", "load-key", "projection", "bulk"]);
   });
 
+  it("accepts only visible normalized property keys and keeps box grouping local", async () => {
+    const settings = { visiblePropertyKeys: ["status"] };
+    const global = createHarness({ settings });
+    await global.actions.onGroupChange({ dimension: "property", propertyKey: " Status " });
+    expect(global.getSettings().group).toMatchObject({ dimension: "property", propertyKey: "status" });
+    await global.actions.onGroupChange({ dimension: "property", propertyKey: "hidden" });
+    expect(global.saveSettings).toHaveBeenCalledTimes(1);
+
+    const box = createHarness({ scope: createBoxScope("box-1"), settings });
+    await box.actions.onGroupChange({ dimension: "property", propertyKey: "status" });
+    expect(box.getBox()?.group).toMatchObject({ dimension: "property", propertyKey: "status" });
+    expect(box.getSettings().group.dimension).toBe("none");
+  });
+
   it("V29 takes the reload route instead of the reproject seam when a Box moves into task", async () => {
     const harness = createHarness({
       scope: createBoxScope("box-1"),

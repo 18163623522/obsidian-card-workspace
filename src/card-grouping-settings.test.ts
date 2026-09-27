@@ -23,6 +23,13 @@ describe("DEFAULT_GROUP_SPEC", () => {
 });
 
 describe("normalizeGroupSpec", () => {
+  it("normalizes a property key and drops property grouping without one", () => {
+    expect(normalizeGroupSpec({ dimension: "property", propertyKey: " Status ", orderBy: "count" }))
+      .toEqual({ dimension: "property", propertyKey: "status", orderBy: "count", orderDirection: "asc" });
+    expect(normalizeGroupSpec({ dimension: "property", propertyKey: "position" }).dimension).toBe("none");
+    expect(normalizeGroupSpec({ dimension: "property" }).dimension).toBe("none");
+    expect(normalizeGroupSpec({ dimension: "tag", propertyKey: "status" })).toEqual({ ...DEFAULT_GROUP_SPEC, dimension: "tag" });
+  });
   it("returns the default spec for undefined, null, and non-record values", () => {
     expect(normalizeGroupSpec(undefined)).toEqual(DEFAULT_GROUP_SPEC);
     expect(normalizeGroupSpec(null)).toEqual(DEFAULT_GROUP_SPEC);

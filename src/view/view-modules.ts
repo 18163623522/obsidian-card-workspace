@@ -126,7 +126,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
     getLoadKey: gate.guard("scopeController.getLoadKey", () => scopeController.getLoadKey()),
     getGroupConfig: resolveGroupSpec,
     getCollapsedGroupKeys: () =>
-      groupCollapse.getCollapsedKeys(context.store.getScope(), resolveGroupSpec().dimension),
+      groupCollapse.getCollapsedKeys(context.store.getScope(), resolveGroupSpec()),
   });
   const hydration: HydrationController = new HydrationController({
     context,

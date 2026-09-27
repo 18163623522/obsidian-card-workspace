@@ -1,4 +1,5 @@
 import { normalizeGroupSpec, type GroupSpec } from "../../card-grouping-settings";
+import { normalizePropertyKey } from "../../property-filter-settings";
 import type { SortDirection, SortField } from "../../settings";
 import { compareCards } from "../card-sort";
 import type { GroupCollapseController } from "../controllers/GroupCollapseController";
@@ -135,12 +136,20 @@ export class ArrangementActions {
 
   async onGroupChange(detail: {
     dimension?: unknown;
+    propertyKey?: unknown;
     orderBy?: unknown;
     orderDirection?: unknown;
   }): Promise<void> {
     const current = this.resolveGroupSpec();
+    const dimension = detail.dimension === "property" ? "property"
+      : coerceGroupField("dimension", detail.dimension, current.dimension);
+    const key = dimension === "property"
+      ? normalizePropertyKey(detail.propertyKey ?? current.propertyKey)
+      : null;
+    if (dimension === "property" && (key === null || !this.deps.context.getSettings().visiblePropertyKeys.includes(key))) return;
     const group: GroupSpec = {
-      dimension: coerceGroupField("dimension", detail.dimension, current.dimension),
+      dimension,
+      ...(key === null ? {} : { propertyKey: key }),
       orderBy: coerceGroupField("orderBy", detail.orderBy, current.orderBy),
       orderDirection: coerceGroupField("orderDirection", detail.orderDirection, current.orderDirection),
     };
@@ -148,7 +157,7 @@ export class ArrangementActions {
     if (
       group.dimension === current.dimension &&
       group.orderBy === current.orderBy &&
-      group.orderDirection === current.orderDirection
+      group.orderDirection === current.orderDirection && group.propertyKey === current.propertyKey
     ) {
       return;
     }
@@ -170,7 +179,7 @@ export class ArrangementActions {
 
   /** Collapse state is runtime-only: never persisted, never a settings write. */
   onGroupCollapseCommand(detail: { command?: unknown; key?: unknown }): void {
-    const dimension = this.resolveGroupSpec().dimension;
+    const spec = this.resolveGroupSpec();
     const collapse = this.deps.groupCollapse;
     const scope = this.deps.context.store.getScope();
 
@@ -179,13 +188,13 @@ export class ArrangementActions {
         if (typeof detail.key !== "string" || detail.key.length === 0) {
           return;
         }
-        collapse.toggle(scope, dimension, detail.key);
+        collapse.toggle(scope, spec, detail.key);
         break;
       case "collapse-all":
-        collapse.collapseAll(scope, dimension, this.deps.getGroupSegmentKeys());
+        collapse.collapseAll(scope, spec, this.deps.getGroupSegmentKeys());
         break;
       case "expand-all":
-        collapse.expandAll(scope, dimension);
+        collapse.expandAll(scope, spec);
         break;
       default:
         return;

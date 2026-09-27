@@ -198,6 +198,8 @@ export interface PanelNavState {
   tooltipSide: "left" | "right";
   /** Active property value refs (including missing); drives the section summary/header action. */
   propertyFilterCount: number;
+  /** Enabled property keys and display names for the sort menu. */
+  visibleGroupProperties?: Array<{ key: string; label: string }>;
   projection: NavigationProjection;
   query: string;
   focusId: string | null;

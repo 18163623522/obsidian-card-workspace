@@ -48,6 +48,7 @@ function favoritesEqual(
 
 function groupsEqual(previous: GroupSpec, next: GroupSpec): boolean {
   return previous.dimension === next.dimension
+    && previous.propertyKey === next.propertyKey
     && previous.orderBy === next.orderBy
     && previous.orderDirection === next.orderDirection;
 }

@@ -622,6 +622,7 @@ describe("FolderCardView host contract", () => {
       "folder",
       "tag",
       "task",
+      "property",
     ]);
 
     Object.assign(readSettingsObject(plugin), { boxes: [createBox()], activeBoxId: "box-1" });
@@ -633,6 +634,7 @@ describe("FolderCardView host contract", () => {
       "folder",
       "tag",
       "task",
+      "property",
       "box-rule",
     ]);
   });

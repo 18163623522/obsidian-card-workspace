@@ -30,7 +30,7 @@ const EMPTY_BUCKETS: ReadonlyMap<string, GroupBucket> = new Map<string, GroupBuc
 
 /** Dimensions whose bucket resolution reads the metadata cache or the vault. */
 function readsVaultMetadata(dimension: GroupDimension): boolean {
-  return dimension === "tag" || dimension === "box-rule";
+  return dimension === "tag" || dimension === "box-rule" || dimension === "property";
 }
 
 function segmentSignature(segments: readonly CardGroupSegment[]): string {
@@ -195,7 +195,7 @@ export class ProjectionController {
 
   /**
    * A metadata-only edit never bumps `epochs.vaultContent`, so the cached
-   * `tag` / `box-rule` buckets would keep serving the pre-edit header until an
+   * `tag` / `box-rule` / `property` buckets would keep serving the pre-edit header until an
    * unrelated vault mutation. Recompute the buckets for the **full base-card
    * set** and compare a stable `path + bucket key + label` signature before the
    * old cache is discarded.
@@ -240,7 +240,7 @@ export class ProjectionController {
       : bucketSignaturesDiffer(cached, fresh, cards);
 
     this.groupBucketCache = {
-      key: this.groupBucketCacheKey(spec.dimension, labels, rules),
+      key: this.groupBucketCacheKey(spec, labels, rules),
       buckets: fresh,
     };
     return moved;
@@ -301,7 +301,7 @@ export class ProjectionController {
       return build();
     }
 
-    const key = this.groupBucketCacheKey(spec.dimension, labels, rules);
+    const key = this.groupBucketCacheKey(spec, labels, rules);
     const cached = this.groupBucketCache;
     if (cached && cached.key === key) {
       return cached.buckets;
@@ -320,15 +320,16 @@ export class ProjectionController {
    * terms alone.
    */
   private groupBucketCacheKey(
-    dimension: GroupDimension,
+    spec: GroupSpec,
     labels: GroupLabels,
     rules: readonly Rule[],
   ): string {
     let labelSignature = `${labels.noTag}\u0000${labels.manual}`;
-    if (dimension === "box-rule") {
+    if (spec.dimension === "box-rule") {
       labelSignature += `::${rules.map((rule) => `${rule.id}:${rule.name ?? ""}`).join("|")}`;
     }
-    return `${dimension}::${this.scopeTagCacheKey()}::${labelSignature}`;
+    return JSON.stringify([spec.dimension, spec.propertyKey ?? null, this.scopeTagCacheKey(),
+      labelSignature, this.context.getUiStrings().property]);
   }
 
   private scopeTagCacheKey(): string {
@@ -403,7 +404,6 @@ export class ProjectionController {
       this.scopeTagStash = null;
     }
   }
-
   /**
    * Metadata-lane invalidation: clears the scope/vault tag caches only, so a
    * caller can still compare metadata-derived group-bucket signatures against
