@@ -126,6 +126,29 @@ describe("property grouping", () => {
     const result = arrange(app, [createCard("text.md"), createCard("number.md")], spec);
     expect(result.segments.map(({ label }) => label).sort()).toEqual(["1 (数字)", "1 (文本)"].sort());
   });
+
+  it("describes the header as the key spelling plus typed values", () => {
+    const frontmatter: Record<string, Record<string, unknown>> = {
+      "list.md": { Topics: ["b", 2] },
+      "flag.md": { topics: false },
+      "none.md": {},
+    };
+    const app = { metadataCache: { getFileCache: (file: TFile) => ({ frontmatter: frontmatter[file.path] }) } } as unknown as App;
+    const spec: GroupSpec = { dimension: "property", propertyKey: "topics", orderBy: "default", orderDirection: "asc" };
+    const buckets = buildGroupBuckets(app, ["list.md", "flag.md", "none.md"].map((path) => createCard(path)), spec, [], LABELS, STRINGS);
+
+    expect(buckets.get("list.md")?.header).toEqual({
+      kind: "property",
+      keyLabel: "Topics",
+      values: [{ kind: "number", label: "2" }, { kind: "text", label: "b" }],
+    });
+    expect(buckets.get("flag.md")?.header).toEqual({
+      kind: "property",
+      keyLabel: "Topics",
+      values: [{ kind: "boolean", value: false, label: STRINGS.property.valueFalse }],
+    });
+    expect(buckets.get("none.md")?.header).toEqual({ kind: "property", keyLabel: "Topics", values: [] });
+  });
 });
 
 function totalSegmentCount(result: GroupArrangement): number {
@@ -175,6 +198,16 @@ describe("buildGroupBuckets — folder dimension", () => {
 
     expect(result.segments[0].key).toBe("folder:a/b/c");
     expect(result.segments[0].label).toBe("c");
+  });
+
+  it("splits the header into the folder name and its parent path", () => {
+    const result = arrange(app, [createCard("a/b/c/note.md"), createCard("top/note.md"), createCard("root.md")], createSpec("folder"));
+
+    expect(result.segments.map(({ header }) => header)).toEqual([
+      { kind: "folder", name: "库根", parentPath: "" },
+      { kind: "folder", name: "c", parentPath: "a/b" },
+      { kind: "folder", name: "top", parentPath: "" },
+    ]);
   });
 });
 
@@ -244,7 +277,16 @@ describe("buildGroupBuckets — tag dimension", () => {
     expect(reversedResult.segments).toHaveLength(1);
     expect(forwardResult.segments[0].label).toBe("#Work");
     expect(reversedResult.segments[0].label).toBe("#Work");
+    expect(forwardResult.segments[0].header).toEqual({ kind: "tags", tags: ["Work"] });
+    expect(reversedResult.segments[0].header).toEqual({ kind: "tags", tags: ["Work"] });
     expect(totalSegmentCount(forwardResult)).toBe(2);
+  });
+
+  it("carries each tag of the set as a separate header chip without the hash", () => {
+    const app = createApp({ "note.md": ["#b/leaf", "#a"] });
+    const result = arrange(app, [createCard("note.md")], createSpec("tag"));
+
+    expect(result.segments[0].header).toEqual({ kind: "tags", tags: ["a", "b/leaf"] });
   });
 
   it("treats nested tag paths as distinct groups", () => {

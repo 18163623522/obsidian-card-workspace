@@ -50,10 +50,12 @@ function withFolderGrouping(
   for (const card of cards) {
     const separatorIndex = card.path.lastIndexOf("/");
     const parentPath = separatorIndex === -1 ? "" : card.path.slice(0, separatorIndex);
+    const label = parentPath === "" ? "Vault root" : parentPath;
     buckets.set(card.path, {
       key: `folder:${parentPath}`,
-      label: parentPath === "" ? "Vault root" : parentPath,
+      label,
       detail: parentPath,
+      header: { kind: "text", text: label },
       sortKey: parentPath,
       isMissing: false,
     });

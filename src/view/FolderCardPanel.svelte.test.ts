@@ -72,6 +72,7 @@ function createSegment(
     key,
     label,
     detail: "",
+    header: { kind: "text", text: label },
     count,
     visibleCount: collapsed ? 0 : count,
     startIndex,
@@ -1142,6 +1143,57 @@ describe("FolderCardPanel.svelte", () => {
     await tick();
 
     expect(target.querySelector(".fce-card-search-count")).toBeNull();
+
+    await unmount(component);
+  });
+
+  it("renders structured header content per grouping dimension", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const panelModel = createPanelModel(createInitialPanelState());
+    const component = mount(FolderCardPanel, { target, props: { panelModel } });
+
+    panelModel.mutate((state) => {
+      state.cards = {
+        ...state.cards,
+        records: [createCard("e.md", "Echo")],
+        generation: 1,
+        sequenceRevision: 1,
+        groupSegments: [
+          { ...createSegment("tag:set", "#project/alpha #read", 0, 1, true), header: { kind: "tags", tags: ["project/alpha", "read"] } },
+          { ...createSegment("folder:x", "c", 0, 1, true), header: { kind: "folder", name: "c", parentPath: "a/b" } },
+          { ...createSegment("p:list", "x, y", 0, 1, true), header: { kind: "property", keyLabel: "topics", values: [{ kind: "text", label: "x" }, { kind: "text", label: "y" }] } },
+          { ...createSegment("p:flag", "Yes", 0, 1, true), header: { kind: "property", keyLabel: "done", values: [{ kind: "boolean", value: true, label: "Yes" }] } },
+          { ...createSegment("p:none", "Unassigned", 0, 1), header: { kind: "property", keyLabel: "topics", values: [] }, isMissingBucket: true },
+        ],
+        groupRevision: 1,
+      };
+    });
+    await tick();
+
+    const headers = Array.from(target.querySelectorAll<HTMLButtonElement>(".fce-card-group-header"));
+    expect(headers).toHaveLength(5);
+
+    const tags = Array.from(headers[0].querySelectorAll(".fce-card-group-tag"));
+    expect(tags.map((tag) => tag.textContent)).toEqual(["project/alpha", "read"]);
+    expect(tags[0].querySelector(".fce-card-group-tag-parent")?.textContent).toBe("project/");
+    expect(headers[0].querySelector(".fce-card-group-label")?.classList.contains("has-chips")).toBe(true);
+    expect(headers[0].getAttribute("aria-label")).toBe("#project/alpha #read, 1 card");
+
+    expect(headers[1].querySelector(".fce-card-group-title")?.textContent).toBe("c");
+    expect(headers[1].querySelector(".fce-card-group-path")?.textContent).toBe("a / b");
+
+    expect(headers[2].querySelector(".fce-card-group-key")?.textContent).toBe("topics");
+    expect(Array.from(headers[2].querySelectorAll(".fce-card-group-chip")).map((chip) => chip.textContent)).toEqual(["x", "y"]);
+
+    expect(headers[3].querySelector(".fce-card-group-boolean")?.textContent).toBe("Yes");
+    expect(headers[3].querySelector(".fce-card-group-label")?.classList.contains("has-chips")).toBe(false);
+
+    expect(headers[4].classList.contains("is-missing")).toBe(true);
+    expect(headers[4].querySelector(".fce-card-group-title")?.textContent).toBe("Unassigned");
+
+    const groupRows = Array.from(target.querySelectorAll(".fce-wall-group-row"));
+    expect(groupRows.map((row) => row.classList.contains("is-following"))).toEqual([false, true, true, true, true]);
 
     await unmount(component);
   });

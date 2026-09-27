@@ -1051,10 +1051,15 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 }
 
 /* === card === */
+/* The header sits closer to its own cards than to the previous group. */
 .folder-card-view .fce-wall-group-row {
   box-sizing: border-box;
   width: 100%;
-  padding-bottom: var(--fce-wall-gap);
+  padding-bottom: calc(var(--fce-wall-gap) * 0.67);
+}
+
+.folder-card-view .fce-wall-group-row.is-following {
+  padding-top: calc(var(--fce-wall-gap) * 0.5);
 }
 
 .folder-card-view .fce-card-group-header {
@@ -1063,34 +1068,169 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   justify-content: flex-start;
   gap: 6px;
   width: 100%;
-  padding: 4px 2px;
+  height: auto;
+  min-height: 28px;
+  padding: 4px 6px 4px 4px;
   background: transparent;
   border: 0;
-  border-bottom: 1px solid var(--background-modifier-border);
-  border-radius: 0;
+  border-bottom: 1px solid var(--fce-border);
+  border-radius: var(--radius-s, 4px) var(--radius-s, 4px) 0 0;
   box-shadow: none;
-  color: var(--fce-text-muted);
+  color: var(--fce-text);
   font-size: var(--font-ui-small, 13px);
+  font-weight: normal;
   text-align: start;
   cursor: pointer;
+  transition: background-color 120ms ease;
+}
+
+.folder-card-view .fce-card-group-header:hover {
+  background: var(--fce-hover);
+}
+
+.folder-card-view .fce-card-group-header:focus-visible {
+  outline: 2px solid var(--background-modifier-border-focus, var(--fce-accent));
+  outline-offset: -2px;
+  border-radius: var(--radius-s, 4px);
+}
+
+.folder-card-view .fce-card-group-header.is-collapsed {
+  color: var(--fce-text-muted);
 }
 
 .folder-card-view .fce-card-group-chevron {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
+  color: var(--text-faint, var(--fce-text-muted));
+}
+
+.folder-card-view .fce-card-group-chevron svg {
+  width: 14px;
+  height: 14px;
 }
 
 .folder-card-view .fce-card-group-label {
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Chips never truncate individually; the row fades out instead. The fade only
+   covers the last 18px of a box that always reaches the count, so short rows
+   never touch it and no overflow measurement is needed. */
+.folder-card-view .fce-card-group-label.has-chips {
+  -webkit-mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
+  mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
+}
+
+.folder-card-view .fce-card-group-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+.folder-card-view .fce-card-group-header.is-missing .fce-card-group-title {
+  color: var(--fce-text-muted);
+  font-weight: 500;
+}
+
+/* A zero basis lets the parent path take only the space the folder name leaves. */
+.folder-card-view .fce-card-group-path {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fce-text-muted);
+  font-size: var(--font-ui-smaller, 12px);
+  text-overflow: ellipsis;
+}
+
+.folder-card-view .fce-card-group-key {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  color: var(--fce-text-muted);
+  font-size: var(--font-ui-smaller, 12px);
+}
+
+.folder-card-view .fce-card-group-key::after {
+  content: "";
+  width: 1px;
+  height: 11px;
+  background: var(--fce-border);
+}
+
+.folder-card-view .fce-card-group-tag {
+  display: inline-flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  padding: 1px var(--tag-padding-x, 0.6em);
+  border-radius: var(--tag-radius, 2em);
+  background: var(--tag-background, var(--background-modifier-hover));
+  color: var(--tag-color, var(--text-accent));
+  font-size: var(--font-ui-smaller, 12px);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.folder-card-view .fce-card-group-tag-parent {
+  opacity: 0.62;
+}
+
+/* Square and neutral so list values never read as tags. */
+.folder-card-view .fce-card-group-chip {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 7px;
+  border: 1px solid var(--fce-border);
+  border-radius: var(--radius-s, 4px);
+  background: var(--background-modifier-hover);
+  color: var(--fce-text);
+  font-size: var(--font-ui-smaller, 12px);
+  line-height: 1.6;
+}
+
+.folder-card-view .fce-card-group-boolean {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.folder-card-view .fce-card-group-boolean-icon {
+  display: inline-flex;
+  color: var(--fce-accent);
+}
+
+.folder-card-view .fce-card-group-boolean.is-off .fce-card-group-boolean-icon {
+  color: var(--text-faint, var(--fce-text-muted));
+}
+
+.folder-card-view .fce-card-group-boolean-icon svg {
+  width: 13px;
+  height: 13px;
 }
 
 .folder-card-view .fce-card-group-count {
   flex: 0 0 auto;
-  opacity: 0.75;
+  min-width: 22px;
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--fce-text-muted);
+  font-size: var(--font-ui-smaller, 12px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  text-align: center;
 }
 
 .folder-card-view .fce-card {

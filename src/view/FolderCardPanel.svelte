@@ -776,7 +776,7 @@
         {#if row.kind === "group-header"}
           <!-- Segments render a frame ahead of the projection effect, so a shrinking table can briefly orphan a header row. -->
           {@const segment = groupSegments[row.segmentIndex]}
-          <div class="fce-wall-group-row" use:measureRow={row}>
+          <div class="fce-wall-group-row" class:is-following={row.segmentIndex > 0} use:measureRow={row}>
             {#if segment}
               <GroupHeaderRow
                 {segment}

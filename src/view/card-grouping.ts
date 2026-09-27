@@ -3,6 +3,7 @@ import type { GroupOrderBy, GroupSpec } from "../card-grouping-settings";
 import type { UiStrings } from "../i18n";
 import { resolveRuleLabel } from "./box-rule-identity";
 import { matchesRule } from "./card-box-membership";
+import type { GroupHeaderContent } from "./group-header-content";
 import { getFileTagEntries } from "./metadata-utils";
 import { buildPropertyGroupBuckets } from "./property-grouping";
 import type { NoteCardRecord, Rule } from "./types";
@@ -19,6 +20,7 @@ export interface GroupBucket {
   readonly key: string;
   readonly label: string;
   readonly detail: string;
+  readonly header: GroupHeaderContent;
   readonly sortKey: string;
   readonly isMissing: boolean;
 }
@@ -35,6 +37,7 @@ export interface CardGroupSegment {
   readonly key: string;
   readonly label: string;
   readonly detail: string;
+  readonly header: GroupHeaderContent;
   /** Full membership, counted before collapse. */
   readonly count: number;
   /** `0` when collapsed, otherwise equal to `count`. */
@@ -68,6 +71,7 @@ const FALLBACK_MISSING_BUCKET: GroupBucket = {
   key: "group:__missing__",
   label: "",
   detail: "",
+  header: { kind: "text", text: "" },
   sortKey: "",
   isMissing: true,
 };
@@ -75,13 +79,15 @@ const FALLBACK_MISSING_BUCKET: GroupBucket = {
 function resolveFolderBucket(card: NoteCardRecord, labels: GroupLabels): GroupBucket {
   const separatorIndex = card.path.lastIndexOf("/");
   const parentPath = separatorIndex === -1 ? "" : card.path.slice(0, separatorIndex);
-  const label =
-    parentPath === "" ? labels.vaultRoot : parentPath.slice(parentPath.lastIndexOf("/") + 1);
+  const nameIndex = parentPath.lastIndexOf("/");
+  const label = parentPath === "" ? labels.vaultRoot : parentPath.slice(nameIndex + 1);
+  const ancestorPath = nameIndex === -1 ? "" : parentPath.slice(0, nameIndex);
 
   return {
     key: `folder:${parentPath}`,
     label,
     detail: parentPath,
+    header: { kind: "folder", name: label, parentPath: ancestorPath },
     sortKey: parentPath,
     isMissing: false,
   };
@@ -94,6 +100,7 @@ function resolveTagBucket(app: App, card: NoteCardRecord, labels: GroupLabels): 
       key: TAG_MISSING_BUCKET_KEY,
       label: labels.noTag,
       detail: "",
+      header: { kind: "text", text: labels.noTag },
       sortKey: "",
       isMissing: true,
     };
@@ -111,6 +118,7 @@ function resolveTagBucket(app: App, card: NoteCardRecord, labels: GroupLabels): 
     key: `tag:${normalized.join(TAG_SET_KEY_SEPARATOR)}`,
     label: sorted.map((entry) => `#${entry.display}`).join(TAG_SET_TEXT_SEPARATOR),
     detail: "",
+    header: { kind: "tags", tags: sorted.map((entry) => entry.display) },
     sortKey: normalized.join(TAG_SET_TEXT_SEPARATOR),
     isMissing: false,
   };
@@ -129,10 +137,12 @@ function resolveBoxRuleBucket(
       continue;
     }
 
+    const label = resolveRuleLabel(strings, rule);
     return {
       key: `rule:${rule.id}`,
-      label: resolveRuleLabel(strings, rule),
+      label,
       detail: "",
+      header: { kind: "text", text: label },
       sortKey: String(index).padStart(6, "0"),
       isMissing: false,
     };
@@ -143,6 +153,7 @@ function resolveBoxRuleBucket(
     key: MANUAL_RULE_BUCKET_KEY,
     label: labels.manual,
     detail: "",
+    header: { kind: "text", text: labels.manual },
     sortKey: "",
     isMissing: false,
   };
@@ -159,6 +170,7 @@ function resolveTaskBucket(
       key: TASK_MISSING_BUCKET_KEY,
       label: labels.noTask,
       detail: "",
+      header: { kind: "text", text: labels.noTask },
       sortKey: "2",
       isMissing: true,
     };
@@ -169,6 +181,7 @@ function resolveTaskBucket(
       key: TASK_INCOMPLETE_BUCKET_KEY,
       label: strings.sortGroup.bucketTaskIncomplete,
       detail: "",
+      header: { kind: "text", text: strings.sortGroup.bucketTaskIncomplete },
       sortKey: "0",
       isMissing: false,
     };
@@ -178,11 +191,11 @@ function resolveTaskBucket(
     key: TASK_COMPLETE_BUCKET_KEY,
     label: strings.sortGroup.bucketTaskComplete,
     detail: "",
+    header: { kind: "text", text: strings.sortGroup.bucketTaskComplete },
     sortKey: "1",
     isMissing: false,
   };
 }
-
 
 /**
  * Resolve one bucket per card, keyed by card path.
@@ -198,18 +211,18 @@ function resolveTaskBucket(
  * identical collision inside one file.
  */
 function canonicalizeTagLabels(buckets: Map<string, GroupBucket>): void {
-  const labelByKey = new Map<string, string>();
+  const canonicalByKey = new Map<string, GroupBucket>();
   for (const bucket of buckets.values()) {
-    const current = labelByKey.get(bucket.key);
-    if (current === undefined || bucket.label < current) {
-      labelByKey.set(bucket.key, bucket.label);
+    const current = canonicalByKey.get(bucket.key);
+    if (current === undefined || bucket.label < current.label) {
+      canonicalByKey.set(bucket.key, bucket);
     }
   }
 
   for (const [path, bucket] of buckets) {
-    const label = labelByKey.get(bucket.key);
-    if (label !== undefined && label !== bucket.label) {
-      buckets.set(path, { ...bucket, label });
+    const canonical = canonicalByKey.get(bucket.key);
+    if (canonical !== undefined && canonical.label !== bucket.label) {
+      buckets.set(path, { ...bucket, label: canonical.label, header: canonical.header });
     }
   }
 }
@@ -372,6 +385,7 @@ export function arrangeCardsByGroup(
       key: group.bucket.key,
       label: group.bucket.label,
       detail: group.bucket.detail,
+      header: group.bucket.header,
       count: group.cards.length,
       visibleCount: collapsed ? 0 : group.cards.length,
       startIndex,
