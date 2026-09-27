@@ -81,13 +81,12 @@ function resolveFolderBucket(card: NoteCardRecord, labels: GroupLabels): GroupBu
   const parentPath = separatorIndex === -1 ? "" : card.path.slice(0, separatorIndex);
   const nameIndex = parentPath.lastIndexOf("/");
   const label = parentPath === "" ? labels.vaultRoot : parentPath.slice(nameIndex + 1);
-  const ancestorPath = nameIndex === -1 ? "" : parentPath.slice(0, nameIndex);
 
   return {
     key: `folder:${parentPath}`,
     label,
     detail: parentPath,
-    header: { kind: "folder", name: label, parentPath: ancestorPath },
+    header: { kind: "folder", name: label, path: parentPath },
     sortKey: parentPath,
     isMissing: false,
   };
@@ -100,7 +99,7 @@ function resolveTagBucket(app: App, card: NoteCardRecord, labels: GroupLabels): 
       key: TAG_MISSING_BUCKET_KEY,
       label: labels.noTag,
       detail: "",
-      header: { kind: "text", text: labels.noTag },
+      header: { kind: "tags", tags: [] },
       sortKey: "",
       isMissing: true,
     };
@@ -142,7 +141,7 @@ function resolveBoxRuleBucket(
       key: `rule:${rule.id}`,
       label,
       detail: "",
-      header: { kind: "text", text: label },
+      header: { kind: "box-rule", text: label },
       sortKey: String(index).padStart(6, "0"),
       isMissing: false,
     };
@@ -153,7 +152,7 @@ function resolveBoxRuleBucket(
     key: MANUAL_RULE_BUCKET_KEY,
     label: labels.manual,
     detail: "",
-    header: { kind: "text", text: labels.manual },
+    header: { kind: "box-rule", text: labels.manual },
     sortKey: "",
     isMissing: false,
   };
@@ -170,7 +169,7 @@ function resolveTaskBucket(
       key: TASK_MISSING_BUCKET_KEY,
       label: labels.noTask,
       detail: "",
-      header: { kind: "text", text: labels.noTask },
+      header: { kind: "task", text: labels.noTask },
       sortKey: "2",
       isMissing: true,
     };
@@ -181,7 +180,7 @@ function resolveTaskBucket(
       key: TASK_INCOMPLETE_BUCKET_KEY,
       label: strings.sortGroup.bucketTaskIncomplete,
       detail: "",
-      header: { kind: "text", text: strings.sortGroup.bucketTaskIncomplete },
+      header: { kind: "task", text: strings.sortGroup.bucketTaskIncomplete },
       sortKey: "0",
       isMissing: false,
     };
@@ -191,7 +190,7 @@ function resolveTaskBucket(
     key: TASK_COMPLETE_BUCKET_KEY,
     label: strings.sortGroup.bucketTaskComplete,
     detail: "",
-    header: { kind: "text", text: strings.sortGroup.bucketTaskComplete },
+    header: { kind: "task", text: strings.sortGroup.bucketTaskComplete },
     sortKey: "1",
     isMissing: false,
   };

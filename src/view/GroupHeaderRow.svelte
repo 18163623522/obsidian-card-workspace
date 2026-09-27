@@ -2,6 +2,7 @@
   import { setIcon } from "obsidian";
   import type { UiStrings } from "../i18n";
   import type { CardGroupSegment } from "./card-grouping";
+  import { resolveGroupHeaderParts } from "./group-header-content";
 
   interface GroupHeaderRowProps {
     segment: CardGroupSegment;
@@ -15,19 +16,7 @@
   const groupStrings = $derived(strings.sortGroup);
   const accessibleName = $derived(groupStrings.groupHeaderAria(segment.label, segment.count));
   const chevronIcon = $derived(segment.collapsed ? "chevron-right" : "chevron-down");
-  const header = $derived(segment.header);
-  const hasChips = $derived(
-    header.kind === "tags" || (header.kind === "property" && header.values.length > 1),
-  );
-
-  function splitTag(tag: string): { parent: string; leaf: string } {
-    const cut = tag.lastIndexOf("/");
-    return cut === -1 ? { parent: "", leaf: tag } : { parent: tag.slice(0, cut + 1), leaf: tag.slice(cut + 1) };
-  }
-
-  function formatParentPath(path: string): string {
-    return path.split("/").join(" / ");
-  }
+  const parts = $derived(resolveGroupHeaderParts(segment.header, segment.label, groupStrings));
 
   function applyIcon(node: HTMLElement, iconName: string): { update: (nextIconName: string) => void } {
     setIcon(node, iconName);
@@ -54,39 +43,18 @@
   onclick={handleClick}
 >
   <span class="fce-card-group-chevron" use:applyIcon={chevronIcon}></span>
-  <span class="fce-card-group-label" class:has-chips={hasChips}>
-    {#if header.kind === "tags"}
-      {#each header.tags as tag (tag)}
-        {@const parts = splitTag(tag)}
-        <span class="fce-card-group-tag">{#if parts.parent}<span class="fce-card-group-tag-parent">{parts.parent}</span>{/if}{parts.leaf}</span>
-      {/each}
-    {:else if header.kind === "folder"}
-      <span class="fce-card-group-title">{header.name}</span>
-      {#if header.parentPath}
-        <span class="fce-card-group-path">{formatParentPath(header.parentPath)}</span>
-      {/if}
-    {:else if header.kind === "property"}
-      <span class="fce-card-group-key">{header.keyLabel}</span>
-      {#if header.values.length === 0}
-        <span class="fce-card-group-title">{segment.label}</span>
-      {:else if header.values.length === 1}
-        {@const value = header.values[0]}
-        {#if value.kind === "boolean"}
-          <span class="fce-card-group-title fce-card-group-boolean" class:is-off={!value.value}><span
-              class="fce-card-group-boolean-icon"
-              use:applyIcon={value.value ? "check-square" : "square"}
-            ></span>{value.label}</span>
-        {:else}
-          <span class="fce-card-group-title">{value.label}</span>
-        {/if}
-      {:else}
-        {#each header.values as value, index (index)}
-          <span class="fce-card-group-chip">{value.label}</span>
-        {/each}
-      {/if}
-    {:else}
-      <span class="fce-card-group-title">{header.text}</span>
-    {/if}
-  </span>
+  <span class="fce-card-group-label">{#if parts.dimension}<span class="fce-card-group-dimension"><span
+          class="fce-card-group-dimension-icon"
+          use:applyIcon={parts.dimension.icon}
+        ></span><span class="fce-card-group-dimension-text">{parts.dimension.label}</span></span><span
+        class="fce-card-group-divider"
+        aria-hidden="true"
+      ></span>{/if}<span class="fce-card-group-values">{#each parts.chips as chip, index (index)}<span
+          class="fce-card-group-value"
+          class:is-off={chip.iconOff}
+          title={chip.title}
+        >{#if chip.icon}<span class="fce-card-group-value-icon" use:applyIcon={chip.icon}></span>{/if}{#if chip.prefix}<span
+              class="fce-card-group-value-prefix">{chip.prefix}</span>{/if}<span class="fce-card-group-value-text"
+            >{chip.text}</span></span>{/each}</span></span>
   <span class="fce-card-group-count">{groupStrings.groupCount(segment.count)}</span>
 </button>

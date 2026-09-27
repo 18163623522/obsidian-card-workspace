@@ -81,6 +81,14 @@ function createSegment(
   };
 }
 
+function groupDimensionOf(header: HTMLElement): string | null | undefined {
+  return header.querySelector(".fce-card-group-dimension")?.textContent;
+}
+
+function groupValuesOf(header: HTMLElement): (string | null)[] {
+  return Array.from(header.querySelectorAll(".fce-card-group-value")).map((value) => value.textContent);
+}
+
 function createInitialPanelState(): PanelModelState {
   return {
     strings: getUiStrings("en"),
@@ -1161,10 +1169,12 @@ describe("FolderCardPanel.svelte", () => {
         sequenceRevision: 1,
         groupSegments: [
           { ...createSegment("tag:set", "#project/alpha #read", 0, 1, true), header: { kind: "tags", tags: ["project/alpha", "read"] } },
-          { ...createSegment("folder:x", "c", 0, 1, true), header: { kind: "folder", name: "c", parentPath: "a/b" } },
+          { ...createSegment("folder:x", "c", 0, 1, true), header: { kind: "folder", name: "c", path: "a/b/c" } },
           { ...createSegment("p:list", "x, y", 0, 1, true), header: { kind: "property", keyLabel: "topics", values: [{ kind: "text", label: "x" }, { kind: "text", label: "y" }] } },
           { ...createSegment("p:flag", "Yes", 0, 1, true), header: { kind: "property", keyLabel: "done", values: [{ kind: "boolean", value: true, label: "Yes" }] } },
-          { ...createSegment("p:none", "Unassigned", 0, 1), header: { kind: "property", keyLabel: "topics", values: [] }, isMissingBucket: true },
+          { ...createSegment("p:none", "Unassigned", 0, 1, true), header: { kind: "property", keyLabel: "topics", values: [] }, isMissingBucket: true },
+          { ...createSegment("task:incomplete", "Incomplete tasks", 0, 1, true), header: { kind: "task", text: "Incomplete tasks" } },
+          { ...createSegment("rule:r0", "Active", 0, 1), header: { kind: "box-rule", text: "Active" } },
         ],
         groupRevision: 1,
       };
@@ -1172,28 +1182,31 @@ describe("FolderCardPanel.svelte", () => {
     await tick();
 
     const headers = Array.from(target.querySelectorAll<HTMLButtonElement>(".fce-card-group-header"));
-    expect(headers).toHaveLength(5);
+    expect(headers).toHaveLength(7);
 
-    const tags = Array.from(headers[0].querySelectorAll(".fce-card-group-tag"));
-    expect(tags.map((tag) => tag.textContent)).toEqual(["project/alpha", "read"]);
-    expect(tags[0].querySelector(".fce-card-group-tag-parent")?.textContent).toBe("project/");
-    expect(headers[0].querySelector(".fce-card-group-label")?.classList.contains("has-chips")).toBe(true);
+    expect(headers.map(groupDimensionOf)).toEqual(["Tag", "Folder", "topics", "done", "topics", "Task status", "Card box rule"]);
+    expect(headers.every((header) => header.querySelector(".fce-card-group-divider") !== null)).toBe(true);
+
+    expect(groupValuesOf(headers[0])).toEqual(["project/alpha", "read"]);
+    expect(headers[0].querySelector(".fce-card-group-value-prefix")?.textContent).toBe("project/");
     expect(headers[0].getAttribute("aria-label")).toBe("#project/alpha #read, 1 card");
 
-    expect(headers[1].querySelector(".fce-card-group-title")?.textContent).toBe("c");
-    expect(headers[1].querySelector(".fce-card-group-path")?.textContent).toBe("a / b");
+    expect(groupValuesOf(headers[1])).toEqual(["c"]);
+    expect(headers[1].querySelector(".fce-card-group-value")?.getAttribute("title")).toBe("a/b/c");
 
-    expect(headers[2].querySelector(".fce-card-group-key")?.textContent).toBe("topics");
-    expect(Array.from(headers[2].querySelectorAll(".fce-card-group-chip")).map((chip) => chip.textContent)).toEqual(["x", "y"]);
+    expect(groupValuesOf(headers[2])).toEqual(["x", "y"]);
 
-    expect(headers[3].querySelector(".fce-card-group-boolean")?.textContent).toBe("Yes");
-    expect(headers[3].querySelector(".fce-card-group-label")?.classList.contains("has-chips")).toBe(false);
+    expect(groupValuesOf(headers[3])).toEqual(["Yes"]);
+    expect(headers[3].querySelector(".fce-card-group-value-icon")).not.toBeNull();
 
     expect(headers[4].classList.contains("is-missing")).toBe(true);
-    expect(headers[4].querySelector(".fce-card-group-title")?.textContent).toBe("Unassigned");
+    expect(groupValuesOf(headers[4])).toEqual(["Unassigned"]);
+
+    expect(groupValuesOf(headers[5])).toEqual(["Incomplete tasks"]);
+    expect(groupValuesOf(headers[6])).toEqual(["Active"]);
 
     const groupRows = Array.from(target.querySelectorAll(".fce-wall-group-row"));
-    expect(groupRows.map((row) => row.classList.contains("is-following"))).toEqual([false, true, true, true, true]);
+    expect(groupRows.map((row) => row.classList.contains("is-following"))).toEqual([false, true, true, true, true, true, true]);
 
     await unmount(component);
   });

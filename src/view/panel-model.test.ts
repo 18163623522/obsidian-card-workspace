@@ -212,7 +212,7 @@ describe("createPanelModel", () => {
         key: "folder:notes",
         label: "notes",
         detail: "notes",
-        header: { kind: "folder", name: "notes", parentPath: "" },
+        header: { kind: "folder", name: "notes", path: "notes" },
         count: 1,
         visibleCount: 1,
         startIndex: 0,

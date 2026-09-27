@@ -1120,56 +1120,61 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   white-space: nowrap;
 }
 
-/* Chips never truncate individually; the row fades out instead. The fade only
-   covers the last 18px of a box that always reaches the count, so short rows
-   never touch it and no overflow measurement is needed. */
-.folder-card-view .fce-card-group-label.has-chips {
-  -webkit-mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
-  mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
-}
-
-.folder-card-view .fce-card-group-title {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-}
-
-.folder-card-view .fce-card-group-header.is-missing .fce-card-group-title {
-  color: var(--fce-text-muted);
-  font-weight: 500;
-}
-
-/* A zero basis lets the parent path take only the space the folder name leaves. */
-.folder-card-view .fce-card-group-path {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--fce-text-muted);
-  font-size: var(--font-ui-smaller, 12px);
-  text-overflow: ellipsis;
-}
-
-.folder-card-view .fce-card-group-key {
+.folder-card-view .fce-card-group-dimension {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
-  gap: 6px;
+  flex: 0 1 auto;
+  gap: 4px;
+  min-width: 0;
+  max-width: 45%;
+  padding: 1px 7px 1px 6px;
+  border-radius: var(--tag-radius, 2em);
+  background: var(--background-modifier-hover);
   color: var(--fce-text-muted);
   font-size: var(--font-ui-smaller, 12px);
+  line-height: 1.5;
 }
 
-.folder-card-view .fce-card-group-key::after {
-  content: "";
+.folder-card-view .fce-card-group-dimension-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.folder-card-view .fce-card-group-dimension-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.folder-card-view .fce-card-group-dimension-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-card-view .fce-card-group-divider {
+  flex: 0 0 auto;
   width: 1px;
   height: 11px;
   background: var(--fce-border);
 }
 
-.folder-card-view .fce-card-group-tag {
+/* Multiple chips never truncate individually; the row fades out instead. The
+   fade only covers the last 18px of a box that always reaches the count, so
+   short rows never touch it and no overflow measurement is needed. */
+.folder-card-view .fce-card-group-values {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
+  mask-image: linear-gradient(90deg, black calc(100% - 18px), transparent);
+}
+
+.folder-card-view .fce-card-group-value {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   flex: 0 0 auto;
   padding: 1px var(--tag-padding-x, 0.6em);
   border-radius: var(--tag-radius, 2em);
@@ -1180,42 +1185,41 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   line-height: 1.5;
 }
 
-.folder-card-view .fce-card-group-tag-parent {
+/* A lone chip may shrink to an ellipsis instead of fading. */
+.folder-card-view .fce-card-group-value:only-child {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.folder-card-view .fce-card-group-value-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-card-view .fce-card-group-value-prefix {
+  flex: 0 0 auto;
   opacity: 0.62;
 }
 
-/* Square and neutral so list values never read as tags. */
-.folder-card-view .fce-card-group-chip {
+.folder-card-view .fce-card-group-value-icon {
   display: inline-flex;
-  align-items: center;
   flex: 0 0 auto;
-  padding: 0 7px;
-  border: 1px solid var(--fce-border);
-  border-radius: var(--radius-s, 4px);
-  background: var(--background-modifier-hover);
-  color: var(--fce-text);
-  font-size: var(--font-ui-smaller, 12px);
-  line-height: 1.6;
+  margin-right: 4px;
 }
 
-.folder-card-view .fce-card-group-boolean {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.folder-card-view .fce-card-group-boolean-icon {
-  display: inline-flex;
-  color: var(--fce-accent);
-}
-
-.folder-card-view .fce-card-group-boolean.is-off .fce-card-group-boolean-icon {
+.folder-card-view .fce-card-group-value.is-off .fce-card-group-value-icon {
   color: var(--text-faint, var(--fce-text-muted));
 }
 
-.folder-card-view .fce-card-group-boolean-icon svg {
+.folder-card-view .fce-card-group-value-icon svg {
   width: 13px;
   height: 13px;
+}
+
+.folder-card-view .fce-card-group-header.is-missing .fce-card-group-value {
+  background: var(--background-modifier-hover);
+  color: var(--fce-text-muted);
 }
 
 .folder-card-view .fce-card-group-count {
@@ -1227,7 +1231,7 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   background: var(--background-modifier-hover);
   color: var(--fce-text-muted);
   font-size: var(--font-ui-smaller, 12px);
-  font-weight: 600;
+  font-weight: normal;
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
   text-align: center;

@@ -200,13 +200,13 @@ describe("buildGroupBuckets — folder dimension", () => {
     expect(result.segments[0].label).toBe("c");
   });
 
-  it("splits the header into the folder name and its parent path", () => {
+  it("describes the header as the folder name plus its full path", () => {
     const result = arrange(app, [createCard("a/b/c/note.md"), createCard("top/note.md"), createCard("root.md")], createSpec("folder"));
 
     expect(result.segments.map(({ header }) => header)).toEqual([
-      { kind: "folder", name: "库根", parentPath: "" },
-      { kind: "folder", name: "c", parentPath: "a/b" },
-      { kind: "folder", name: "top", parentPath: "" },
+      { kind: "folder", name: "库根", path: "" },
+      { kind: "folder", name: "c", path: "a/b/c" },
+      { kind: "folder", name: "top", path: "top" },
     ]);
   });
 });
@@ -315,6 +315,7 @@ describe("buildGroupBuckets — tag dimension", () => {
     expect(segmentKeys(result)).toEqual(["tag:a", "tag:__none__"]);
     expect(result.segments[1]).toMatchObject({
       label: "无标签",
+      header: { kind: "tags", tags: [] },
       isMissingBucket: true,
       count: 1,
     });
@@ -347,6 +348,7 @@ describe("buildGroupBuckets — box-rule dimension", () => {
     expect(result.segments[0]).toMatchObject({
       key: "rule:__manual__",
       label: "手动添加",
+      header: { kind: "box-rule", text: "手动添加" },
       isMissingBucket: false,
       count: 1,
     });
@@ -368,6 +370,7 @@ describe("buildGroupBuckets — box-rule dimension", () => {
     const result = arrange(app, cards, createSpec("box-rule"), namedRules);
 
     expect(result.segments[0].label).toBe("Active work");
+    expect(result.segments[0].header).toEqual({ kind: "box-rule", text: "Active work" });
   });
 });
 
@@ -522,6 +525,11 @@ describe("arrangeCardsByGroup — ordering", () => {
     const result = arrange(app, cards, createSpec("task"));
 
     expect(segmentKeys(result)).toEqual(["task:incomplete", "task:complete", "task:none"]);
+    expect(result.segments.map(({ header }) => header)).toEqual([
+      { kind: "task", text: "有未完成" },
+      { kind: "task", text: "全部完成" },
+      { kind: "task", text: "无任务" },
+    ]);
   });
 });
 
