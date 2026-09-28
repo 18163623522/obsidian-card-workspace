@@ -2,21 +2,13 @@
 
 [简体中文](README.zh-CN.md)
 
-An Obsidian plugin that shows folder notes as beautiful card stream in the sidebar or main editor leaf. Open Card Workspace manually, browse notes by folder, filter notes by tags, search notes by builtin function, and click a card to open it.
+Card Workspace is a **left-sidebar** [Obsidian](https://obsidian.md/) plugin. It gathers folders, tags, properties, outgoing links, backlinks, and card boxes into a readable card stream beside the editor. Gather context, shape a working view, and bring what matters into the note you are writing.
+
+Each Markdown card shows a title and a formatting-free excerpt, so a set of notes stays readable without collapsing into filenames. It is not Obsidian Canvas, and dragging a card does not change your vault structure. Click a card to open its note; Markdown and other supported files stay in their original folders.
+
+Documentation: [card-workspace](https://kenanlian.github.io/card-workspace/en/).
 
 ![Card Workspace demo](screenshots/2026_09_22_19_36_27.jpg)
-
-> ## What's new in 1.2.x
->
-> **Dual-pane sidebar layout.** Card Workspace now renders its own navigation column next to the card stream, so folders, tags, properties, card boxes, and favorites are one click away without borrowing Obsidian's File Explorer. Drag the divider to resize the navigation column, or use the toggle button in the header to hide it and give the cards the full width. When the sidebar gets too narrow for two columns, the layout automatically falls back to a single pane and the toggle button swaps between navigation and cards, so the panel stays usable at any width.
->
-> **Card boxes.** A card box is a saved, topic-oriented collection that lives in the navigation pane's **Boxes** section. Right-click there to create one, or save your current folder-and-tag scope as a box in one step. Each box keeps its own membership rules (folder scope plus tags, combined with OR across rules), its own sort order, and its own pins, and you can add or exclude individual notes by hand. Use boxes to collect notes that belong together conceptually but live in different folders, without moving files or maintaining an index note.
->
-> **Properties.** The navigation pane has a Properties section. Choose which vault properties to show, then filter the card stream by their frontmatter values. Each value row shows how many notes in the current source use it, and notes without that property land in Unassigned. These filters apply while you browse a folder; they pause in a card box or a links view and resume when you return to a folder. A card box rule can include property clauses as well.
->
-> **Links.** The Links section turns the active note's outgoing links and backlinks into card sources. Open either entry to browse those notes as cards, pin the view to the current note or keep following whichever note is active, and save the current set as a card box.
->
-> **Card grouping.** Sort and group the stream from the toolbar: sort by edited time, created time, or filename, and group by folder, tag, card box rule, task status, or a property enabled in navigation. Property grouping works in folders, card boxes, and links views. Folders and links share the global choice; each card box keeps its own. Hiding a selected property clears its grouping choice. Each card belongs to one group: a multi-value property uses its complete set of distinct values, regardless of array order; cards without a usable value (including non-Markdown cards) go into the final Unassigned group. Groups can be ordered by name or card count, and collapsed or expanded together. Cards with tasks also show progress as completed/total.
 
 ## Table of contents
 
@@ -32,51 +24,69 @@ An Obsidian plugin that shows folder notes as beautiful card stream in the sideb
 
 ## Why Card Workspace
 
-Card Workspace gives you a visual, scannable way to browse and organize the notes inside any folder. Instead of reading a plain file list, you see cards with titles and excerpts. Click a folder, glance at the cards, and open the note you want without losing your place.
+Card Workspace is for people who scan and collect notes while writing: research topics, long-running projects, reading lists, and any body of work that crosses folder boundaries. It gives you direct controls instead of another query language.
+
+- **Gather** — browse a folder, include its subfolders when useful, and narrow the stream with tags and frontmatter properties. Or follow a note’s outgoing links and backlinks.
+- **Organize** — sort, group, and pin the stream, then save a useful view as a card box.
+- **Reframe** — keep that context beside the editor, or drag a Markdown card into the note you are writing.
 
 ## Installation
 
-Card Workspace is installed manually from GitHub releases.
+Card Workspace can be installed from Obsidian’s Community Plugins directory. You can also install a specific version manually from GitHub Releases.
 
-1. Download the latest release from the [Releases](https://github.com/kenanlian/obsidian-card-workspace/releases) page.
-2. Extract the archive and copy `main.js`, `manifest.json`, and `styles.css` into your vault's `.obsidian/plugins/card-workspace/` folder.
-3. Open Obsidian's **Settings -> Community plugins**.
-4. Turn off **Safe mode** if it is on.
-5. Find **Card Workspace** in the plugin list and enable it.
+### Install from Community Plugins
+
+1. Open **Settings → Community plugins** in Obsidian.
+2. Turn off Restricted mode if it is enabled.
+3. Select **Browse** and search for **Card Workspace**.
+4. Select **Install**, then **Enable**.
+
+The plugin’s [directory page](https://community.obsidian.md/plugins/card-workspace) can also hand installation back to Obsidian.
+
+### Install from GitHub Releases
+
+Use this route when you need a version other than the current Community Plugins release.
+
+1. Download the release from the [Releases](https://github.com/kenanlian/obsidian-card-workspace/releases) page.
+2. Extract `main.js`, `manifest.json`, and `styles.css` into your vault’s `.obsidian/plugins/card-workspace/` folder.
+3. Open **Settings → Community plugins**.
+4. Turn off Restricted mode if needed.
+5. Enable **Card Workspace** in the installed plugins list.
 
 ## Quick start
 
-1. Run **Open Card Workspace view** from Obsidian's command palette, or click the ribbon icon, to open the panel in the **left sidebar**.
-2. Pick a folder, tag, or card box in Card Workspace's own navigation pane.
-3. Browse the cards and click one to open its note.
-4. Right-click a folder, tag, box, or card to reach the rest of the actions, and drag a card into an open editor to insert a link to it.
+1. Select the ribbon icon, or run **Open Card Workspace view** from the command palette. The panel opens in the **left sidebar**.
+2. Pick a folder in the navigation pane, then narrow it with tags or property values. You can also switch the source to a card box, or start from the note you are reading with its outgoing links or backlinks.
+3. Browse the card stream. Use search, sorting, grouping, or pins to shape the view, then click a card to open its note.
+4. Right-click a navigation item or card for more actions. Drag a Markdown card into an open editor to insert a link or content.
+
+Card Workspace restores the last **folder** you browsed. If it was the vault root, it restores the whole vault. It does not reopen the last card box or linked-note source.
 
 ## Features
 
-- **Left-sidebar folder browsing.** Open Card Workspace in the left sidebar and browse a folder as a card stream.
-- **Two-column navigation pane.** A resizable navigation column sits next to the card stream, so you can switch folders, tags, properties, card boxes, and favorites without leaving the panel.
-- **Card boxes.** Save a folder-and-tag scope as a reusable, rule-based collection with its own name and sort order, and add the current scope or view to a box in one step.
-- **Favorites.** Keep frequently used folders, files, tags, and boxes in a dedicated Favorites section, freely reorderable by drag in any mix of kinds.
-- **Context menus everywhere.** Right-click in the navigation pane or on a card to create notes, folders, canvases, and bases, rename, duplicate, move, delete, copy vault or system paths, reveal in the system file explorer, and search within a folder.
-- **Drag to insert.** Drag a card into an open editor to insert a wikilink, an embed, the note's content, or its title plus content. The plugin can also ask which one to use on every drop.
-- **Card previews.** Each card shows the note title and a Markdown-stripped excerpt.
-- **Virtualized scrolling.** Large folders stay smooth because only visible cards are rendered.
-- **Two-way sync.** Click a card to open its note. Switch notes in the editor and the corresponding card is selected automatically.
-- **Local search.** Full-text search across the current folder's cards.
-- **Tag filtering.** Filter cards by tags extracted from frontmatter and note content.
-- **Property filtering.** Opt in to the vault properties you care about and filter cards by their frontmatter values — the Properties section stays empty until you choose keys, and value rows show source-relative counts.
-- **Pin reordering.** Pin cards to keep them at the top of the stream.
-- **Bulk actions.** Select multiple cards to move, delete, or merge notes in batches.
+- **Navigation pane.** A resizable column sits next to the card stream, so folders, tags, properties, card boxes, and favorites are one click away. Drag the divider to resize it, or hide it so the cards use the full width. When the sidebar is too narrow for two columns, the layout falls back to a single pane and the header toggle swaps between navigation and cards.
+- **Folder browsing.** Choose a folder and include its subfolders when useful, then narrow the stream with tags and frontmatter properties. Those browse filters apply to folder sources only. They pause in a card box or a links view, with a paused-filter hint, and resume when you return to a folder.
+- **Card boxes.** Save a folder, tag, and property view as a reusable collection. Matching notes keep appearing as the vault changes. Add or exclude individual notes by hand, and give each box its own sort, grouping, and pins. Source files stay where they are. A linked-note view can be saved as a fixed snapshot.
+- **Linked notes.** Switch between outgoing links and backlinks around the active note. Let the source follow the editor, or pin it while you inspect other notes.
+- **Local full-text search.** Search the current folder, card box, outgoing links, or backlinks. Matching text is highlighted inside Markdown excerpts, and each card shows its hit count. Chinese search uses characters and adjacent character pairs; pinyin is not indexed.
+- **Arrange the stream.** Sort by edited time, created time, or filename, and group the cards. Pin notes to keep them at the top. Pins only reorder cards that already match the active filters and search.
+- **Drag into the editor.** Drop a Markdown card at the cursor to insert a wikilink, an embed, the note body, or its title and body. Choose each time, or set a default.
+- **Bulk actions.** Click to select individual cards, Shift-click a range, or select the whole view. Then move notes, add or remove tags, change card-box membership, merge Markdown notes with a live preview, or delete the selection.
+- **Favorites.** Keep frequently used folders, files, tags, and boxes in one section, and reorder them by drag in any mix of kinds.
+- **Context menus.** Right-click in the navigation pane or on a card to create notes, folders, canvases, and bases, rename, duplicate, move, delete, copy vault or system paths, reveal in the system file explorer, and search within a folder. Rename or delete a tag with confirmation; the change updates notes, active filters, favorites, and card-box rules.
+- **Open your way.** Hover-preview a note, or open it in the current tab, a new tab, a split, or a window. Click a card to open its note; switch notes in the editor and the matching card is selected.
+- **Virtualized scrolling.** Only visible cards are rendered, so large sources stay practical to scan.
 
 ## Compatibility and limitations
 
-- **Desktop only.** Card Workspace relies on desktop left-sidebar workflows. It is unavailable on mobile.
-- **Sidebar-first workflow.** Card Workspace is a left-sidebar view with its own navigation pane, opened from the ribbon icon or the command palette.
+- **Desktop only.** Card Workspace does not run on mobile.
+- **Left sidebar.** Open it from the ribbon icon or the command palette.
 - **Obsidian version.** Requires Obsidian 1.9.0 or later, because card support for Bases depends on it. Behavior and compatibility follow what is declared in `manifest.json`.
+- **Supported files.** Markdown (`.md`) cards receive full previews and full-text search. Bases (`.base`), Canvas (`.canvas`), and Excalidraw (`.excalidraw` and `.excalidraw.md`) use a title and placeholder and are searched by title.
 
 ## Privacy
 
-All processing stays inside your vault. The plugin does not make external network requests. File operations go through Obsidian's local Vault and FileManager APIs. Search indexing uses the local `minisearch` library.
+All processing stays inside your vault. The plugin does not make external network requests. File operations go through Obsidian’s local Vault and FileManager APIs. The bundled search engine stores its local index in IndexedDB. Source notes stay in their existing folders.
 
 ## Development
 
