@@ -30,6 +30,7 @@
     projectPanelRows,
     type PanelRow,
   } from "./row-projection";
+  import { resolveStickyGroupHeader } from "./sticky-group-header";
   import { buildRowPositions, createViewportRequest, getSpacerStyle, isBrowseFilterSwitch,
     readFiniteNumber, resolveBrowseFilterMode, resolvePanelScopeIdentity, type BrowseFilterMode } from "./virtual-layout";
   import type {
@@ -385,6 +386,10 @@
   let viewportHeight = $state(0);
   let viewportWidth = $state(0);
   let scrollTop = $state(0);
+  let listPaddingTop = $state(0);
+  let followingHeaderLead = $state(0);
+  let listScrollbarWidth = $state(0);
+  let stickyHeaderHeight = $state(0);
   let columnCount = $state(1);
 
   let lastRequestIdentity = $state<string | null>(null), lastProjectedScopeIdentity = $state<string | null>(null);
@@ -420,6 +425,14 @@
     endRowIndex < projectedRows.length ? totalHeight - (rowPositions[endRowIndex] || 0) : 0,
   );
   const visibleRows = $derived(projectedRows.slice(startRowIndex, endRowIndex));
+  const stickyGroupHeader = $derived(resolveStickyGroupHeader({
+    scrollTop,
+    listPaddingTop,
+    followingHeaderLead,
+    rowPositions,
+    rows: projectedRows,
+    headerHeight: stickyHeaderHeight,
+  }));
   const viewportBounds = $derived(getHydrateRangeForPanelRows(projectedRows, startRowIndex, endRowIndex));
   const hydratePaths = $derived(cardRecords
     .slice(viewportBounds.start, viewportBounds.end)
@@ -472,6 +485,11 @@
 
     const styles = getComputedStyle(node);
     const horizontalPadding = readFiniteNumber(styles.paddingLeft, 0) + readFiniteNumber(styles.paddingRight, 0);
+    listPaddingTop = readFiniteNumber(styles.paddingTop, 0);
+    // Half the wall gap, matching `.fce-wall-group-row.is-following`. Absent in
+    // unstyled tests, where the following row has no lead either.
+    followingHeaderLead = readFiniteNumber(styles.getPropertyValue("--fce-wall-gap"), 0) * 0.5;
+    listScrollbarWidth = Math.max(0, node.offsetWidth - node.clientWidth);
     const availableWidth = Math.max(0, node.clientWidth - horizontalPadding);
     const nextColumnCount = computeColumnCount({
       availableWidth,
@@ -707,6 +725,34 @@
 
     scrollTop = viewportEl.scrollTop;
     viewportHeight = viewportEl.clientHeight;
+    listScrollbarWidth = Math.max(0, viewportEl.offsetWidth - viewportEl.clientWidth);
+  }
+
+  function handleStickyWheel(event: WheelEvent): void {
+    if (!viewportEl || event.deltaY === 0) {
+      return;
+    }
+
+    viewportEl.scrollTop += event.deltaY;
+  }
+
+  function measureStickyHeader(node: HTMLElement): { destroy: () => void } {
+    const read = (): void => {
+      const height = Math.round(node.offsetHeight);
+      if (height > 0 && height !== stickyHeaderHeight) {
+        stickyHeaderHeight = height;
+      }
+    };
+
+    read();
+    const resizeObserver = new ResizeObserver(read);
+    resizeObserver.observe(node);
+
+    return {
+      destroy() {
+        resizeObserver.disconnect();
+      },
+    };
   }
 </script>
 
@@ -749,6 +795,7 @@
     onSearchQueryReset={handleSearchQueryReset}
     onBoxCommand={handleBoxCommand}
   />
+  <div class="fce-list-frame">
   <div
     class="fce-list {bulk.bulkMode ? 'is-bulk-mode' : ''}"
     bind:this={viewportEl}
@@ -776,12 +823,19 @@
         {#if row.kind === "group-header"}
           <!-- Segments render a frame ahead of the projection effect, so a shrinking table can briefly orphan a header row. -->
           {@const segment = groupSegments[row.segmentIndex]}
-          <div class="fce-wall-group-row" class:is-following={row.segmentIndex > 0} use:measureRow={row}>
+          {@const pinnedSource = stickyGroupHeader?.headerRowIndex === row.index}
+          <div
+            class="fce-wall-group-row"
+            class:is-following={row.segmentIndex > 0}
+            class:is-pinned-source={pinnedSource}
+            aria-hidden={pinnedSource ? true : undefined}
+            use:measureRow={row}
+          >
             {#if segment}
               <GroupHeaderRow
                 {segment}
                 {strings}
-                headerId={getGroupHeaderId(row.segmentIndex)}
+                headerId={pinnedSource ? "" : getGroupHeaderId(row.segmentIndex)}
                 onToggle={handleGroupToggle}
               />
             {/if}
@@ -819,6 +873,26 @@
       {/each}
       <div class="fce-virtual-spacer" style={getBottomPaddingStyle()}></div>
     {/if}
+  </div>
+  {#if stickyGroupHeader}
+    {@const segment = groupSegments[stickyGroupHeader.segmentIndex]}
+    {#if segment}
+      <div
+        class="fce-sticky-group-header"
+        style={`transform: translateY(${stickyGroupHeader.offset}px); right: ${listScrollbarWidth}px`}
+        onwheel={handleStickyWheel}
+      >
+        <div class="fce-sticky-group-header-bar" use:measureStickyHeader>
+          <GroupHeaderRow
+            {segment}
+            {strings}
+            headerId={getGroupHeaderId(stickyGroupHeader.segmentIndex)}
+            onToggle={handleGroupToggle}
+          />
+        </div>
+      </div>
+    {/if}
+  {/if}
   </div>
   </div>
 </div>

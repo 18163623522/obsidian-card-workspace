@@ -1265,11 +1265,75 @@ describe("FolderCardPanel.svelte", () => {
     await tick();
 
     expect(target.querySelector(".fce-card-group-header")).toBeNull();
+    expect(target.querySelector(".fce-sticky-group-header")).toBeNull();
     for (const row of Array.from(target.querySelectorAll<HTMLElement>(".fce-wall-row"))) {
       expect(row.hasAttribute("role")).toBe(false);
       expect(row.hasAttribute("aria-labelledby")).toBe(false);
       expect(row.hasAttribute("aria-label")).toBe(false);
     }
+
+    await unmount(component);
+  });
+
+  it("pins the current group header until the next header reaches the top", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const panelModel = createPanelModel(createInitialPanelState());
+    const collapseEvents: Array<{ command: string; key?: string }> = [];
+    const component = mount(FolderCardPanel, {
+      target,
+      props: {
+        panelModel,
+        onGroupCollapseCommand: (payload: { command: string; key?: string }) => {
+          collapseEvents.push(payload);
+        },
+      },
+    });
+
+    panelModel.mutate((state) => {
+      state.cards = {
+        ...state.cards,
+        records: Array.from({ length: 8 }, (_unused, index) =>
+          createCard(`g${Math.floor(index / 4)}/${index}.md`, `Card ${index}`),
+        ),
+        generation: 1,
+        sequenceRevision: 1,
+        groupSegments: [
+          createSegment("folder:g1", "Group One", 0, 4),
+          createSegment("folder:g2", "Group Two", 4, 4),
+        ],
+        groupRevision: 1,
+      };
+    });
+    await tick();
+
+    expect(target.querySelector(".fce-sticky-group-header")).toBeNull();
+
+    const list = target.querySelector<HTMLDivElement>(".fce-list")!;
+    list.scrollTop = 300;
+    list.dispatchEvent(new Event("scroll"));
+    await tick();
+
+    const pinned = target.querySelector<HTMLButtonElement>(".fce-sticky-group-header .fce-card-group-header");
+    expect(pinned?.textContent).toContain("Group One");
+    expect(pinned?.getAttribute("aria-expanded")).toBe("true");
+    expect(target.querySelector(".fce-wall-group-row.is-pinned-source .fce-card-group-header")?.textContent)
+      .toContain("Group One");
+    expect(target.querySelector(".fce-wall-group-row.is-pinned-source .fce-card-group-header")?.hasAttribute("id"))
+      .toBe(false);
+    expect(pinned?.id).not.toBe("");
+
+    pinned?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await tick();
+    expect(collapseEvents).toEqual([{ command: "toggle", key: "folder:g1" }]);
+
+    list.scrollTop = 800;
+    list.dispatchEvent(new Event("scroll"));
+    await tick();
+
+    expect(target.querySelector(".fce-sticky-group-header .fce-card-group-header")?.textContent).toContain("Group Two");
+    expect(target.querySelector(".fce-wall-group-row.is-pinned-source .fce-card-group-header")?.textContent)
+      .toContain("Group Two");
 
     await unmount(component);
   });
@@ -1300,7 +1364,9 @@ describe("FolderCardPanel.svelte", () => {
     list.dispatchEvent(new Event("scroll"));
     await tick();
 
-    expect(target.querySelector(".fce-card-group-header")).toBeNull();
+    expect(target.querySelector(".fce-wall-group-row")).toBeNull();
+    expect(target.querySelector(".fce-sticky-group-header .fce-card-group-header")?.getAttribute("aria-label"))
+      .toBe("Big group, 40 cards");
     const row = target.querySelector<HTMLElement>(".fce-wall-row")!;
     expect(row.hasAttribute("aria-label")).toBe(false);
     expect(document.getElementById(row.getAttribute("aria-labelledby")!)?.textContent?.trim())
@@ -1417,14 +1483,14 @@ describe("FolderCardPanel.svelte", () => {
     list.dispatchEvent(new Event("scroll"));
     await tick();
 
-    const headers = Array.from(target.querySelectorAll<HTMLButtonElement>(".fce-card-group-header"));
+    const headers = Array.from(target.querySelectorAll<HTMLButtonElement>(".fce-wall-group-row .fce-card-group-header"));
     expect(headers).toHaveLength(4);
     headers[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
 
     expect(collapseEvents).toEqual([{ command: "toggle", key: "g:2" }]);
     expect(list.scrollTop).toBe(164);
-    expect(target.querySelectorAll(".fce-card-group-header")).toHaveLength(4);
+    expect(target.querySelectorAll(".fce-wall-group-row .fce-card-group-header")).toHaveLength(4);
     expect(target.querySelectorAll(".fce-card")).toHaveLength(0);
     expect(target.textContent).not.toContain("No supported files found in this folder.");
 
@@ -1476,7 +1542,7 @@ describe("FolderCardPanel.svelte", () => {
     list.dispatchEvent(new Event("scroll"));
     await tick();
 
-    const headers = Array.from(target.querySelectorAll<HTMLButtonElement>(".fce-card-group-header"));
+    const headers = Array.from(target.querySelectorAll<HTMLButtonElement>(".fce-wall-group-row .fce-card-group-header"));
     headers[2].dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await tick();
     expect(list.scrollTop).toBe(628);

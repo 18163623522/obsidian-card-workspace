@@ -37,7 +37,7 @@
   class="fce-card-group-header"
   class:is-collapsed={segment.collapsed}
   class:is-missing={segment.isMissingBucket}
-  id={headerId}
+  id={headerId || undefined}
   aria-expanded={!segment.collapsed}
   aria-label={accessibleName}
   onclick={handleClick}

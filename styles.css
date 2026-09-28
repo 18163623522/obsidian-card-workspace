@@ -1003,8 +1003,18 @@
 }
 
 /* === layout === */
+.folder-card-view .fce-list-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .folder-card-view .fce-list {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-anchor: none;
   padding: var(--fce-wall-gap);
@@ -1058,8 +1068,24 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   padding-bottom: calc(var(--fce-wall-gap) * 0.67);
 }
 
+/* Half the wall gap. The pinned-header lead reads `--fce-wall-gap` and uses the same ratio. */
 .folder-card-view .fce-wall-group-row.is-following {
   padding-top: calc(var(--fce-wall-gap) * 0.5);
+}
+
+.folder-card-view .fce-wall-group-row.is-pinned-source .fce-card-group-header {
+  visibility: hidden;
+}
+
+/* Sits over the scrollport. The list unmounts a header once it leaves the
+   window, so the pin cannot be the in-flow row. */
+.folder-card-view .fce-sticky-group-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  padding: 0 var(--fce-wall-gap);
+  background: var(--fce-bg);
 }
 
 .folder-card-view .fce-card-group-header {
