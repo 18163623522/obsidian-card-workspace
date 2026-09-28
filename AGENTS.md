@@ -20,7 +20,7 @@
 - `.dev/search-benchmark.md` — deterministic search-index benchmark harness: profiles, report schema, metric meanings, isolation guarantees
 - `.dev/ui-patterns.md` — host/Svelte interaction patterns, virtualization, hydration, styling, modal/confirmation guidance
 
-Enumerable implementation details (settings keys, panel fields, module methods, file line counts) live in TypeScript types and `src/architecture.test.ts`, not in these docs.
+Enumerable implementation details (settings keys, panel fields, module methods) live in TypeScript types and `src/architecture.test.ts`, not in these docs. Source files have no line-count cap. Growth is handled by a later, deliberate refactor.
 
 ## Architecture Quick Reference
 

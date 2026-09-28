@@ -1,6 +1,5 @@
 /**
- * Builders for the three hydration patch shapes, extracted so
- * `HydrationController` stays under the default line cap.
+ * Builders for the three hydration patch shapes.
  *
  * These are also the attachment point for `taskSummary`. A whole-scope load
  * whose group dimension is not `"task"` leaves the field `null` rather than
