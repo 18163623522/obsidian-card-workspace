@@ -30,7 +30,7 @@
     projectPanelRows,
     type PanelRow,
   } from "./row-projection";
-  import { resolveStickyGroupHeader } from "./sticky-group-header";
+  import { pinnedHeaderAnchorOffset, resolveStickyGroupHeader } from "./sticky-group-header";
   import { buildRowPositions, createViewportRequest, getSpacerStyle, isBrowseFilterSwitch,
     readFiniteNumber, resolveBrowseFilterMode, resolvePanelScopeIdentity, type BrowseFilterMode } from "./virtual-layout";
   import type {
@@ -659,9 +659,27 @@
     return segment ? strings.sortGroup.groupHeaderAria(segment.label, segment.count) : "";
   }
 
+  function collapsesPinnedHeader(key: string): boolean {
+    const segment = stickyGroupHeader ? groupSegments[stickyGroupHeader.segmentIndex] : undefined;
+    return segment?.key === key && !segment.collapsed;
+  }
+
   function handleGroupToggle(key: string): void {
     const rowIndex = projectedRows.findIndex((row) => row.kind === "group-header" && row.key === `h:${key}`);
-    pendingLayoutAnchor = captureRowAnchor({ scrollTop, rowPositions, rows: projectedRows, rowIndex });
+    const row = projectedRows[rowIndex];
+    const anchor = captureRowAnchor({ scrollTop, rowPositions, rows: projectedRows, rowIndex });
+    // A pinned header has already left the viewport. Collapsing it parks that
+    // header on the pin line, so the next group follows with no jump into later cards.
+    pendingLayoutAnchor = anchor && row?.kind === "group-header" && collapsesPinnedHeader(key)
+      ? {
+          ref: anchor.ref,
+          offset: pinnedHeaderAnchorOffset({
+            listPaddingTop,
+            followingHeaderLead,
+            segmentIndex: row.segmentIndex,
+          }),
+        }
+      : anchor;
     onGroupCollapseCommand?.({ command: "toggle", key });
   }
 

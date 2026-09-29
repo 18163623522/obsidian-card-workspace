@@ -91,6 +91,20 @@ export function resolveStickyGroupHeader(input: StickyGroupHeaderInput): StickyG
   };
 }
 
+/**
+ * Offset from a header row's top that places its button on the pin line.
+ * There the in-flow header is on screen and the sticky bar stays hidden.
+ */
+export function pinnedHeaderAnchorOffset(input: {
+  listPaddingTop: number;
+  followingHeaderLead: number;
+  segmentIndex: number;
+}): number {
+  const paddingTop = Math.max(0, finiteOrZero(input.listPaddingTop));
+  const lead = input.segmentIndex > 0 ? Math.max(0, finiteOrZero(input.followingHeaderLead)) : 0;
+  return paddingTop + lead;
+}
+
 function finiteOrZero(value: number): number {
   return Number.isFinite(value) ? value : 0;
 }

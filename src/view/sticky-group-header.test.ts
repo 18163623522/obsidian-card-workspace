@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveStickyGroupHeader, type StickyHeaderRow } from "./sticky-group-header";
+import {
+  pinnedHeaderAnchorOffset,
+  resolveStickyGroupHeader,
+  type StickyHeaderRow,
+} from "./sticky-group-header";
 
 function rows(): StickyHeaderRow[] {
   return [
@@ -132,6 +136,34 @@ describe("resolveStickyGroupHeader", () => {
       rows: [],
       headerHeight: 36,
     })).toBeNull();
+  });
+
+  it("places a header button on the pin line, one pixel before it would pin", () => {
+    const rowTop = positions[2] ?? 0;
+    const listPaddingTop = 12;
+    const followingHeaderLead = 6;
+    const scrollTop = rowTop + pinnedHeaderAnchorOffset({
+      listPaddingTop,
+      followingHeaderLead,
+      segmentIndex: 1,
+    });
+
+    expect(resolveStickyGroupHeader({
+      scrollTop,
+      listPaddingTop,
+      followingHeaderLead,
+      rowPositions: positions,
+      rows: rows(),
+      headerHeight: 36,
+    })).toBeNull();
+    expect(resolveStickyGroupHeader({
+      scrollTop: scrollTop + 1,
+      listPaddingTop,
+      followingHeaderLead,
+      rowPositions: positions,
+      rows: rows(),
+      headerHeight: 36,
+    })?.segmentIndex).toBe(1);
   });
 
   it("treats non-finite metrics as zero", () => {

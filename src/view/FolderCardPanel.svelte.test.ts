@@ -1497,6 +1497,72 @@ describe("FolderCardPanel.svelte", () => {
     await unmount(component);
   });
 
+  it("parks a pinned group header at the top of the viewport when that group is collapsed", async () => {
+    const target = document.createElement("div");
+    document.body.appendChild(target);
+    const panelModel = createPanelModel(createInitialPanelState());
+    const records = [
+      ...[0, 1].map((index) => createCard(`g0/${index}.md`, `Above ${index}`)),
+      ...[0, 1, 2, 3].map((index) => createCard(`g1/${index}.md`, `Middle ${index}`)),
+      ...[0, 1].map((index) => createCard(`g2/${index}.md`, `Below ${index}`)),
+    ];
+    panelModel.mutate((state) => {
+      state.cards = {
+        ...state.cards,
+        records,
+        generation: 1,
+        sequenceRevision: 1,
+        groupSegments: [
+          createSegment("g:0", "Group 0", 0, 2),
+          createSegment("g:1", "Group 1", 2, 4),
+          createSegment("g:2", "Group 2", 6, 2),
+        ],
+        groupRevision: 1,
+      };
+    });
+
+    const component = mount(FolderCardPanel, {
+      target,
+      props: {
+        panelModel,
+        onGroupCollapseCommand: () => {
+          panelModel.mutate((state) => {
+            state.cards = {
+              ...state.cards,
+              records: [...records.slice(0, 2), ...records.slice(6, 8)],
+              groupSegments: [
+                createSegment("g:0", "Group 0", 0, 2),
+                createSegment("g:1", "Group 1", 2, 4, true),
+                createSegment("g:2", "Group 2", 2, 2),
+              ],
+              groupRevision: 2,
+              sequenceRevision: 2,
+            };
+          });
+        },
+      },
+    });
+    await tick();
+
+    // Two columns pack Group 0 into a header plus one card row, so Group 1 starts on row 2.
+    const pinnedHeaderTop = 2 * ESTIMATED_ROW_HEIGHT;
+    const list = target.querySelector<HTMLDivElement>(".fce-list")!;
+    list.scrollTop = pinnedHeaderTop + ESTIMATED_ROW_HEIGHT + 40;
+    list.dispatchEvent(new Event("scroll"));
+    await tick();
+
+    const pinned = target.querySelector<HTMLButtonElement>(".fce-sticky-group-header .fce-card-group-header");
+    expect(pinned?.textContent).toContain("Group 1");
+    pinned?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await tick();
+
+    expect(list.scrollTop).toBe(pinnedHeaderTop);
+    expect(target.querySelector(".fce-sticky-group-header")).toBeNull();
+    expect(target.textContent).not.toContain("Middle");
+
+    await unmount(component);
+  });
+
   it("clears an unresolvable group anchor instead of replaying it on a later publish", async () => {
     const target = document.createElement("div");
     document.body.appendChild(target);
