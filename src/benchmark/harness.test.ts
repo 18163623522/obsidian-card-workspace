@@ -353,7 +353,8 @@ describe("search benchmark harness", () => {
   it("runs without touching a real vault or real IndexedDB", { timeout: 60_000 }, async () => {
     vi.stubGlobal("indexedDB", createTripwire("indexedDB"));
     vi.stubGlobal("IDBFactory", createTripwire("IDBFactory"));
-    vi.stubGlobal("window", createTripwire("window"));
+    // `window` stays the beforeEach alias of globalThis, matching
+    // scripts/ensure-main-window.mjs. Ingest yields with window.setTimeout.
 
     const report = await runSearchBenchmark({ profile: "micro" });
     expect(report.correctness.allPassed).toBe(true);
