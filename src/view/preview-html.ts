@@ -4,10 +4,10 @@ export type PreviewHtmlSanitizer = (previewHtml: string, doc: Document) => strin
 
 const ALLOWED_PREVIEW_TAGS = new Set(["P", "CODE", "MARK", "SPAN"]);
 const ALLOWED_PREVIEW_CLASSES = {
-  P: new Set(["fce-preview-code", "fce-preview-heading"]),
+  P: new Set(["fce-preview-code", "fce-preview-heading", "fce-preview-list-item"]),
   CODE: new Set<string>(),
   MARK: new Set(["fce-search-hit"]),
-  SPAN: new Set(["fce-preview-link"]),
+  SPAN: new Set(["fce-preview-link", "fce-preview-list-marker", "fce-preview-list-content"]),
 } as const;
 
 export const sanitizePreviewHtml: PreviewHtmlSanitizer = (previewHtml, doc) => {

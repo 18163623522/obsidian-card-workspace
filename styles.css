@@ -1574,6 +1574,24 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   margin: 0;
 }
 
+.folder-card-view .fce-excerpt .fce-preview-list-item {
+  display: flex;
+  gap: 0.35em;
+  align-items: flex-start;
+  line-height: inherit;
+}
+
+.folder-card-view .fce-excerpt .fce-preview-list-marker {
+  flex: 0 0 auto;
+  white-space: pre;
+}
+
+.folder-card-view .fce-excerpt .fce-preview-list-content {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
 .folder-card-view .fce-excerpt .fce-preview-heading {
   font-size: inherit;
   line-height: inherit;

@@ -16,4 +16,11 @@ describe("preview visual contract", () => {
       /\.folder-card-view \.fce-excerpt \.fce-preview-code \{[\s\S]*?border-radius: var\(--radius-s\);/,
     );
   });
+
+  it("wraps list text beside a fixed marker inside the existing excerpt clamp", () => {
+    expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-list-item \{[^}]*display: flex;[^}]*line-height: inherit;/);
+    expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-list-marker \{[^}]*flex: 0 0 auto;[^}]*white-space: pre;/);
+    expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-list-content \{[^}]*min-inline-size: 0;[^}]*overflow-wrap: anywhere;/);
+    expect(styles).toMatch(/\.folder-card-view \.fce-excerpt p \{\s*margin: 0;/);
+  });
 });

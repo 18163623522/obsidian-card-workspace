@@ -108,27 +108,61 @@ describe("buildLightPreview", () => {
     expect(result.html).toContain("Section Title");
   });
 
-  it("renders unordered lists as normalized summary lines", () => {
-    const result = buildLightPreview("- item one\n- item two");
+  it("renders unordered markers in flat preview rows", () => {
+    const result = buildLightPreview("- item one\n* item two\n+ item three");
     expect(result.mode).toBe("text");
-    expect(result.html).toBe("<p>item one</p><p>item two</p>");
+    expect(result.html).toBe([
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">•</span><span class="fce-preview-list-content">item one</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">•</span><span class="fce-preview-list-content">item two</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">•</span><span class="fce-preview-list-content">item three</span></p>',
+    ].join(""));
     expect(result.html).not.toContain("<ul>");
     expect(result.html).not.toContain("<li>");
   });
 
-  it("renders ordered lists as normalized summary lines", () => {
-    const result = buildLightPreview("1. first\n2. second");
+  it("preserves ordered numbers and source delimiters", () => {
+    const result = buildLightPreview("1. first\n07) second");
     expect(result.mode).toBe("text");
-    expect(result.html).toBe("<p>first</p><p>second</p>");
+    expect(result.html).toBe([
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">1.</span><span class="fce-preview-list-content">first</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">07)</span><span class="fce-preview-list-content">second</span></p>',
+    ].join(""));
     expect(result.html).not.toContain("<ol>");
     expect(result.html).not.toContain("<li>");
   });
-  it("renders task lists as normalized summary lines", () => {
-    const result = buildLightPreview("- [ ] first task\n- [x] done task");
+  it("renders task states as read-only marks, including nonstandard single characters", () => {
+    const result = buildLightPreview("- [ ] first task\n- [x] done task\n1) [X] ordered done\n+ [>] in progress\n- [ ]");
     expect(result.mode).toBe("text");
-    expect(result.html).toBe("<p>first task</p><p>done task</p>");
-    expect(result.html).not.toContain("[ ]");
-    expect(result.html).not.toContain("[x]");
+    expect(result.html).toBe([
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☐</span><span class="fce-preview-list-content">first task</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☑</span><span class="fce-preview-list-content">done task</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">1) ☑</span><span class="fce-preview-list-content">ordered done</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">[&gt;]</span><span class="fce-preview-list-content">in progress</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☐</span><span class="fce-preview-list-content"></span></p>',
+    ].join(""));
+    expect(result.html).not.toContain("<input");
+  });
+
+  it("flattens mixed nested items and joins only indented non-list continuation lines", () => {
+    const result = buildLightPreview("- parent\n  continuation text\n  3) child\n    child continuation\n\n- after blank\nplain text", 500, 8);
+    expect(result.html).toBe([
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">•</span><span class="fce-preview-list-content">parent continuation text</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">3)</span><span class="fce-preview-list-content">child child continuation</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">•</span><span class="fce-preview-list-content">after blank</span></p>',
+      '<p>plain text</p>',
+    ].join(""));
+  });
+
+  it("counts continuation source lines against the preview line budget", () => {
+    const result = buildLightPreview("- first\n  continued\n- second\n- outside", 500, 3);
+    expect(result.html).toContain("first continued");
+    expect(result.html).toContain("second");
+    expect(result.html).not.toContain("outside");
+  });
+
+  it("keeps a list marker when body text is clipped by the character budget", () => {
+    const result = buildLightPreview("- [x] abcdef\n- later", 4, 3);
+    expect(result.html).toBe('<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☑</span><span class="fce-preview-list-content">abcd...</span></p>');
   });
 
 
@@ -283,7 +317,7 @@ describe("buildLightPreview", () => {
     const result = buildLightPreview("First block\n- Second block\n> Third block", 500, 3);
 
     expect(result.mode).toBe("text");
-    expect(result.html).toBe("<p>First block</p><p>Second block</p><p>Third block</p>");
+    expect(result.html).toBe('<p>First block</p><p class="fce-preview-list-item"><span class="fce-preview-list-marker">•</span><span class="fce-preview-list-content">Second block</span></p><p>Third block</p>');
   });
 
   it("renders code previews in the same paragraph-shaped clamp surface", () => {
@@ -313,9 +347,9 @@ describe("buildLightPreview", () => {
 
     expect(result.mode).toBe("text");
     expect(result.html).toBe([
-      "<p>First item</p>",
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">1.</span><span class="fce-preview-list-content">First item</span></p>',
       '<p class="fce-preview-code"><code>const one = 1;</code></p>',
-      "<p>Second item</p>",
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">2.</span><span class="fce-preview-list-content">Second item</span></p>',
       '<p class="fce-preview-code"><code>const two = 2;</code></p>',
     ].join(""));
   });
@@ -338,9 +372,9 @@ describe("buildLightPreview", () => {
 
     expect(result.mode).toBe("text");
     expect(result.html).toBe([
-      "<p>First item</p>",
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">1.</span><span class="fce-preview-list-content">First item</span></p>',
       '<p class="fce-preview-code"><code>const one = 1;</code></p>',
-      "<p>Second item</p>",
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">2.</span><span class="fce-preview-list-content">Second item</span></p>',
     ].join(""));
     expect(result.html).not.toContain("const two = 2;");
   });

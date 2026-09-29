@@ -31,6 +31,12 @@ interface InlineRenderResult {
   truncated: boolean;
 }
 
+interface PreviewListItem {
+  marker: string;
+  body: string;
+  isTask: boolean;
+}
+
 const WIKI_LINK_PATTERN = /\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|([^\]]+))?]]/y;
 const MARKDOWN_LINK_PATTERN = /\[([^\]]+)]\([^)]+\)/y;
 
@@ -111,51 +117,31 @@ export function buildLightPreview(
       continue;
     }
 
-    const taskMatch = trimmed.match(/^[-*+]\s+\[(?: |x|X)\]\s+(.*)$/);
-    if (taskMatch?.[1]) {
-      const rendered = renderInlineWithLimit(taskMatch[1], remainingChars);
-      if (rendered.consumedChars > 0) {
-        htmlParts.push(`<p>${rendered.html}</p>`);
-        remainingChars -= rendered.consumedChars;
-        remainingBlocks -= 1;
-        sawTextBlock = true;
+    const listItem = parsePreviewListItem(trimmed);
+    if (listItem) {
+      const bodyLines = [listItem.body];
+      let cursor = index + 1;
+      while (cursor < scanLimit && bodyLines.length < remainingBlocks) {
+        const nextLine = lines[cursor];
+        const next = nextLine.trim();
+        if (next.length === 0 || !/^\s/.test(nextLine) || parsePreviewListItem(next)) {
+          break;
+        }
+        bodyLines.push(next);
+        cursor += 1;
       }
-      if (rendered.truncated) {
-        break;
-      }
-      index += 1;
-      continue;
-    }
 
-    const ulMatch = trimmed.match(/^[-*+]\s+(.*)$/);
-    if (ulMatch?.[1]) {
-      const rendered = renderInlineWithLimit(ulMatch[1], remainingChars);
-      if (rendered.consumedChars > 0) {
-        htmlParts.push(`<p>${rendered.html}</p>`);
+      const rendered = renderInlineWithLimit(bodyLines.join(" "), remainingChars);
+      if (rendered.consumedChars > 0 || listItem.isTask) {
+        htmlParts.push(renderPreviewListItem(listItem, rendered.html));
         remainingChars -= rendered.consumedChars;
-        remainingBlocks -= 1;
+        remainingBlocks -= bodyLines.length;
         sawTextBlock = true;
       }
       if (rendered.truncated) {
         break;
       }
-      index += 1;
-      continue;
-    }
-
-    const olMatch = trimmed.match(/^\d+\.\s+(.*)$/);
-    if (olMatch?.[1]) {
-      const rendered = renderInlineWithLimit(olMatch[1], remainingChars);
-      if (rendered.consumedChars > 0) {
-        htmlParts.push(`<p>${rendered.html}</p>`);
-        remainingChars -= rendered.consumedChars;
-        remainingBlocks -= 1;
-        sawTextBlock = true;
-      }
-      if (rendered.truncated) {
-        break;
-      }
-      index += 1;
+      index = cursor;
       continue;
     }
 
@@ -210,7 +196,34 @@ export function buildLightPreview(
 }
 
 function isBlockStarter(line: string): boolean {
-  return isImageOnlyLine(line) || /^#{1,6}\s+/.test(line) || /^[-*+]\s+/.test(line) || /^\d+\.\s+/.test(line) || /^>\s?/.test(line) || !!getFenceInfo(line);
+  return isImageOnlyLine(line) || /^#{1,6}\s+/.test(line) || !!parsePreviewListItem(line) || /^>\s?/.test(line) || !!getFenceInfo(line);
+}
+
+function parsePreviewListItem(line: string): PreviewListItem | null {
+  const unordered = line.match(/^[-*+]\s+(.*)$/);
+  const ordered = unordered ? null : line.match(/^(\d+[.)])\s+(.*)$/);
+  if (!unordered && !ordered) {
+    return null;
+  }
+
+  const sourceMarker = ordered?.[1] ?? "•";
+  const sourceBody = ordered?.[2] ?? unordered?.[1] ?? "";
+  const task = sourceBody.match(/^\[([^\]\r\n])\](?:\s+(.*)|\s*)$/);
+  if (!task) {
+    return { marker: sourceMarker, body: sourceBody, isTask: false };
+  }
+
+  const state = task[1];
+  const taskMarker = state === " " ? "☐" : state === "x" || state === "X" ? "☑" : `[${state}]`;
+  return {
+    marker: ordered ? `${sourceMarker} ${taskMarker}` : taskMarker,
+    body: task[2] ?? "",
+    isTask: true,
+  };
+}
+
+function renderPreviewListItem(item: PreviewListItem, bodyHtml: string): string {
+  return `<p class="fce-preview-list-item"><span class="fce-preview-list-marker">${escapeHtml(item.marker)}</span><span class="fce-preview-list-content">${bodyHtml}</span></p>`;
 }
 
 function isImageOnlyLine(line: string): boolean {

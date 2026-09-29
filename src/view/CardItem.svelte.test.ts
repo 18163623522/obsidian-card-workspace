@@ -8,6 +8,7 @@ import {
   highlightSanitizedPreviewHtml,
   sanitizePreviewHtml,
 } from "./preview-html";
+import { buildLightPreview } from "./markdown-utils";
 
 interface OpenNotePayload {
   path: string;
@@ -657,6 +658,31 @@ describe("CardItem.svelte", () => {
     expect(sanitized).toBe('<p><span class="fce-preview-link">Safe</span>plain</p>');
     expect(highlightSanitizedPreviewHtml(sanitized, "safe", document))
       .toContain('<span class="fce-preview-link"><mark class="fce-search-hit">Safe</mark></span>');
+  });
+
+  it("keeps a read-only task marker and highlights list body text", () => {
+    const previewHtml = buildLightPreview("- [x] targeted task").html;
+    const { target } = mountCardItem({
+      searchQuery: "targeted",
+      card: createCard("notes/task.md", { previewHtml }),
+    });
+    const excerpt = target.querySelector<HTMLElement>(".fce-excerpt");
+
+    expect(excerpt?.querySelector(".fce-preview-list-marker")?.textContent).toBe("☑");
+    expect(excerpt?.querySelector(".fce-preview-list-content")?.innerHTML)
+      .toBe('<mark class="fce-search-hit">targeted</mark> task');
+    expect(excerpt?.querySelector("input, button, [role='checkbox'], [contenteditable]")).toBeNull();
+  });
+
+  it("allows only list presentation classes and drops interactive markup", () => {
+    const sanitized = sanitizePreviewHtml(
+      '<p class="fce-preview-list-item unwanted" onclick="alert(1)"><span class="fce-preview-list-marker unwanted" tabindex="0">☐</span><span class="fce-preview-list-content unwanted" contenteditable="true">Safe</span><input type="checkbox" checked></p>',
+      document,
+    );
+
+    expect(sanitized).toBe('<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☐</span><span class="fce-preview-list-content">Safe</span></p>');
+    expect(highlightSanitizedPreviewHtml(sanitized, "safe", document))
+      .toContain('<span class="fce-preview-list-content"><mark class="fce-search-hit">Safe</mark></span>');
   });
 
   it.each(["", "safe bold"])("uses the same sanitizer allow-list for query %j", (searchQuery) => {
