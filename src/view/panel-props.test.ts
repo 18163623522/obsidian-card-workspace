@@ -48,6 +48,15 @@ function createHost(): {
 }
 
 describe("buildPanelProps arrangement routing", () => {
+  it("passes the same link location for ordinary card and keyboard activation", () => {
+    const { host } = createHost();
+    const location = { line: 7, ch: 3, identity: "back:7" };
+    host.resolveCardLocation = vi.fn(() => location);
+    const props = buildPanelProps(host) as unknown as { onOpenNote: (detail: { path: string }) => void };
+    props.onOpenNote({ path: "notes/a.md" });
+    expect(host.plugin.openNoteFromCard).toHaveBeenCalledWith("notes/a.md", undefined, location);
+  });
+
   it("routes sort/group/collapse/pin callbacks to ArrangementActions, not PanelHost methods", () => {
     const { host, arrangement } = createHost();
     const props = buildPanelProps(host) as unknown as {

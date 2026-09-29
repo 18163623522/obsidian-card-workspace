@@ -93,6 +93,7 @@ describe("SearchController", () => {
     expect(publishSearchProjection).not.toHaveBeenCalled();
     expect(context.publishGroups).toHaveBeenCalledWith("search");
     expect(controller.getCommittedQuery()).toBe("");
+    const hydrationRevision = context.store.getHydrationRevision();
     expect(controller.buildPipelineSearchInput()).toEqual({
       query: "",
       execution: "indexed-unavailable",
@@ -111,6 +112,7 @@ describe("SearchController", () => {
       orderedPaths: ["notes/alpha.md"],
     });
     expect(controller.getCommittedQuery()).toBe("alpha");
+    expect(context.store.getHydrationRevision()).toBe(hydrationRevision + 1);
     expect(publishSearchProjection).toHaveBeenCalledTimes(1);
   });
 

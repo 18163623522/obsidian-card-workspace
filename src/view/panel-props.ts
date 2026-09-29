@@ -3,14 +3,16 @@ import type { HydrateViewportRequest } from "./hydration-request";
 import type { CardHoverLinkPayload, FolderActionPayload, NavContextMenuPayload } from "./types";
 import type { ViewModules } from "./view-modules";
 import type { NavigationIntent } from "./navigation-model";
+import type { CardOpenLocation } from "./link-card-location";
 
 /** The slice of `FolderCardView` the panel callbacks route through. */
 export interface PanelHost {
   panelModel: PanelModel;
   modules: ViewModules;
   plugin: {
-    openNoteFromCard: (path: string, destination?: never) => Promise<void>;
+    openNoteFromCard: (path: string, destination?: never, location?: CardOpenLocation) => Promise<void>;
   };
+  resolveCardLocation?: (path: string) => CardOpenLocation | null;
     handleToolbarAction: (detail: { action?: unknown }) => void;
     onIncludeSubfoldersChange: (detail: { value?: unknown }) => Promise<void>;
   onCardHoverLink: (detail: CardHoverLinkPayload) => void;
@@ -30,7 +32,9 @@ export function buildPanelProps(view: PanelHost): PanelCallbackProps {
       if (view.modules.bulk.isBulkMode() || typeof detail.path !== "string") {
         return;
       }
-      void view.plugin.openNoteFromCard(detail.path);
+      const location = view.resolveCardLocation?.(detail.path);
+      if (location) void view.plugin.openNoteFromCard(detail.path, undefined, location);
+      else void view.plugin.openNoteFromCard(detail.path);
     },
     onBulkSelectCard: (detail: { path?: unknown; shiftKey?: unknown }) => {
       view.modules.bulk.onBulkSelectCard(detail);

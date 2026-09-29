@@ -496,7 +496,7 @@ vi.mock("obsidian", () => {
   };
 });
 
-import { TFile, TFolder } from "obsidian";
+import { MarkdownView, TFile, TFolder } from "obsidian";
 import { DEFAULT_GROUP_SPEC } from "./card-grouping-settings";
 import { getAppStrings } from "./i18n";
 import CardWorkspacePlugin from "./main";
@@ -1683,6 +1683,105 @@ describe("CardWorkspacePlugin open destination routing", () => {
   ): void {
     mutateStoreMemory(plugin, { defaultCardOpenBehavior: value });
   }
+
+  function linkOpenHarness(mode: "source" | "preview" = "source") {
+    const { plugin, app } = createPluginHarness();
+    mutateStoreMemory(plugin, { locateLinkCardOnOpen: true });
+    const target = new TFile();
+    target.path = "notes/linked.md";
+    app.vault.getAbstractFileByPath.mockReturnValue(target);
+    const view = Object.assign(new MarkdownView({} as never), {
+      file: target,
+      containerEl: new EventTarget(),
+      getMode: vi.fn(() => mode),
+      getViewData: vi.fn(() => "intro\nlinked [[target]] here\nmore"),
+      setEphemeralState: vi.fn(),
+      editor: { setCursor: vi.fn(), scrollIntoView: vi.fn() },
+    });
+    const leaf = { view, openFile: vi.fn(async () => undefined) };
+    app.workspace.getLeaf.mockReturnValue(leaf);
+    Object.assign(app.workspace, { activeLeaf: leaf });
+    const location = { line: 1, ch: 7, expectedText: "[[target]]", identity: "back:1" };
+    return { plugin, app, target, view, leaf, location };
+  }
+
+  it("positions edit and reading views, then corrects at 400 ms", async () => {
+    vi.useFakeTimers();
+    try {
+      const edit = linkOpenHarness("source");
+      await edit.plugin.openNoteFromCard(edit.target.path, "new-tab", edit.location);
+      expect(edit.view.editor.setCursor).toHaveBeenCalledWith({ line: 1, ch: 7 });
+      expect(edit.view.editor.scrollIntoView).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(400);
+      expect(edit.view.editor.setCursor).toHaveBeenCalledTimes(2);
+
+      const reading = linkOpenHarness("preview");
+      await reading.plugin.openNoteFromCard(reading.target.path, "new-tab", reading.location);
+      expect(reading.view.setEphemeralState).toHaveBeenCalledWith({ line: 1 });
+      expect(reading.view.editor.setCursor).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(400);
+      expect(reading.view.setEphemeralState).toHaveBeenCalledTimes(2);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("skips stale positions and leaves ordinary opening unchanged when disabled", async () => {
+    const { plugin, target, view, location } = linkOpenHarness();
+    await plugin.openNoteFromCard(target.path, "new-tab", { ...location, line: 99 });
+    expect(view.editor.setCursor).not.toHaveBeenCalled();
+    mutateStoreMemory(plugin, { locateLinkCardOnOpen: false });
+    await plugin.openNoteFromCard(target.path, "new-tab", location);
+    expect(view.editor.setCursor).not.toHaveBeenCalled();
+  });
+
+  it("opens a searched link card at the previewed body hit", async () => {
+    vi.useFakeTimers();
+    try {
+      const { plugin, target, view } = linkOpenHarness();
+      await plugin.openNoteFromCard(target.path, "new-tab", { query: "more" });
+      expect(view.editor.setCursor).toHaveBeenCalledWith({ line: 2, ch: 0 });
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("cancels correction after manual input, pane switching, or a newer card open", async () => {
+    vi.useFakeTimers();
+    try {
+      const { plugin, app, target, view, location } = linkOpenHarness();
+      await plugin.openNoteFromCard(target.path, "new-tab", location);
+      view.containerEl.dispatchEvent(new Event("wheel"));
+      vi.advanceTimersByTime(400);
+      expect(view.editor.setCursor).toHaveBeenCalledTimes(1);
+
+      await plugin.openNoteFromCard(target.path, "new-tab", location);
+      obsidianMockState.workspaceCallbacks["active-leaf-change"]?.({});
+      vi.advanceTimersByTime(400);
+      expect(view.editor.setCursor).toHaveBeenCalledTimes(2);
+
+      await plugin.openNoteFromCard(target.path, "new-tab", location);
+      await plugin.openNoteFromCard(target.path, "new-tab");
+      vi.advanceTimersByTime(400);
+      expect(view.editor.setCursor).toHaveBeenCalledTimes(3);
+      expect(app.workspace.getLeaf).toHaveBeenCalledWith(true);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("never applies a late jump from an older pending open", async () => {
+    vi.useFakeTimers();
+    try {
+      const { plugin, target, view, leaf, location } = linkOpenHarness();
+      const firstOpen = deferred<undefined>();
+      leaf.openFile.mockImplementationOnce(() => firstOpen.promise);
+      const older = plugin.openNoteFromCard(target.path, "new-tab", location);
+      await Promise.resolve();
+      const newer = plugin.openNoteFromCard(target.path, "new-tab", location);
+      await newer;
+      expect(view.editor.setCursor).toHaveBeenCalledTimes(1);
+      firstOpen.resolve(undefined);
+      await older;
+      expect(view.editor.setCursor).toHaveBeenCalledTimes(1);
+      vi.advanceTimersByTime(400);
+      expect(view.editor.setCursor).toHaveBeenCalledTimes(2);
+    } finally { vi.useRealTimers(); }
+  });
 
   it("reuses the most recent root markdown leaf for default card opens when unpinned", async () => {
     const { plugin, app } = createPluginHarness();

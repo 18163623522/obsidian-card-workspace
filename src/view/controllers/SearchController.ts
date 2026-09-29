@@ -72,6 +72,13 @@ export class SearchController implements DisposableController {
     return this.committedQuery;
   }
 
+  private setCommittedQuery(query: string): void {
+    if (this.committedQuery !== query) {
+      this.committedQuery = query;
+      this.context.store.advanceHydrationRevision();
+    }
+  }
+
   getStatus(): SearchStatus {
     return this.status;
   }
@@ -121,7 +128,7 @@ export class SearchController implements DisposableController {
     this.snapshot = snapshot;
     this.snapshotEpoch.bump();
     this.requestEpoch.bump();
-    this.committedQuery = this.query;
+    this.setCommittedQuery(this.query);
     this.clearMatchCounts();
     this.execution = this.derivePendingExecution();
     this.orderedPaths = undefined;
@@ -190,7 +197,7 @@ export class SearchController implements DisposableController {
   }
 
   resetForLoad(): void {
-    this.committedQuery = this.query;
+    this.setCommittedQuery(this.query);
     this.execution = this.derivePendingExecution();
     this.orderedPaths = undefined;
     this.clearMatchCounts();
@@ -240,7 +247,7 @@ export class SearchController implements DisposableController {
       }
 
       this.execution = result.execution;
-      this.committedQuery = this.query;
+      this.setCommittedQuery(this.query);
       if (result.execution === "indexed-ready") {
         this.orderedPaths = result.orderedPaths ?? [];
         this.matchCountsByPath = { ...result.matchCountsByPath };
@@ -344,7 +351,7 @@ export class SearchController implements DisposableController {
   }
 
   private commitPendingProjection(): void {
-    this.committedQuery = this.query;
+    this.setCommittedQuery(this.query);
     this.execution = this.derivePendingExecution();
     this.orderedPaths = undefined;
     this.clearMatchCounts();

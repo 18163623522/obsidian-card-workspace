@@ -192,6 +192,16 @@ describe("card context menu contract", () => {
     expect(copyTitleAndContentSpy).toHaveBeenCalledTimes(1);
     expect(copyTitleAndContentSpy).toHaveBeenCalledWith(file.path);
   });
+
+  it("passes a link-card location through every destination action", async () => {
+    const { view, file, plugin } = createViewWithFile("notes/link-destination.md");
+    const location = { line: 12, identity: "out:heading" };
+    vi.spyOn(view, "resolveCardLocation").mockReturnValue(location);
+    for (const destination of ["current-area", "new-tab", "split-right", "new-window"] as const) {
+      await (view as any).modules.cardMenu.routeAction(destination, file.path);
+      expect(plugin.openNoteFromCard).toHaveBeenLastCalledWith(file.path, destination, location);
+    }
+  });
   it("conditional menu variants keep separators clean after removing optional actions", () => {
     const { view: desktopNonMarkdownView, file: desktopNonMarkdownFile } = createViewWithFile(
       "notes/non-markdown.canvas",

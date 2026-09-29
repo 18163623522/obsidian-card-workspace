@@ -29,6 +29,7 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
     const {
       cardCornerRadius,
       defaultCardOpenBehavior,
+      locateLinkCardOnOpen,
       dragInsertAction,
       newNoteTemplate,
       previewLines,
@@ -126,6 +127,15 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
       .addToggle((toggle) => {
         toggle.setValue(showNavItemCounts).onChange(async (value) => {
           await this.plugin.saveSettings({ showNavItemCounts: value });
+        });
+      });
+
+    new Setting(containerEl)
+      .setName(strings.locateLinkCardOnOpenName)
+      .setDesc(strings.locateLinkCardOnOpenDesc)
+      .addToggle((toggle) => {
+        toggle.setValue(locateLinkCardOnOpen).onChange(async (value) => {
+          await this.plugin.saveSettings({ locateLinkCardOnOpen: value });
         });
       });
   }

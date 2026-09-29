@@ -29,6 +29,7 @@ function harness(
   records: NoteCardRecord[],
   read: ReadMock = vi.fn(async () => "preview"),
   listItemsByPath: Record<string, Array<{ task?: string }>> = {},
+  getCommittedQuery?: () => string,
 ) {
   const store = createViewStateStore(createFolderScope("", true));
   store.replaceBaseCards(records);
@@ -45,7 +46,7 @@ function harness(
     getViewWindow: () => globalThis,
   } as unknown as ViewContext;
   return {
-    context, controller: new HydrationController({ context, isLoading: () => false }),
+    context, controller: new HydrationController({ context, isLoading: () => false, getCommittedQuery }),
     read, getFileCache,
   };
 }
@@ -63,6 +64,24 @@ async function ticks(count = 4): Promise<void> {
 }
 
 describe("HydrationController", () => {
+  it("hydrates search context only for viewport cards and refreshes after a committed query change", async () => {
+    const records = Array.from({ length: 30 }, (_, index) => card(`${index}.md`));
+    const read = vi.fn(async () => "opening\nfirst needle here\nsecond target here");
+    let query = "needle";
+    const { context, controller } = harness(records, read, {}, () => query);
+
+    await controller.hydrateViewport(request(context, records.slice(0, 1)));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(context.store.getBaseCard("0.md")?.previewHtml).toContain("needle");
+    expect(context.store.getBaseCard("1.md")?.hydrated).toBe(false);
+
+    query = "target";
+    context.store.advanceHydrationRevision();
+    await controller.hydrateViewport(request(context, records.slice(0, 1)));
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(context.store.getBaseCard("0.md")?.previewHtml).toContain("target");
+  });
+
   it("prepares non-Markdown placeholders synchronously without reads", () => {
     const records = [card("diagram.canvas", "canvas")];
     const { controller, read } = harness(records);

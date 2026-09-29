@@ -155,6 +155,7 @@ describe("CardWorkspaceSettingTab", () => {
       getSettings: vi.fn(() => ({
         cardCornerRadius: "medium",
         defaultCardOpenBehavior: "split-right",
+        locateLinkCardOnOpen: false,
         dragInsertAction: "embed",
         newNoteTemplate: "blank",
         previewLines: 6,
@@ -168,7 +169,7 @@ describe("CardWorkspaceSettingTab", () => {
     tab.display();
 
     expect(mockState.containerEl.empty).toHaveBeenCalledTimes(1);
-    expect(mockState.settings).toHaveLength(6);
+    expect(mockState.settings).toHaveLength(7);
     expect(mockState.settings.map((setting) => setting.name)).toEqual([
       "Default card open behavior",
       "Card drag insert behavior",
@@ -176,6 +177,7 @@ describe("CardWorkspaceSettingTab", () => {
       "Card corner radius",
       "Preview lines",
       "Show item counts in navigation",
+      "Jump to link location when opening a link card",
     ]);
     expect(mockState.settings[0]?.dropdown).toMatchObject({
       value: "split-right",
@@ -221,6 +223,8 @@ describe("CardWorkspaceSettingTab", () => {
     expect(mockState.settings[5]?.toggle).toMatchObject({
       value: false,
     });
+    expect(mockState.settings[6]?.toggle).toMatchObject({ value: false });
+    expect(mockState.settings[6]?.desc).toContain("Remember Cursor Position");
   });
 
   it("renders Chinese labels when the Obsidian language is Chinese", () => {
@@ -247,6 +251,7 @@ describe("CardWorkspaceSettingTab", () => {
       "卡片圆角",
       "预览行数",
       "在导航栏显示条目计数",
+      "双链卡片点击定位",
     ]);
     expect(mockState.settings[0]?.dropdown?.options[0]).toEqual({
       value: "smart",
@@ -368,5 +373,17 @@ describe("CardWorkspaceSettingTab", () => {
     await mockState.settings[3]?.dropdown?.changeHandler?.("rounded");
 
     expect(plugin.saveSettings).toHaveBeenCalledWith({ cardCornerRadius: "rounded" });
+  });
+
+  it("saves the link-card jump toggle independently of preview settings", async () => {
+    const plugin = {
+      getSettings: vi.fn(() => ({ locateLinkCardOnOpen: false })),
+      saveSettings: vi.fn(async () => undefined),
+      getUiLanguage: vi.fn(() => "en"),
+    };
+    const tab = new CardWorkspaceSettingTab({} as never, plugin as never);
+    tab.display();
+    await mockState.settings[6]?.toggle?.changeHandler?.(true);
+    expect(plugin.saveSettings).toHaveBeenCalledWith({ locateLinkCardOnOpen: true });
   });
 });

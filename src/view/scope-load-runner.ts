@@ -21,7 +21,7 @@ export interface ScopeLoadRuntime {
   startupCardCount: number;
   folderCandidateCache: FolderScopeFileCache;
   collectScopeFiles: (scope: CardScope) => TFile[];
-  prepareRecordsFromCache: (records: NoteCardRecord[]) => void;
+  prepareRecordsFromCache: (records: NoteCardRecord[], scope?: CardScope) => void;
   projectVisibleCards: () => void;
   hydrateStartupCardPaths: (paths: string[], token: EpochToken) => Promise<void>;
   refreshSearchProjection: () => void;
@@ -180,7 +180,7 @@ export async function runScopeLoad(runtime: ScopeLoadRuntime): Promise<boolean> 
     const dimension = normalizeGroupSpec(viewConfig.group).dimension;
     const records = materializeFiles(runtime, orderedFiles, dimension === "task");
     if (!isCurrent(runtime, loadToken)) return false;
-    runtime.prepareRecordsFromCache(records);
+    runtime.prepareRecordsFromCache(records, loadScope.scope);
     if (!isCurrent(runtime, loadToken)) return false;
     context.store.setScope(loadScope.scope);
     context.store.replaceBaseCards(records);

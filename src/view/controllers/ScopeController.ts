@@ -45,7 +45,7 @@ export interface ScopeControllerDeps {
   setBulkSelection: (state: BulkSelectionState) => void;
   clearBulkSelection: () => void;
   hasPendingHydration: (path: string) => boolean; deletePendingHydration: (path: string) => boolean;
-  resetHydrationForLoad: () => void; prepareRecordsFromCache: (records: NoteCardRecord[]) => void;
+  resetHydrationForLoad: () => void; prepareRecordsFromCache: (records: NoteCardRecord[], scope?: CardScope) => void;
   invalidateForVaultMutation: (event: VaultMutationEvent) => void;
   hydrateStartupCardPaths: (paths: string[], token: EpochToken) => Promise<void>;
   scheduleHydrationPath: (path: string) => void;

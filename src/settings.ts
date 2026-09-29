@@ -132,6 +132,7 @@ export interface PluginSettings {
   includeSubfolders: boolean;
   defaultView: DefaultViewMode;
   defaultCardOpenBehavior: DefaultCardOpenBehavior;
+  locateLinkCardOnOpen: boolean;
   dragInsertAction: DragInsertAction;
   cardCornerRadius: CardCornerRadius;
   newNoteTemplate: NewNoteTemplate;
@@ -168,6 +169,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   includeSubfolders: true,
   defaultView: "cards",
   defaultCardOpenBehavior: DEFAULT_CARD_OPEN_BEHAVIOR,
+  locateLinkCardOnOpen: false,
   dragInsertAction: DEFAULT_DRAG_INSERT_ACTION,
   cardCornerRadius: DEFAULT_CARD_CORNER_RADIUS,
   newNoteTemplate: DEFAULT_NEW_NOTE_TEMPLATE,
@@ -525,6 +527,7 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
     includeSubfolders: normalizeBooleanSetting(data.includeSubfolders, DEFAULT_SETTINGS.includeSubfolders),
     defaultView: normalizeDefaultView(data.defaultView),
     defaultCardOpenBehavior: normalizeDefaultCardOpenBehavior(data.defaultCardOpenBehavior),
+    locateLinkCardOnOpen: normalizeBooleanSetting(data.locateLinkCardOnOpen, false),
     dragInsertAction: normalizeDragInsertAction(data.dragInsertAction),
     cardCornerRadius: normalizeCardCornerRadius(data.cardCornerRadius),
     newNoteTemplate: normalizeNewNoteTemplate(data.newNoteTemplate),

@@ -61,6 +61,7 @@ const EXPECTED_INTENTS: Record<keyof PluginSettings, ViewUpdateIntent> = {
   includeSubfolders: "reload",
   defaultView: "patch",
   defaultCardOpenBehavior: "patch",
+  locateLinkCardOnOpen: "patch",
   dragInsertAction: "patch",
   cardCornerRadius: "patch",
   newNoteTemplate: "patch",
@@ -91,6 +92,7 @@ function changeSetting(settings: PluginSettings, key: keyof PluginSettings): voi
     // the resolver comparison and keeps this key in the exhaustive contract.
     case "defaultView": settings.defaultView = "changed" as DefaultViewMode; break;
     case "defaultCardOpenBehavior": settings.defaultCardOpenBehavior = "new-tab"; break;
+    case "locateLinkCardOnOpen": settings.locateLinkCardOnOpen = !settings.locateLinkCardOnOpen; break;
     case "dragInsertAction": settings.dragInsertAction = "wiki"; break;
     case "cardCornerRadius": settings.cardCornerRadius = "compact"; break;
     case "newNoteTemplate": settings.newNoteTemplate = "blank"; break;

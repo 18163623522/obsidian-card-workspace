@@ -609,6 +609,7 @@ describe("SettingsStore — layer manifest classification (C4)", () => {
     ["includeSubfolders", { includeSubfolders: false }],
     ["defaultView", { defaultView: "cards" }],
     ["defaultCardOpenBehavior", { defaultCardOpenBehavior: "new-tab" }],
+    ["locateLinkCardOnOpen", { locateLinkCardOnOpen: true }],
     ["dragInsertAction", { dragInsertAction: "wiki" }],
     ["cardCornerRadius", { cardCornerRadius: "compact" }],
     ["newNoteTemplate", { newNoteTemplate: "blank" }],

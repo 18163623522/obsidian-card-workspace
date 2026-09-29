@@ -11,6 +11,7 @@ describe("PreviewCache", () => {
     expect(cache.get(fingerprint("a.md", 2, 5))).toEqual({ html: "", mode: "empty" });
     expect(cache.get(fingerprint("a.md", 3, 5))).toBeUndefined();
     expect(cache.get(createPreviewFingerprint("a.md", 2, 5, 201))).toBeUndefined();
+    expect(cache.get(createPreviewFingerprint("a.md", 2, 5, 200, "link:line-2"))).toBeUndefined();
   });
 
   it("evicts exactly the least-recently-used entry above 512", () => {

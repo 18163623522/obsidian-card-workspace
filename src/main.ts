@@ -32,6 +32,8 @@ import type { OpenDestination, PartialPluginSettings, PluginSettings } from "./s
 import type { FolderSelectionRequest, FolderSelectionSource, SelectionResult } from "./view/types";
 import { resolveCardFileKind } from "./view/file-kind";
 import { createFolderScope, type CardScope } from "./view/scope";
+import { locationExistsInText, type CardOpenLocation, type LinkCardLocation } from "./view/link-card-location";
+import { findSearchContextLocation } from "./view/context-preview";
 import { resolveSettingsUpdateIntent } from "./view/update-intent";
 import { activateDeferredView } from "./view/deferred-view-activation";
 import { BULK_ADD_TO_BOX_ICON, BULK_ADD_TO_BOX_ICON_SVG, BULK_REMOVE_FROM_BOX_ICON, BULK_REMOVE_FROM_BOX_ICON_SVG, CARD_WORKSPACE_ICON, CARD_WORKSPACE_ICON_SVG, PLAIN_FOLDER_ICON, PLAIN_FOLDER_ICON_SVG } from "./icons";
@@ -52,6 +54,8 @@ export default class CardWorkspacePlugin extends Plugin {
     save: (data) => this.saveData(data),
   });
   private selectionRequestSeq = 0;
+  private cardOpenSeq = 0;
+  private cancelLinkCorrection: (() => void) | null = null;
   private latestHandledRequestId = 0;
   private vaultObserversRegistered = false;
   private metadataObserversRegistered = false;
@@ -182,6 +186,8 @@ export default class CardWorkspacePlugin extends Plugin {
   private disposeRuntime(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.cancelLinkCorrection?.();
+    this.cancelLinkCorrection = null;
     this.vaultEventBus.dispose();
     this.metadataEventBus.dispose();
     const navStateRefresh = this.debouncedNavStateRefresh as (() => void) & {
@@ -243,19 +249,75 @@ export default class CardWorkspacePlugin extends Plugin {
     return `${prefix}${baseName} ${Date.now()}.${extension}`;
   }
 
-  async openNoteFromCard(path: string, destination?: OpenDestination): Promise<void> {
+  async openNoteFromCard(path: string, destination?: OpenDestination, location?: CardOpenLocation): Promise<void> {
+    const openSeq = ++this.cardOpenSeq;
+    this.cancelLinkCorrection?.();
+    this.cancelLinkCorrection = null;
     const target = this.app.vault.getAbstractFileByPath(path);
     if (!(target instanceof TFile)) {
       return;
     }
 
     const leaf = await this.resolveOpenDestinationLeaf(destination);
-    if (!leaf) {
+    if (!leaf || openSeq !== this.cardOpenSeq) {
       return;
     }
 
+    const requestedJump = this.getSettings().locateLinkCardOnOpen ? location : undefined;
     await leaf.openFile(target, { active: true });
+    if (openSeq !== this.cardOpenSeq || this.disposed) return;
+    const jump = requestedJump && "query" in requestedJump
+      ? leaf.view instanceof MarkdownView
+        ? findSearchContextLocation(leaf.view.getViewData(), requestedJump.query)
+        : null
+      : requestedJump;
+    const activeLeaf = this.app.workspace.activeLeaf;
+    if (jump && (!activeLeaf || activeLeaf === leaf) && this.positionLinkCard(leaf, target, jump)) {
+      this.scheduleLinkCorrection(leaf, target, jump, openSeq);
+    }
     this.syncSelection(target.path);
+  }
+
+  private positionLinkCard(leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation): boolean {
+    const view = leaf.view;
+    if (!(view instanceof MarkdownView) || view.file?.path !== file.path
+      || !locationExistsInText(view.getViewData(), location)) return false;
+    if (view.getMode() === "source") {
+      const pos = { line: location.line, ch: location.ch ?? 0 };
+      view.editor.setCursor(pos);
+      view.editor.scrollIntoView({ from: pos, to: pos }, true);
+    } else {
+      view.setEphemeralState({ line: location.line });
+    }
+    return true;
+  }
+
+  private scheduleLinkCorrection(
+    leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation, openSeq: number,
+  ): void {
+    let userInput = false;
+    const target = leaf.view.containerEl;
+    const markInput = (): void => { userInput = true; };
+    const inputEvents = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    for (const event of inputEvents) target?.addEventListener(event, markInput, { capture: true, passive: true });
+    const leafChange = this.app.workspace.on("active-leaf-change", (active) => {
+      if (active !== leaf) userInput = true;
+    });
+    const timer = globalThis.setTimeout(() => {
+      cleanup();
+      const activeLeaf = this.app.workspace.activeLeaf;
+      if (this.disposed || userInput || openSeq !== this.cardOpenSeq
+        || !this.getSettings().locateLinkCardOnOpen
+        || (activeLeaf && activeLeaf !== leaf)) return;
+      this.positionLinkCard(leaf, file, location);
+    }, 400);
+    const cleanup = (): void => {
+      globalThis.clearTimeout(timer);
+      for (const event of inputEvents) target?.removeEventListener(event, markInput, true);
+      this.app.workspace.offref?.(leafChange);
+      if (this.cancelLinkCorrection === cleanup) this.cancelLinkCorrection = null;
+    };
+    this.cancelLinkCorrection = cleanup;
   }
 
   private async resolveOpenDestinationLeaf(destination?: OpenDestination): Promise<WorkspaceLeaf | null> {

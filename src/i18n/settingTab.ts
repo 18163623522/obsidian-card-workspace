@@ -3,6 +3,8 @@ import type { UiLanguage } from "./types";
 export interface SettingTabStrings {
   defaultCardOpenBehaviorName: string;
   defaultCardOpenBehaviorDesc: string;
+  locateLinkCardOnOpenName: string;
+  locateLinkCardOnOpenDesc: string;
   dragInsertActionName: string;
   dragInsertActionDesc: string;
   newNoteTemplateName: string;
@@ -20,6 +22,8 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     defaultCardOpenBehaviorName: "Default card open behavior",
     defaultCardOpenBehaviorDesc:
       "Choose what happens when you click a card directly. Right-click menu actions stay available separately.",
+    locateLinkCardOnOpenName: "Jump to link location when opening a link card",
+    locateLinkCardOnOpenDesc: "Open a backlinks or outgoing-links card at its previewed link location. With Remember Cursor Position enabled, an older position may appear briefly before the link location is restored. Other cursor-restoring plugins depend on their implementation. This may save the new position as the note's last position.",
     dragInsertActionName: "Card drag insert behavior",
     dragInsertActionDesc: "Choose what happens when a card is dropped into a Markdown editor.",
     newNoteTemplateName: "New note content",
@@ -37,6 +41,8 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
   zh: {
     defaultCardOpenBehaviorName: "卡片默认打开方式",
     defaultCardOpenBehaviorDesc: "选择直接点击卡片时的行为。右键菜单操作仍可单独使用。",
+    locateLinkCardOnOpenName: "双链卡片点击定位",
+    locateLinkCardOnOpenDesc: "打开反链或出链卡片时跳到预览的链接位置。启用 Remember Cursor Position 时可能短暂显示旧位置，随后回到链接位置；其他恢复光标插件的行为取决于其实现。跳转后，新位置可能被记为笔记的上次位置。",
     dragInsertActionName: "卡片拖拽插入行为",
     dragInsertActionDesc: "选择将卡片拖入 Markdown 编辑器时的处理方式。",
     newNoteTemplateName: "新建笔记内容",

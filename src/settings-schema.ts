@@ -28,6 +28,7 @@ export const SETTINGS_LAYER_BY_KEY = {
   includeSubfolders: "preferences",
   defaultView: "preferences",
   defaultCardOpenBehavior: "preferences",
+  locateLinkCardOnOpen: "preferences",
   dragInsertAction: "preferences",
   cardCornerRadius: "preferences",
   newNoteTemplate: "preferences",

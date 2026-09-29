@@ -131,6 +131,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
   const hydration: HydrationController = new HydrationController({
     context,
     isLoading: gate.guard("scopeController.isLoading", () => scopeController.isLoading()),
+    getCommittedQuery: gate.guard("search.getCommittedQuery", () => search.getCommittedQuery()),
   });
   const search: SearchController = new SearchController({
     context,
@@ -185,7 +186,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
     hasPendingHydration: (path) => hydration.hasPending(path),
     deletePendingHydration: (path) => hydration.deletePending(path),
     resetHydrationForLoad: () => hydration.resetForLoad(),
-    prepareRecordsFromCache: (records) => hydration.prepareRecordsFromCache(records),
+    prepareRecordsFromCache: (records, scope) => hydration.prepareRecordsFromCache(records, scope),
     invalidateForVaultMutation: (event) => hydration.invalidateForVaultMutation(event),
     hydrateStartupCardPaths: (paths, token) =>
       hydration.hydrateStartupCardPaths(paths, token),

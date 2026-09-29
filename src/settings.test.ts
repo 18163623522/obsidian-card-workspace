@@ -1059,6 +1059,7 @@ describe("card grouping settings normalization", () => {
       preferences: {
         ...persisted.preferences,
         group: DEFAULT_GROUP_SPEC,
+        locateLinkCardOnOpen: false,
         navSectionOrder: ["properties", "boxes", "tags", "folders", "favorites", "links"],
         visiblePropertyKeys: [],
       },
@@ -1523,6 +1524,7 @@ describe("settings layer manifest (C4)", () => {
     includeSubfolders: "preferences",
     defaultView: "preferences",
     defaultCardOpenBehavior: "preferences",
+    locateLinkCardOnOpen: "preferences",
     dragInsertAction: "preferences",
     cardCornerRadius: "preferences",
     newNoteTemplate: "preferences",
@@ -1580,6 +1582,7 @@ describe("non-default v2 round trip per layer (C4)", () => {
     // "cards" is the only valid value; it still pins the preferences-layer claim.
     defaultView: "cards",
     defaultCardOpenBehavior: "new-tab",
+    locateLinkCardOnOpen: true,
     dragInsertAction: "wiki",
     cardCornerRadius: "compact",
     newNoteTemplate: "blank",
@@ -1609,6 +1612,7 @@ describe("non-default v2 round trip per layer (C4)", () => {
     ["includeSubfolders", (d) => d.preferences.includeSubfolders, false],
     ["defaultView", (d) => d.preferences.defaultView, "cards"],
     ["defaultCardOpenBehavior", (d) => d.preferences.defaultCardOpenBehavior, "new-tab"],
+    ["locateLinkCardOnOpen", (d) => d.preferences.locateLinkCardOnOpen, true],
     ["dragInsertAction", (d) => d.preferences.dragInsertAction, "wiki"],
     ["cardCornerRadius", (d) => d.preferences.cardCornerRadius, "compact"],
     ["newNoteTemplate", (d) => d.preferences.newNoteTemplate, "blank"],

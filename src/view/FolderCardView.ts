@@ -3,6 +3,7 @@ import { mount, unmount } from "svelte";
 import { CARD_WORKSPACE_ICON } from "../icons";
 import type { UiStrings } from "../i18n";
 import type { OpenDestination, PartialPluginSettings } from "../settings";
+import { resolveLinkCardLocation, type CardOpenLocation } from "./link-card-location";
 import type CardWorkspacePlugin from "../main";
 import {
   createFolderScope,
@@ -151,7 +152,18 @@ export class FolderCardView extends ItemView {
     });
   }
   private openCardWithDestination(path: string, destination: OpenDestination): void {
-    void this.plugin.openNoteFromCard(path, destination);
+    const location = this.resolveCardLocation(path);
+    if (location) void this.plugin.openNoteFromCard(path, destination, location);
+    else void this.plugin.openNoteFromCard(path, destination);
+  }
+
+  resolveCardLocation(path: string): CardOpenLocation | null {
+    const scope = this.store.getScope();
+    if (!this.plugin.getSettings().locateLinkCardOnOpen || scope.kind !== "links"
+      || !this.store.getBaseCard(path)) return null;
+    const query = this.modules.search.getCommittedQuery().trim();
+    if (query) return { query };
+    return resolveLinkCardLocation(this.app, scope, path);
   }
   async onOpen(): Promise<void> {
     const FolderCardPanel = (await import("./FolderCardPanel.svelte")).default;

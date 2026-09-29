@@ -8,6 +8,7 @@ export interface PreviewFingerprint {
   readonly mtime: number;
   readonly previewLines: number;
   readonly maxVisibleChars: number;
+  readonly contextKey: string;
 }
 
 interface PreviewCacheEntry extends PreviewFingerprint {
@@ -24,8 +25,9 @@ export function createPreviewFingerprint(
   mtime: number,
   previewLines: number,
   maxVisibleChars: number,
+  contextKey = "",
 ): PreviewFingerprint {
-  return { path, mtime, previewLines: normalizePreviewLines(previewLines), maxVisibleChars };
+  return { path, mtime, previewLines: normalizePreviewLines(previewLines), maxVisibleChars, contextKey };
 }
 
 export function fingerprintsEqual(
@@ -35,7 +37,8 @@ export function fingerprintsEqual(
   return left.path === right.path
     && left.mtime === right.mtime
     && left.previewLines === right.previewLines
-    && left.maxVisibleChars === right.maxVisibleChars;
+    && left.maxVisibleChars === right.maxVisibleChars
+    && left.contextKey === right.contextKey;
 }
 
 export class PreviewCache {
@@ -43,6 +46,10 @@ export class PreviewCache {
 
   get size(): number {
     return this.entries.size;
+  }
+
+  hasPath(path: string): boolean {
+    return this.entries.has(path);
   }
 
   get(fingerprint: PreviewFingerprint): LightPreviewResult | undefined {

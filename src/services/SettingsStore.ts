@@ -22,6 +22,7 @@ export interface PreferencesSettings {
   includeSubfolders: boolean;
   defaultView: PluginSettings["defaultView"];
   defaultCardOpenBehavior: PluginSettings["defaultCardOpenBehavior"];
+  locateLinkCardOnOpen: boolean;
   dragInsertAction: PluginSettings["dragInsertAction"];
   cardCornerRadius: PluginSettings["cardCornerRadius"];
   newNoteTemplate: PluginSettings["newNoteTemplate"];
@@ -130,6 +131,7 @@ export function splitFlatPatch(patch: PartialPluginSettings): {
   if (patch.defaultCardOpenBehavior !== undefined) {
     preferences.defaultCardOpenBehavior = patch.defaultCardOpenBehavior;
   }
+  if (patch.locateLinkCardOnOpen !== undefined) preferences.locateLinkCardOnOpen = patch.locateLinkCardOnOpen;
   if (patch.dragInsertAction !== undefined) preferences.dragInsertAction = patch.dragInsertAction;
   if (patch.cardCornerRadius !== undefined) preferences.cardCornerRadius = patch.cardCornerRadius;
   if (patch.newNoteTemplate !== undefined) preferences.newNoteTemplate = patch.newNoteTemplate;
@@ -175,6 +177,7 @@ export function serializeSettings(settings: PluginSettings): PersistedSettingsV2
       includeSubfolders: settings.includeSubfolders,
       defaultView: settings.defaultView,
       defaultCardOpenBehavior: settings.defaultCardOpenBehavior,
+      locateLinkCardOnOpen: settings.locateLinkCardOnOpen,
       dragInsertAction: settings.dragInsertAction,
       cardCornerRadius: settings.cardCornerRadius,
       newNoteTemplate: settings.newNoteTemplate,

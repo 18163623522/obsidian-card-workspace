@@ -2,7 +2,10 @@ import type { EpochToken } from "../async-epoch";
 import { isMarkdownCardKind } from "../file-kind";
 import type { HydrateViewportRequest } from "../hydration-request";
 import { buildLightPreview, DEFAULT_PREVIEW_MAX_VISIBLE_CHARS } from "../markdown-utils";
-import { createPreviewFingerprint, fingerprintsEqual, PreviewCache,
+import { buildLocationPreview, buildSearchContextPreview } from "../context-preview";
+import { resolveLinkCardLocation } from "../link-card-location";
+import type { CardScope } from "../scope";
+import { createPreviewFingerprint, fingerprintsEqual, PreviewCache, PREVIEW_CACHE_CAPACITY,
   type PreviewFingerprint } from "../preview-cache";
 import type { NoteCardRecord, VaultMutationEvent } from "../types";
 import type { DisposableController, DisposeReport, ViewContext } from "../view-context";
@@ -41,10 +44,12 @@ interface PendingPatch {
 export interface HydrationControllerDeps {
   context: ViewContext;
   isLoading: () => boolean;
+  getCommittedQuery?: () => string;
 }
 /** Owns the per-view preview cache, demand queue, and incremental publication. */
 export class HydrationController implements DisposableController {
   private readonly cache = new PreviewCache();
+  private readonly appliedFingerprints = new Map<string, PreviewFingerprint>();
   private readonly jobs = new Map<string, HydrationJob>();
   private readonly queue: HydrationJob[] = [];
   private readonly latestViewport = new Set<string>();
@@ -89,24 +94,37 @@ export class HydrationController implements DisposableController {
   }
   clearPreviewCache(): void {
     this.cache.clear();
+    this.appliedFingerprints.clear();
   }
   invalidateForVaultMutation(event: VaultMutationEvent): void {
     if (event.eventType === "create" || (event.isFolder && event.eventType === "modify")) return;
     const invalidate = (path: string): void => {
-      if (event.isFolder) this.cache.invalidatePrefix(path);
-      else this.cache.invalidateExact(path);
+      if (event.isFolder) {
+        this.cache.invalidatePrefix(path);
+        for (const key of this.appliedFingerprints.keys()) {
+          if (key === path || key.startsWith(`${path}/`)) this.appliedFingerprints.delete(key);
+        }
+      } else {
+        this.cache.invalidateExact(path);
+        this.appliedFingerprints.delete(path);
+      }
     };
     invalidate(event.path);
     if (event.eventType === "rename" && event.oldPath !== null) invalidate(event.oldPath);
   }
-  prepareRecordsFromCache(records: NoteCardRecord[]): void {
+  prepareRecordsFromCache(records: NoteCardRecord[], scope?: CardScope): void {
     for (const record of records) {
       if (!isMarkdownCardKind(record.fileKind)) {
         Object.assign(record, this.placeholderPatch(record));
         continue;
       }
-      const preview = this.cache.get(this.fingerprintFor(record));
-      if (preview) Object.assign(record, this.previewPatch(record, preview));
+      if (!this.cache.hasPath(record.path)) continue;
+      const fingerprint = this.fingerprintFor(record, scope);
+      const preview = this.cache.get(fingerprint);
+      if (preview) {
+        Object.assign(record, this.previewPatch(record, preview));
+        this.rememberAppliedFingerprint(record.path, fingerprint);
+      }
     }
   }
   schedulePath(path: string): void {
@@ -209,7 +227,8 @@ export class HydrationController implements DisposableController {
       return existing.settled;
     }
     if (!owner.forced) {
-      if (card.hydrated) return Promise.resolve();
+      const applied = this.appliedFingerprints.get(path);
+      if (card.hydrated && applied && fingerprintsEqual(applied, fingerprint)) return Promise.resolve();
       const cached = this.cache.get(fingerprint);
       if (cached) {
         return this.enqueuePatch(
@@ -259,7 +278,16 @@ export class HydrationController implements DisposableController {
     try {
       const markdown = await this.context.getApp().vault.cachedRead(card.file);
       if (!this.currentFingerprint(job)) return;
-      const preview = buildLightPreview(markdown, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines);
+      const scope = this.context.store.getScope();
+      const query = this.deps.getCommittedQuery?.().trim() ?? "";
+      const location = scope.kind === "links"
+        ? resolveLinkCardLocation(this.context.getApp(), scope, card.path) : null;
+      const preview = (query
+        ? buildSearchContextPreview(markdown, query, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines)
+        : location
+          ? buildLocationPreview(markdown, location, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines)
+          : null)
+        ?? buildLightPreview(markdown, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines);
       this.cache.set(job.fingerprint, preview);
       patch = this.previewPatch(card, preview);
     } catch {
@@ -335,17 +363,31 @@ export class HydrationController implements DisposableController {
     });
     if (valid.length > 0) {
       this.context.store.patchCardPreviews(valid.map((item) => item.update));
+      for (const item of valid) this.rememberAppliedFingerprint(item.update.path, item.fingerprint);
       if (valid.some((item) => item.publish)) this.context.publishGroups("cards");
     }
     pending.forEach((item) => item.resolve());
   }
-  private fingerprintFor(card: NoteCardRecord): PreviewFingerprint {
+  private fingerprintFor(card: NoteCardRecord, scopeOverride?: CardScope): PreviewFingerprint {
+    const query = this.deps.getCommittedQuery?.().trim() ?? "";
+    const scope = scopeOverride ?? this.context.store.getScope();
+    const location = scope.kind === "links"
+      ? resolveLinkCardLocation(this.context.getApp(), scope, card.path) : null;
     return createPreviewFingerprint(
       card.path,
       card.mtime,
       this.context.getSettings().previewLines,
       DEFAULT_PREVIEW_MAX_VISIBLE_CHARS,
+      query ? `search:${query}` : location ? `link:${location.identity}` : "",
     );
+  }
+  private rememberAppliedFingerprint(path: string, fingerprint: PreviewFingerprint): void {
+    this.appliedFingerprints.delete(path);
+    this.appliedFingerprints.set(path, fingerprint);
+    if (this.appliedFingerprints.size > PREVIEW_CACHE_CAPACITY) {
+      const oldest = this.appliedFingerprints.keys().next().value;
+      if (oldest !== undefined) this.appliedFingerprints.delete(oldest);
+    }
   }
   private previewPatch(card: NoteCardRecord, preview: HydrationPreview): Partial<CardPreviewFields> {
     return buildPreviewPatch(this.context.getApp(), card, preview);
@@ -372,6 +414,7 @@ export class HydrationController implements DisposableController {
     }
     this.disposed = true;
     this.cache.clear();
+    this.appliedFingerprints.clear();
     this.latestViewport.clear();
     for (const job of this.jobs.values()) job.resolve();
     this.jobs.clear();
