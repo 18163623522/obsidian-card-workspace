@@ -1580,6 +1580,11 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   font-weight: 600;
 }
 
+.folder-card-view .fce-excerpt .fce-preview-link {
+  color: var(--link-color, var(--interactive-accent));
+  text-decoration: underline;
+}
+
 .folder-card-view .fce-excerpt code {
   padding: 0 3px;
   border-radius: 4px;

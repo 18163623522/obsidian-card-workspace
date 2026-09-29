@@ -630,6 +630,35 @@ describe("CardItem.svelte", () => {
     expect(getExcerptHtml(target)).toContain('<mark class="fce-search-hit">bold</mark>');
   });
 
+  it("highlights styled link text while hover and click still target the card", () => {
+    const captured = createCapturedCallbacks();
+    const { target } = mountCardItem({
+      card: createCard("notes/current.md", {
+        previewHtml: '<p>See <span class="fce-preview-link">Alias</span></p>',
+      }),
+      searchQuery: "alias",
+    }, captured.callbacks);
+    const link = target.querySelector<HTMLElement>(".fce-preview-link");
+
+    expect(link?.innerHTML).toBe('<mark class="fce-search-hit">Alias</mark>');
+    expect(link?.getAttribute("href")).toBeNull();
+    link?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
+    link?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(captured.hoverEvents.map((event) => event.path)).toEqual(["notes/current.md"]);
+    expect(captured.openEvents).toEqual([{ path: "notes/current.md" }]);
+  });
+
+  it("allows only the preview link class on spans and strips link attributes", () => {
+    const sanitized = sanitizePreviewHtml(
+      '<p><span class="fce-preview-link unwanted" href="javascript:alert(1)" onclick="alert(1)" style="color:red">Safe</span><a href="https://example.com">plain</a></p>',
+      document,
+    );
+
+    expect(sanitized).toBe('<p><span class="fce-preview-link">Safe</span>plain</p>');
+    expect(highlightSanitizedPreviewHtml(sanitized, "safe", document))
+      .toContain('<span class="fce-preview-link"><mark class="fce-search-hit">Safe</mark></span>');
+  });
+
   it.each(["", "safe bold"])("uses the same sanitizer allow-list for query %j", (searchQuery) => {
     const { target } = mountCardItem({
       searchQuery,

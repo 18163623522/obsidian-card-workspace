@@ -8,7 +8,7 @@ describe("context previews", () => {
     const preview = buildLocationPreview(markdown, {
       line: 1, ch: 12, expectedText: "[[target]]", identity: "link",
     }, 200, 3);
-    expect(preview?.html).toContain("target");
+    expect(preview?.html).toContain('<span class="fce-preview-link">target</span>');
     expect(preview?.html).toContain("following detail");
     expect(buildLocationPreview(markdown, {
       line: 1, expectedText: "[[removed]]", identity: "stale",

@@ -21,7 +21,7 @@ export interface LightPreviewResult {
 }
 
 interface InlineSegment {
-  type: "text" | "strong" | "em" | "code";
+  type: "text" | "code" | "link";
   text: string;
 }
 
@@ -30,6 +30,9 @@ interface InlineRenderResult {
   consumedChars: number;
   truncated: boolean;
 }
+
+const WIKI_LINK_PATTERN = /\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|([^\]]+))?]]/y;
+const MARKDOWN_LINK_PATTERN = /\[([^\]]+)]\([^)]+\)/y;
 
 export function buildLightPreview(
   markdown: string | PreviewTextSource,
@@ -294,6 +297,8 @@ function renderInlineWithLimit(source: string, limit: number): InlineRenderResul
     const escaped = escapeHtml(slice);
     if (segment.type === "code") {
       htmlParts.push(`<code>${escaped}</code>`);
+    } else if (segment.type === "link") {
+      htmlParts.push(`<span class="fce-preview-link">${escaped}</span>`);
     } else {
       htmlParts.push(escaped);
     }
@@ -328,8 +333,6 @@ function normalizeInlineSource(source: string): string {
     .replace(/!\[[^\]]*]\([^)]+\)/g, " ")
     .replace(/!\[\[[^\]]+]]/g, " ")
     .replace(/<img\s[^>]*>/gi, " ")
-    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
-    .replace(/\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|([^\]]+))?]]/g, (_match: string, link: string, alias: string | undefined) => alias ?? link)
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -354,11 +357,20 @@ function parseInlineSegments(source: string): InlineSegment[] {
   let index = 0;
 
   while (index < source.length) {
+    if (source[index] === "[" && source[index - 1] !== "!") {
+      const link = readInlineLink(source, index);
+      if (link) {
+        segments.push({ type: "link", text: link.display });
+        index += link.length;
+        continue;
+      }
+    }
+
     if (source.startsWith("**", index) || source.startsWith("__", index)) {
       const marker = source.slice(index, index + 2);
       const close = source.indexOf(marker, index + 2);
       if (close > index + 2) {
-        segments.push({ type: "strong", text: source.slice(index + 2, close) });
+        segments.push(...parseInlineSegments(source.slice(index + 2, close)));
         index = close + 2;
         continue;
       }
@@ -368,7 +380,7 @@ function parseInlineSegments(source: string): InlineSegment[] {
       const marker = source[index];
       const close = source.indexOf(marker, index + 1);
       if (close > index + 1) {
-        segments.push({ type: "em", text: source.slice(index + 1, close) });
+        segments.push(...parseInlineSegments(source.slice(index + 1, close)));
         index = close + 1;
         continue;
       }
@@ -377,7 +389,7 @@ function parseInlineSegments(source: string): InlineSegment[] {
     if (source[index] === "`") {
       const close = source.indexOf("`", index + 1);
       if (close > index + 1) {
-        segments.push({ type: "code", text: source.slice(index + 1, close) });
+        segments.push({ type: "code", text: normalizeLinkDisplay(source.slice(index + 1, close)) });
         index = close + 1;
         continue;
       }
@@ -395,7 +407,28 @@ function parseInlineSegments(source: string): InlineSegment[] {
 }
 
 function startsInlineMarker(source: string, index: number): boolean {
-  return source.startsWith("**", index) || source.startsWith("__", index) || source[index] === "*" || source[index] === "_" || source[index] === "`";
+  return source.startsWith("**", index) || source.startsWith("__", index) || source[index] === "*" || source[index] === "_" || source[index] === "`" || source[index] === "[";
+}
+
+function readInlineLink(source: string, index: number): { display: string; length: number } | null {
+  WIKI_LINK_PATTERN.lastIndex = index;
+  const wiki = WIKI_LINK_PATTERN.exec(source);
+  if (wiki) {
+    return { display: plainInlineText(wiki[2] ?? wiki[1]), length: wiki[0].length };
+  }
+  MARKDOWN_LINK_PATTERN.lastIndex = index;
+  const markdown = MARKDOWN_LINK_PATTERN.exec(source);
+  return markdown ? { display: plainInlineText(markdown[1]), length: markdown[0].length } : null;
+}
+
+function plainInlineText(source: string): string {
+  return parseInlineSegments(source).map((segment) => segment.text).join("");
+}
+
+function normalizeLinkDisplay(source: string): string {
+  return source
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|([^\]]+))?]]/g, (_match: string, link: string, alias: string | undefined) => alias ?? link);
 }
 
 function isFenceClosingLine(line: string, marker: "`" | "~", size: number): boolean {

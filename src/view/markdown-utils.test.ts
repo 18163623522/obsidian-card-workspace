@@ -192,6 +192,31 @@ describe("buildLightPreview", () => {
     const result = buildLightPreview("use `fn()` here");
     expect(result.html).toContain("<code>fn()</code>");
   });
+
+  it("styles wiki links, aliases, and Markdown links with their existing display text", () => {
+    const result = buildLightPreview("[[Note]] [[Other#section|Alias]] [Website](https://example.com) **[[Bold]]** [[Target|**Emphasis**]] [`Code`](target)");
+
+    expect(result.html).toBe('<p><span class="fce-preview-link">Note</span> <span class="fce-preview-link">Alias</span> <span class="fce-preview-link">Website</span> <span class="fce-preview-link">Bold</span> <span class="fce-preview-link">Emphasis</span> <span class="fce-preview-link">Code</span></p>');
+    expect(result.html).not.toMatch(/<a\b|href=/);
+  });
+
+  it("keeps links in inline and fenced code unstyled and skips images and embeds", () => {
+    const result = buildLightPreview("`[[Code]]` ![[photo.png]] ![alt](image.png) [[Note]]\n```md\n[[Fence]] [Text](target)\n```", 500, 5);
+
+    expect(result.html).toContain("<code>Code</code>");
+    expect(result.html).toContain('<span class="fce-preview-link">Note</span>');
+    expect(result.html).toContain("<code>[[Fence]] [Text](target)</code>");
+    expect(result.html).not.toContain("photo.png");
+    expect(result.html).not.toContain("image.png");
+    expect(result.html.match(/fce-preview-link/g)).toHaveLength(1);
+  });
+
+  it("clips link display text to the existing character budget and escapes it", () => {
+    expect(buildLightPreview("[[target|<svg onload=\"alert(1)\">]]", 5).html)
+      .toBe('<p><span class="fce-preview-link">&lt;svg </span>...</p>');
+    expect(buildLightPreview("[A&B](javascript:alert)").html)
+      .toBe('<p><span class="fce-preview-link">A&amp;B</span></p>');
+  });
   it("keeps later paragraphs after inline code in an earlier paragraph", () => {
     const result = buildLightPreview("Use `fn()` here.\n\nAfter inline code should still preview.", 500, 5);
     expect(result.mode).toBe("text");

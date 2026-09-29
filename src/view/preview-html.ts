@@ -2,11 +2,12 @@ import { getSearchDisplayTerms } from "../search-tokenization";
 
 export type PreviewHtmlSanitizer = (previewHtml: string, doc: Document) => string;
 
-const ALLOWED_PREVIEW_TAGS = new Set(["P", "CODE", "MARK"]);
+const ALLOWED_PREVIEW_TAGS = new Set(["P", "CODE", "MARK", "SPAN"]);
 const ALLOWED_PREVIEW_CLASSES = {
   P: new Set(["fce-preview-code", "fce-preview-heading"]),
   CODE: new Set<string>(),
   MARK: new Set(["fce-search-hit"]),
+  SPAN: new Set(["fce-preview-link"]),
 } as const;
 
 export const sanitizePreviewHtml: PreviewHtmlSanitizer = (previewHtml, doc) => {
