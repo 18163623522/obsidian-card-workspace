@@ -11,6 +11,8 @@
 /* === layout === */
 .workspace-leaf-content[data-type="folder-card-view"] > .view-content {
   padding: 0;
+  /* The card list and navigation own scrolling; the host must not add a second scrollbar. */
+  overflow: hidden;
 }
 
 .folder-card-view,
