@@ -303,7 +303,7 @@ export default class CardWorkspacePlugin extends Plugin {
     const leafChange = this.app.workspace.on("active-leaf-change", (active) => {
       if (active !== leaf) userInput = true;
     });
-    const timer = globalThis.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       cleanup();
       const activeLeaf = this.app.workspace.activeLeaf;
       if (this.disposed || userInput || openSeq !== this.cardOpenSeq
@@ -312,7 +312,7 @@ export default class CardWorkspacePlugin extends Plugin {
       this.positionLinkCard(leaf, file, location);
     }, 400);
     const cleanup = (): void => {
-      globalThis.clearTimeout(timer);
+      window.clearTimeout(timer);
       for (const event of inputEvents) target?.removeEventListener(event, markInput, true);
       this.app.workspace.offref?.(leafChange);
       if (this.cancelLinkCorrection === cleanup) this.cancelLinkCorrection = null;

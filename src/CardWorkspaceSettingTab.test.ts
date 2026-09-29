@@ -225,6 +225,31 @@ describe("CardWorkspaceSettingTab", () => {
     });
     expect(mockState.settings[6]?.toggle).toMatchObject({ value: false });
     expect(mockState.settings[6]?.desc).toContain("Remember Cursor Position");
+
+    const definitions = tab.getSettingDefinitions();
+    expect(definitions.map((definition) => definition.name)).toEqual(
+      mockState.settings.map((setting) => setting.name),
+    );
+    expect(definitions.map((definition) => definition.desc)).toEqual(
+      mockState.settings.map((setting) => setting.desc),
+    );
+    expect(definitions[0]?.control).toEqual({
+      type: "dropdown",
+      key: "defaultCardOpenBehavior",
+      options: {
+        smart: "Current pane / current tab",
+        "new-tab": "Open in new tab",
+        "split-right": "Open to the right",
+        "new-window": "Open in new window",
+      },
+    });
+    expect(definitions[4]?.control).toBeUndefined();
+    expect(definitions[4]?.render).toEqual(expect.any(Function));
+    expect(definitions[5]?.control).toEqual({ type: "toggle", key: "showNavItemCounts" });
+    expect(tab.getControlValue("defaultCardOpenBehavior")).toBe("split-right");
+    expect(tab.getControlValue("previewLines")).toBe(6);
+    expect(tab.getControlValue("showNavItemCounts")).toBe(false);
+    expect(tab.getControlValue("pinnedPaths")).toBeUndefined();
   });
 
   it("renders Chinese labels when the Obsidian language is Chinese", () => {
@@ -268,6 +293,18 @@ describe("CardWorkspaceSettingTab", () => {
       { value: "tags-frontmatter", label: "带 tags 属性" },
       { value: "blank", label: "完全空白" },
     ]);
+    expect(tab.getSettingDefinitions().map((definition) => definition.name)).toEqual([
+      "卡片默认打开方式",
+      "卡片拖拽插入行为",
+      "新建笔记内容",
+      "卡片圆角",
+      "预览行数",
+      "在导航栏显示条目计数",
+      "双链卡片点击定位",
+    ]);
+    expect(tab.getSettingDefinitions()[0]?.control).toMatchObject({
+      options: { smart: "当前窗格 / 当前标签页" },
+    });
   });
 
   it("saves defaultCardOpenBehavior changes from the dropdown", async () => {
@@ -385,5 +422,55 @@ describe("CardWorkspaceSettingTab", () => {
     tab.display();
     await mockState.settings[6]?.toggle?.changeHandler?.(true);
     expect(plugin.saveSettings).toHaveBeenCalledWith({ locateLinkCardOnOpen: true });
+  });
+
+  it("saves declarative setting changes and ignores values outside the legacy tab", async () => {
+    const plugin = {
+      getSettings: vi.fn(() => ({
+        cardCornerRadius: "compact",
+        defaultCardOpenBehavior: "smart",
+        locateLinkCardOnOpen: false,
+        dragInsertAction: "ask",
+        newNoteTemplate: "tags-frontmatter",
+        previewLines: 5,
+        showNavItemCounts: true,
+      })),
+      saveSettings: vi.fn(async () => undefined),
+      getUiLanguage: vi.fn(() => "en"),
+    };
+    const tab = new CardWorkspaceSettingTab({} as never, plugin as never);
+
+    await tab.setControlValue("newNoteTemplate", "blank");
+    await tab.setControlValue("newNoteTemplate", "daily-note");
+    await tab.setControlValue("previewLines", 4);
+    await tab.setControlValue("previewLines", 99);
+    await tab.setControlValue("locateLinkCardOnOpen", true);
+    await tab.setControlValue("pinnedPaths", ["notes/a.md"]);
+
+    expect(plugin.saveSettings.mock.calls).toEqual([
+      [{ newNoteTemplate: "blank" }],
+      [{ previewLines: 4 }],
+      [{ locateLinkCardOnOpen: true }],
+    ]);
+
+    const preview = tab.getSettingDefinitions()[4];
+    const setting = new mockState.MockSetting({});
+    preview?.render?.(setting as never);
+    await setting.slider?.changeHandler?.(7);
+    await setting.slider?.changeHandler?.(1);
+
+    expect(plugin.saveSettings.mock.calls).toEqual([
+      [{ newNoteTemplate: "blank" }],
+      [{ previewLines: 4 }],
+      [{ locateLinkCardOnOpen: true }],
+      [{ previewLines: 7 }],
+    ]);
+    expect(setting.slider).toMatchObject({
+      min: 3,
+      max: 8,
+      step: 1,
+      value: 5,
+      dynamicTooltip: true,
+    });
   });
 });

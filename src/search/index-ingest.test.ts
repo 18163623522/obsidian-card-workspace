@@ -1,5 +1,5 @@
 import MiniSearch from "minisearch";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { tokenizeSearchIndexText } from "../search-tokenization";
 import { addDocumentsWithYield, INGEST_YIELD_TERM_BUDGET } from "./index-ingest";
@@ -52,14 +52,14 @@ function createRecordingIndex(
 
 /** Marks every cooperative yield so add events can be grouped into intervals. */
 function recordYieldBoundaries(events: IngestEvent[]): () => void {
-  const nativeSetTimeout = globalThis.setTimeout;
-  const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+  const nativeSetTimeout = window.setTimeout;
+  const spy = vi.spyOn(window, "setTimeout").mockImplementation(((
     handler: () => void,
     timeout?: number,
   ) => {
     events.push({ kind: "yield" });
     return nativeSetTimeout(handler, timeout);
-  }) as unknown as typeof globalThis.setTimeout);
+  }) as unknown as typeof window.setTimeout);
   return () => spy.mockRestore();
 }
 
@@ -91,6 +91,10 @@ function countYields(events: readonly IngestEvent[]): number {
 }
 
 describe("addDocumentsWithYield", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", globalThis);
+  });
+
   it("declares the fixed ingest yield budget", () => {
     expect(INGEST_YIELD_TERM_BUDGET).toBe(20_000);
   });

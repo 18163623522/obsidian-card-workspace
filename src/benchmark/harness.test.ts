@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import MiniSearch from "minisearch";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { prepareSearchableDocument } from "../search/document-preparation";
 import { INGEST_YIELD_TERM_BUDGET, addDocumentsWithYield } from "../search/index-ingest";
@@ -103,6 +103,10 @@ function searchWithProductionOptions(
 }
 
 describe("search benchmark harness", () => {
+  beforeEach(() => {
+    vi.stubGlobal("window", globalThis);
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });

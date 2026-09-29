@@ -167,7 +167,7 @@
   display: grid;
   grid-template-columns: var(--fce-nav-leading-slot) minmax(0, 1fr) 22px;
   align-items: center;
-  column-gap: 4px;
+  gap: 0 4px;
   flex: 1 1 auto;
   min-width: 0;
   height: 30px;
@@ -297,7 +297,7 @@
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
-  column-gap: var(--fce-nav-label-gap);
+  gap: 0 var(--fce-nav-label-gap);
   width: auto;
   max-width: calc(100% - 8px);
   min-width: 0;
@@ -965,8 +965,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
-  column-gap: 12px;
-  row-gap: 10px;
+  gap: 10px 12px;
 }
 
 .fce-tag-checkbox-option {

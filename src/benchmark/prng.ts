@@ -36,7 +36,7 @@ export function pickFrom<T>(random: DeterministicRandom, items: readonly T[]): T
     throw new Error("pickFrom requires a non-empty list.");
   }
   const index = Math.floor(random() * items.length) % items.length;
-  return items[index] as T;
+  return items[index];
 }
 
 export interface StreamingHash32 {

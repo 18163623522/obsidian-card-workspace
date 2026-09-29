@@ -1675,6 +1675,11 @@ describe("CardWorkspacePlugin editor drop registration", () => {
 describe("CardWorkspacePlugin open destination routing", () => {
   beforeEach(() => {
     obsidianMockState.notices = [];
+    vi.stubGlobal("window", globalThis);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   function setDefaultCardOpenBehavior(

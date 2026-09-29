@@ -50,7 +50,10 @@ export async function addDocumentsWithYield(
     accumulated += estimateEmittedTerms(document);
     if (accumulated < INGEST_YIELD_TERM_BUDGET) continue;
     accumulated = 0;
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    // Main-window timer. The Node benchmark aliases window before this runs.
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 0);
+    });
   }
   return accumulated;
 }

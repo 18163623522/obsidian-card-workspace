@@ -36,7 +36,12 @@ try {
     },
   });
 
-  const spawned = spawnSync(process.execPath, [bundleFile, ...process.argv.slice(2)], {
+  const spawned = spawnSync(process.execPath, [
+    "--import",
+    join(repositoryRoot, "scripts/ensure-main-window.mjs"),
+    bundleFile,
+    ...process.argv.slice(2),
+  ], {
     stdio: "inherit",
   });
   if (spawned.error) {
