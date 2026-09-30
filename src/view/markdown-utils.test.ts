@@ -134,11 +134,11 @@ describe("buildLightPreview", () => {
     const result = buildLightPreview("- [ ] first task\n- [x] done task\n1) [X] ordered done\n+ [>] in progress\n- [ ]");
     expect(result.mode).toBe("text");
     expect(result.html).toBe([
-      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☐</span><span class="fce-preview-list-content">first task</span></p>',
-      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☑</span><span class="fce-preview-list-content">done task</span></p>',
-      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">1) ☑</span><span class="fce-preview-list-content">ordered done</span></p>',
-      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">[&gt;]</span><span class="fce-preview-list-content">in progress</span></p>',
-      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☐</span><span class="fce-preview-list-content"></span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-task"></span><span class="fce-preview-list-content">first task</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-task fce-preview-task-done"></span><span class="fce-preview-list-content">done task</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-list-marker">1)</span><span class="fce-preview-task fce-preview-task-done"></span><span class="fce-preview-list-content">ordered done</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-task"><span class="fce-preview-task-glyph">&gt;</span></span><span class="fce-preview-list-content">in progress</span></p>',
+      '<p class="fce-preview-list-item"><span class="fce-preview-task"></span><span class="fce-preview-list-content"></span></p>',
     ].join(""));
     expect(result.html).not.toContain("<input");
   });
@@ -162,7 +162,7 @@ describe("buildLightPreview", () => {
 
   it("keeps a list marker when body text is clipped by the character budget", () => {
     const result = buildLightPreview("- [x] abcdef\n- later", 4, 3);
-    expect(result.html).toBe('<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☑</span><span class="fce-preview-list-content">abcd...</span></p>');
+    expect(result.html).toBe('<p class="fce-preview-list-item"><span class="fce-preview-task fce-preview-task-done"></span><span class="fce-preview-list-content">abcd...</span></p>');
   });
 
 

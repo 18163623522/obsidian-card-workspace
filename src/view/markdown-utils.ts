@@ -35,6 +35,9 @@ interface PreviewListItem {
   marker: string;
   body: string;
   isTask: boolean;
+  /** Open and done share one CSS box; custom keeps the source character inside it. */
+  taskKind: "none" | "open" | "done" | "custom";
+  taskGlyph: string;
 }
 
 const WIKI_LINK_PATTERN = /\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|([^\]]+))?]]/y;
@@ -210,20 +213,38 @@ function parsePreviewListItem(line: string): PreviewListItem | null {
   const sourceBody = ordered?.[2] ?? unordered?.[1] ?? "";
   const task = sourceBody.match(/^\[([^\]\r\n])\](?:\s+(.*)|\s*)$/);
   if (!task) {
-    return { marker: sourceMarker, body: sourceBody, isTask: false };
+    return { marker: sourceMarker, body: sourceBody, isTask: false, taskKind: "none", taskGlyph: "" };
   }
 
   const state = task[1];
-  const taskMarker = state === " " ? "☐" : state === "x" || state === "X" ? "☑" : `[${state}]`;
+  const taskKind = state === " " ? "open" : state === "x" || state === "X" ? "done" : "custom";
   return {
-    marker: ordered ? `${sourceMarker} ${taskMarker}` : taskMarker,
+    marker: ordered ? sourceMarker : "",
     body: task[2] ?? "",
     isTask: true,
+    taskKind,
+    taskGlyph: taskKind === "custom" ? state : "",
   };
 }
 
 function renderPreviewListItem(item: PreviewListItem, bodyHtml: string): string {
-  return `<p class="fce-preview-list-item"><span class="fce-preview-list-marker">${escapeHtml(item.marker)}</span><span class="fce-preview-list-content">${bodyHtml}</span></p>`;
+  const markerHtml = item.marker.length > 0
+    ? `<span class="fce-preview-list-marker">${escapeHtml(item.marker)}</span>`
+    : "";
+  return `<p class="fce-preview-list-item">${markerHtml}${renderTaskBox(item)}<span class="fce-preview-list-content">${bodyHtml}</span></p>`;
+}
+
+function renderTaskBox(item: PreviewListItem): string {
+  if (item.taskKind === "open") {
+    return `<span class="fce-preview-task"></span>`;
+  }
+  if (item.taskKind === "done") {
+    return `<span class="fce-preview-task fce-preview-task-done"></span>`;
+  }
+  if (item.taskKind === "custom") {
+    return `<span class="fce-preview-task"><span class="fce-preview-task-glyph">${escapeHtml(item.taskGlyph)}</span></span>`;
+  }
+  return "";
 }
 
 function isImageOnlyLine(line: string): boolean {

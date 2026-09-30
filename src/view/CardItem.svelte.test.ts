@@ -668,7 +668,8 @@ describe("CardItem.svelte", () => {
     });
     const excerpt = target.querySelector<HTMLElement>(".fce-excerpt");
 
-    expect(excerpt?.querySelector(".fce-preview-list-marker")?.textContent).toBe("☑");
+    expect(excerpt?.querySelector(".fce-preview-task-done")).not.toBeNull();
+    expect(excerpt?.querySelector(".fce-preview-list-marker")).toBeNull();
     expect(excerpt?.querySelector(".fce-preview-list-content")?.innerHTML)
       .toBe('<mark class="fce-search-hit">targeted</mark> task');
     expect(excerpt?.querySelector("input, button, [role='checkbox'], [contenteditable]")).toBeNull();
@@ -681,6 +682,12 @@ describe("CardItem.svelte", () => {
     );
 
     expect(sanitized).toBe('<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☐</span><span class="fce-preview-list-content">Safe</span></p>');
+
+    const taskBox = sanitizePreviewHtml(
+      '<p class="fce-preview-list-item"><span class="fce-preview-task fce-preview-task-done unwanted" onclick="alert(1)"></span><span class="fce-preview-task"><span class="fce-preview-task-glyph unwanted" style="color:red">&gt;</span></span></p>',
+      document,
+    );
+    expect(taskBox).toBe('<p class="fce-preview-list-item"><span class="fce-preview-task fce-preview-task-done"></span><span class="fce-preview-task"><span class="fce-preview-task-glyph">&gt;</span></span></p>');
     expect(highlightSanitizedPreviewHtml(sanitized, "safe", document))
       .toContain('<span class="fce-preview-list-content"><mark class="fce-search-hit">Safe</mark></span>');
   });

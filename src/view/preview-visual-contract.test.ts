@@ -21,6 +21,9 @@ describe("preview visual contract", () => {
     expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-list-item \{[^}]*display: flex;[^}]*line-height: inherit;/);
     expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-list-marker \{[^}]*flex: 0 0 auto;[^}]*white-space: pre;/);
     expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-list-content \{[^}]*min-inline-size: 0;[^}]*overflow-wrap: anywhere;/);
+    expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-task \{[^}]*inline-size: 0\.92em;[^}]*block-size: 0\.92em;[^}]*border-radius: 2px;/);
+    expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-task-done \{[^}]*background: var\(--fce-accent\);/);
+    expect(styles).toMatch(/\.folder-card-view \.fce-excerpt \.fce-preview-task-done::after \{[^}]*border-color: var\(--text-on-accent, var\(--background-primary\)\);/);
     expect(styles).toMatch(/\.folder-card-view \.fce-excerpt p \{\s*margin: 0;/);
   });
 });

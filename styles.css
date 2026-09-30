@@ -1593,6 +1593,49 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   overflow-wrap: anywhere;
 }
 
+/* Open and done share this box. `1lh` needs the inherited preview line-height
+   so the box centers on the first text line instead of sitting on the glyph box. */
+.folder-card-view .fce-excerpt .fce-preview-task {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  inline-size: 0.92em;
+  block-size: 0.92em;
+  border-radius: 2px;
+  margin-block-start: calc((1lh - 0.92em) / 2);
+  overflow: hidden;
+  border: 1.5px solid var(--fce-text-muted);
+  background: transparent;
+  line-height: inherit;
+  color: var(--fce-text-muted);
+}
+
+.folder-card-view .fce-excerpt .fce-preview-task-done {
+  border-color: var(--fce-accent);
+  background: var(--fce-accent);
+}
+
+.folder-card-view .fce-excerpt .fce-preview-task-done::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  width: 0.22em;
+  height: 0.42em;
+  border-style: solid;
+  border-color: var(--text-on-accent, var(--background-primary));
+  border-width: 0 0.12em 0.12em 0;
+  transform: translate(-50%, -65%) rotate(45deg);
+}
+
+.folder-card-view .fce-excerpt .fce-preview-task-glyph {
+  font-size: 0.68em;
+  line-height: 1;
+}
+
 .folder-card-view .fce-excerpt .fce-preview-heading {
   font-size: inherit;
   line-height: inherit;

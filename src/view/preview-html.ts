@@ -7,7 +7,14 @@ const ALLOWED_PREVIEW_CLASSES = {
   P: new Set(["fce-preview-code", "fce-preview-heading", "fce-preview-list-item"]),
   CODE: new Set<string>(),
   MARK: new Set(["fce-search-hit"]),
-  SPAN: new Set(["fce-preview-link", "fce-preview-list-marker", "fce-preview-list-content"]),
+  SPAN: new Set([
+    "fce-preview-link",
+    "fce-preview-list-marker",
+    "fce-preview-list-content",
+    "fce-preview-task",
+    "fce-preview-task-done",
+    "fce-preview-task-glyph",
+  ]),
 } as const;
 
 export const sanitizePreviewHtml: PreviewHtmlSanitizer = (previewHtml, doc) => {

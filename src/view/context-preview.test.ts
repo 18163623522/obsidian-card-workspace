@@ -30,6 +30,6 @@ describe("context previews", () => {
 
   it("uses the list preview conversion for a search hit", () => {
     const preview = buildSearchContextPreview("intro\n- [ ] find this item\n  and its continuation", "find", 200, 3);
-    expect(preview?.html).toBe('<p class="fce-preview-list-item"><span class="fce-preview-list-marker">☐</span><span class="fce-preview-list-content">find this item and its continuation</span></p>');
+    expect(preview?.html).toBe('<p class="fce-preview-list-item"><span class="fce-preview-task"></span><span class="fce-preview-list-content">find this item and its continuation</span></p>');
   });
 });
