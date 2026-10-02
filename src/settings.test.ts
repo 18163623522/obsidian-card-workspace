@@ -1058,7 +1058,7 @@ describe("card grouping settings normalization", () => {
       ...persisted,
       preferences: {
         ...persisted.preferences,
-        cardImageMode: "off", cardImageFit: "contain",
+        cardImageMode: "right", cardImageFit: "cover",
         group: DEFAULT_GROUP_SPEC,
         locateLinkCardOnOpen: false,
         navSectionOrder: ["properties", "boxes", "tags", "folders", "favorites", "links"],
@@ -1589,6 +1589,8 @@ describe("non-default v2 round trip per layer (C4)", () => {
     dragInsertAction: "wiki",
     cardCornerRadius: "compact",
     newNoteTemplate: "blank",
+    cardImageMode: "off",
+    cardImageFit: "contain",
     previewLines: 8,
     lastFolderPath: "Projects",
     expandedFolderPaths: ["Projects"],

@@ -98,8 +98,8 @@ function changeSetting(settings: PluginSettings, key: keyof PluginSettings): voi
     case "dragInsertAction": settings.dragInsertAction = "wiki"; break;
     case "cardCornerRadius": settings.cardCornerRadius = "compact"; break;
     case "newNoteTemplate": settings.newNoteTemplate = "blank"; break;
-    case "cardImageMode": settings.cardImageMode = "right"; break;
-    case "cardImageFit": settings.cardImageFit = "cover"; break;
+    case "cardImageMode": settings.cardImageMode = "off"; break;
+    case "cardImageFit": settings.cardImageFit = "contain"; break;
     case "previewLines": settings.previewLines += 1; break;
     case "lastFolderPath": settings.lastFolderPath = "changed"; break;
     case "expandedFolderPaths": settings.expandedFolderPaths = ["changed"]; break;

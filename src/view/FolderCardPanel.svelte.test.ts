@@ -233,7 +233,7 @@ describe("FolderCardPanel.svelte", () => {
     panelModel.mutate((draft) => { draft.images = { byPath: { "notes/0.md": { status: "loading" } }, requestVersion: 0 }; });
     await tick(); expect(panelModel.getState().cards).toBe(cards); expect(panelModel.getState().nav).toBe(nav);
     const requests = onImageViewport.mock.calls.length;
-    panelModel.mutate((draft) => { draft.appearance = { ...draft.appearance, cardImageFit: "cover" }; });
+    panelModel.mutate((draft) => { draft.appearance = { ...draft.appearance, cardImageFit: "contain" }; });
     await tick(); expect(onImageViewport).toHaveBeenCalledTimes(requests);
     await unmount(component);
   });
