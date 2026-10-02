@@ -1,11 +1,12 @@
 import { TFile } from "obsidian";
 import type { ThumbnailService } from "../../images/ThumbnailService";
 import { resolveFirstImage, type ImageSource } from "../../images/image-source";
-import { THUMBNAIL_VERSION, imageKey, type CardImageState, type ImageFingerprint } from "../../images/types";
+import { IMAGE_MAX_BYTES, THUMBNAIL_VERSION, imageKey, type CardImageState, type ImageFingerprint } from "../../images/types";
 import type { VaultMutationEvent } from "../../services/vault-events";
 import type { DisposableController, DisposeReport, ViewContext } from "../view-context";
 import type { ImageViewportRequest } from "../image-request";
 interface Demand { source: ImageSource; abort: AbortController; fingerprint?: ImageFingerprint; state?: CardImageState }
+const LOADING_IMAGE_STATE = { status: "loading" } as const;
 export interface CardImageControllerDeps {
   context: ViewContext;
   getService: () => { service: ThumbnailService; vault: string } | null;
@@ -29,6 +30,19 @@ export class CardImageController implements DisposableController {
     for (const [path, hint] of this.layoutHints) byPath[path] = hint.state;
     for (const [path, item] of this.demand) if (item.state) byPath[path] = item.state;
     return { byPath, requestVersion: this.requestVersion, generation: this.generation };
+  }
+  /** Render-time metadata lookup for mounted cards, including text overscan.
+   * Reserves space before the first paint without starting any thumbnail IO. */
+  resolvePlaceholder(path: string, generation: number): CardImageState | undefined {
+    if (this.disposed || this.context.getSettings().cardImageMode === "off"
+      || generation !== this.context.epochs.load.value) return undefined;
+    const card = this.context.store.getBaseCard(path);
+    if (!card || card.fileKind !== "markdown") return undefined;
+    let source: ImageSource;
+    try { source = resolveFirstImage(this.context.getApp(), card.file); } catch { return undefined; }
+    if (source.status !== "found" || source.file.stat.size <= 0 || source.file.stat.size > IMAGE_MAX_BYTES) return undefined;
+    const state = this.demand.get(path)?.state;
+    return state?.status === "failed" ? state : LOADING_IMAGE_STATE;
   }
   requestViewport(request: ImageViewportRequest): void {
     if (this.disposed || this.context.getSettings().cardImageMode === "off"
@@ -75,13 +89,19 @@ export class CardImageController implements DisposableController {
     try { source = resolveFirstImage(this.context.getApp(), card.file); } catch { return; }
     const item: Demand = { source, abort: new AbortController() };
     this.demand.set(path, item);
-    if (source.status !== "found") { if (this.layoutHints.delete(path)) this.publish(); return; }
+    if (source.status !== "found" || source.file.stat.size <= 0 || source.file.stat.size > IMAGE_MAX_BYTES) {
+      if (this.layoutHints.delete(path)) this.publish();
+      return;
+    }
+    item.state = LOADING_IMAGE_STATE;
+    this.publish();
     const runtime = this.deps.getService();
-    if (!runtime) return;
+    if (!runtime) { item.state = { status: "failed" }; return; }
     if (!this.releaseService) this.releaseService = runtime.service.acquire();
     const fingerprint: ImageFingerprint = { vault: runtime.vault, path: source.file.path,
       mtime: source.file.stat.mtime, size: source.file.stat.size, version: THUMBNAIL_VERSION };
     item.fingerprint = fingerprint;
+    this.rememberLayout(path, item);
     const generation = this.generation;
     const current = (): boolean => !this.disposed && !item.abort.signal.aborted && this.demand.get(path) === item
       && this.generation === generation && this.context.epochs.load.value === generation
@@ -89,7 +109,8 @@ export class CardImageController implements DisposableController {
     void runtime.service.request(fingerprint, {
       signal: item.abort.signal,
       canGenerate: () => current() && !this.deps.isLoading() && this.paths.every((notePath) => this.context.store.getBaseCard(notePath)?.hydrated !== false),
-      onEligible: () => { if (current()) { item.state = { status: "loading" }; this.rememberLayout(path, item); this.publish(); } },
+      // Header checks still gate decoding; the layout already owns its slot.
+      onEligible: () => {},
     }).then((result) => {
       if (!current()) return;
       // Validate the attachment again at publication, including out-of-scope files.
@@ -98,11 +119,10 @@ export class CardImageController implements DisposableController {
       if (result.status === "ready") {
         try { item.state = { status: "ready", url: this.acquireUrl(fingerprint, result.blob) }; }
         catch { item.state = { status: "failed" }; }
-      } else if (result.status === "failed") item.state = { status: "failed" };
-      else { item.state = undefined; this.layoutHints.delete(path); }
+      } else item.state = { status: "failed" };
       this.rememberLayout(path, item);
       this.publish();
-    }).catch(() => { if (current() && item.state) { item.state = { status: "failed" }; this.publish(); } });
+    }).catch(() => { if (current() && item.state) { item.state = { status: "failed" }; this.rememberLayout(path, item); this.publish(); } });
   }
   notifyTextReady(): void { if (this.releaseService) this.deps.getService()?.service.pump(); }
   onSettingsChanged(): void {
@@ -141,7 +161,9 @@ export class CardImageController implements DisposableController {
   }
   handleMetadataChange(path?: string): void {
     if (this.disposed || this.context.getSettings().cardImageMode === "off") return;
-    if (path !== undefined && this.layoutHints.delete(path)) this.publish();
+    if (path !== undefined) this.layoutHints.delete(path);
+    // Mounted overscan cards may have only a metadata placeholder, no demand.
+    if (path === undefined || this.context.store.getBaseCard(path)) this.publish();
     this.invalidate((notePath, item) => path === undefined ? item.source.status === "unknown" : notePath === path);
   }
   handleVaultMutation(event: VaultMutationEvent): void {

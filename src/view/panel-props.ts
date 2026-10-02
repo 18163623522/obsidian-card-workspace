@@ -81,6 +81,8 @@ export function buildPanelProps(view: PanelHost): PanelCallbackProps {
         || !request.paths.every((path: unknown) => typeof path === "string")) return;
       view.modules.images.requestViewport(request);
     },
+    resolveImagePlaceholder: (path: string, generation: number) =>
+      view.modules.images.resolvePlaceholder(path, generation),
     onToolbarAction: (detail: { action?: unknown }) => {
       view.handleToolbarAction(detail);
     },

@@ -84,6 +84,7 @@
   const imageMode = $derived(appearance.cardImageMode ?? "off");
   const showImage = $derived(imageMode !== "off" && image !== undefined);
   let failedUrl = $state<string | null>(null);
+  let loadedUrl = $state<string | null>(null);
   const isPinned = $derived(pinnedPaths.includes(card.path));
   const highlightedTitleSegments = $derived(getHighlightedTitleSegments(card.title, searchQuery));
   const normalizedSearchQuery = $derived(searchQuery.trim());
@@ -98,6 +99,29 @@
       : highlightSanitizedPreviewHtml(sanitizedPreviewHtml, normalizedSearchQuery, document),
   );
   let activeDragGhost: HTMLElement | null = null;
+
+  function revealImage(node: HTMLImageElement, url: string): { destroy: () => void } {
+    let active = true;
+    let decoding = false;
+    loadedUrl = null;
+    async function reveal(): Promise<void> {
+      if (!active || decoding) return;
+      decoding = true;
+      try {
+        if (typeof node.decode === "function") await node.decode();
+        if (active) loadedUrl = url;
+      } catch {
+        if (active) failedUrl = url;
+      }
+    }
+    const onLoad = (): void => { void reveal(); };
+    const onError = (): void => { if (active) failedUrl = url; };
+    node.addEventListener("load", onLoad);
+    node.addEventListener("error", onError);
+    // Cached images may finish before the action subscribes to their load event.
+    if (node.complete && node.naturalWidth > 0) void reveal();
+    return { destroy() { active = false; node.removeEventListener("load", onLoad); node.removeEventListener("error", onError); } };
+  }
 
   function moveDragGhost(event: DragEvent): void {
     const { clientX, clientY } = event;
@@ -422,9 +446,14 @@
     {#if showImage}
       <div class="fce-card-image" class:is-inline={imageMode === "inline"} class:is-cover={appearance.cardImageFit === "cover"}>
         {#if image?.status === "ready" && image.url !== failedUrl}
-          <img src={image.url} alt="" draggable="false" decoding="async" onerror={() => { if (image?.status === "ready") failedUrl = image.url; }} />
+          {#key image.url}
+            <img src={image.url} alt="" draggable="false" decoding="async" class:is-loaded={loadedUrl === image.url}
+              use:revealImage={image.url} />
+          {/key}
+        {:else if image?.status === "loading"}
+          <span class="fce-card-image-placeholder" role="img" aria-label={cardStrings.imageLoading}></span>
         {:else}
-          <span class="fce-card-image-placeholder" role="img" aria-label={image?.status === "loading" ? cardStrings.imageLoading : cardStrings.imageFailed} use:applyIcon={"image"}></span>
+          <span class="fce-card-image-placeholder" role="img" aria-label={cardStrings.imageFailed} use:applyIcon={"image"}></span>
         {/if}
       </div>
     {/if}

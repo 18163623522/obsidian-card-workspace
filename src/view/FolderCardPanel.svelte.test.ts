@@ -238,6 +238,39 @@ describe("FolderCardPanel.svelte", () => {
     await unmount(component);
   });
 
+  it("reserves images in mounted overscan before demand and reuses the region on completion", async () => {
+    const target = document.createElement("div"); document.body.appendChild(target);
+    const state = createInitialPanelState();
+    state.cards.records = Array.from({ length: 100 }, (_, i) => createCard(`notes/${i}.md`, `${i}`));
+    state.appearance = { ...state.appearance, cardImageMode: "inline" };
+    const panelModel = createPanelModel(state), onImageViewport = vi.fn();
+    const resolveImagePlaceholder = vi.fn(() => ({ status: "loading" as const }));
+    const component = mount(FolderCardPanel, { target, props: { panelModel, onImageViewport, resolveImagePlaceholder } });
+    await tick();
+    const regions = Array.from(target.querySelectorAll(".fce-card-image"));
+    expect(regions.length).toBeGreaterThan(onImageViewport.mock.calls.at(-1)![0].paths.length);
+    expect(resolveImagePlaceholder.mock.calls.length).toBeLessThan(100);
+    expect(target.querySelector("img")).toBeNull();
+    panelModel.mutate((draft) => { draft.images = { byPath: { "notes/0.md": { status: "ready", url: "blob:thumbnail" } }, requestVersion: 0 }; });
+    await tick();
+    expect(target.querySelector(".fce-card-image")).toBe(regions[0]);
+    expect(target.querySelector("img")?.classList.contains("is-loaded")).toBe(false);
+    const oldImage = target.querySelector("img")!;
+    let finishDecode!: () => void;
+    oldImage.decode = vi.fn(() => new Promise<void>((resolve) => { finishDecode = resolve; }));
+    oldImage.dispatchEvent(new Event("load"));
+    panelModel.mutate((draft) => { draft.images = { byPath: { "notes/0.md": { status: "ready", url: "blob:replacement" } }, requestVersion: 0 }; });
+    await tick();
+    const replacement = target.querySelector("img")!;
+    expect(replacement).not.toBe(oldImage);
+    finishDecode(); oldImage.dispatchEvent(new Event("error")); await tick();
+    expect(target.querySelector("img")).toBe(replacement);
+    expect(replacement.classList.contains("is-loaded")).toBe(false);
+    replacement.dispatchEvent(new Event("load")); await tick();
+    expect(replacement.classList.contains("is-loaded")).toBe(true);
+    await unmount(component);
+  });
+
   it("clears image demand when the card pane is hidden without resetting its layout", async () => {
     const target = document.createElement("div"); document.body.appendChild(target);
     const state = createInitialPanelState(); state.cards.records = Array.from({ length: 30 }, (_, i) => createCard(`notes/${i}.md`, `${i}`));

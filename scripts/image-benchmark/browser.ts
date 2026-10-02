@@ -115,6 +115,7 @@ async function open(options: { mode: string; columns: number; scenario: string; 
       void hydration!.hydrateViewport(request);
     },
     onImageViewport: (request: any) => { const start = performance.now(); controller?.requestViewport(request); imageTasks.push({ kind: "image-viewport", duration: performance.now() - start }); },
+    resolveImagePlaceholder: (path: string, generation: number) => controller?.resolvePlaceholder(path, generation),
   } });
   await tick(); await nextFrame();
 }

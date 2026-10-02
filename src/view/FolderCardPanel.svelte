@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from "svelte";
+  import type { CardImageState } from "../images/types";
   import { DEFAULT_GROUP_SPEC } from "../card-grouping-settings";
   import { getUiStrings } from "../i18n";
   import Toolbar from "./Toolbar.svelte";
@@ -124,6 +125,7 @@
     onNavigationIntent?: (payload: import("./navigation-model").NavigationIntent) => void;
     onFavoriteActivate?: (payload: { favorite: FavoriteEntry }) => void;
     onImageViewport?: (payload: import("./image-request").ImageViewportRequest) => void;
+    resolveImagePlaceholder?: (path: string, generation: number) => CardImageState | undefined;
     onHydrateViewport?: (payload: ReturnType<typeof createViewportRequest>["request"]) => void;
     onNavPaneResize?: (width: number) => void;
     onShellResize?: (width: number) => void;
@@ -223,6 +225,7 @@
     onFavoriteActivate,
     onHydrateViewport,
     onImageViewport,
+    resolveImagePlaceholder,
     onNavPaneResize,
     onShellResize,
     onToggleNavPane,
@@ -690,6 +693,13 @@
     return cardRecords.slice(row.startIndex, row.endIndex);
   }
 
+  function getCardImage(path: string): CardImageState | undefined {
+    if ((appearance.cardImageMode ?? "off") === "off") return undefined;
+    const committed = cards.loading || images.generation === undefined || images.generation === cards.generation;
+    return (committed ? images.byPath[path] : undefined)
+      ?? (cards.loading ? undefined : resolveImagePlaceholder?.(path, cards.generation));
+  }
+
   function rowNeedsMeasuredHeight(row: ProjectedRow): boolean {
     return row.kind === "group-header" || getRowCards(row).every((card) => card.hydrated);
   }
@@ -945,7 +955,7 @@
                 {card}
                 {strings}
                 {appearance}
-                image={cards.loading || images.generation === undefined || images.generation === cards.generation ? images.byPath[card.path] : undefined}
+                image={getCardImage(card.path)}
                 pinnedPaths={projection.pinnedPaths}
                 searchQuery={search.committedQuery}
                 bulkMode={bulk.bulkMode}

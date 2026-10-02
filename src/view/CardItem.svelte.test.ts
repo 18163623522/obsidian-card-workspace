@@ -176,6 +176,7 @@ describe("CardItem.svelte", () => {
 
   afterEach(async () => {
     await Promise.all(mountedComponents.map((component) => unmount(component)));
+    vi.restoreAllMocks();
     mountedComponents = [];
     document.body.innerHTML = "";
   });
@@ -192,6 +193,35 @@ describe("CardItem.svelte", () => {
     image.dispatchEvent(new Event("error")); await tick();
     expect(target.querySelector(".fce-card-image")).not.toBeNull();
     expect(target.querySelector(".fce-card-image-placeholder")?.getAttribute("aria-label")).toBe("Image unavailable");
+  });
+  it("reveals image pixels only after decoding finishes", async () => {
+    const { target } = mountCardItem({ cardImageMode: "inline", image: { status: "ready", url: "blob:thumbnail" } });
+    await tick();
+    const image = target.querySelector("img")!;
+    let finishDecode!: () => void;
+    image.decode = vi.fn(() => new Promise<void>((resolve) => { finishDecode = resolve; }));
+    image.dispatchEvent(new Event("load")); await tick();
+    expect(image.classList.contains("is-loaded")).toBe(false);
+    finishDecode(); await tick();
+    expect(image.classList.contains("is-loaded")).toBe(true);
+  });
+  it("reveals already cached images even when no load event follows mounting", async () => {
+    vi.spyOn(HTMLImageElement.prototype, "complete", "get").mockReturnValue(true);
+    vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(88);
+    const { target } = mountCardItem({ cardImageMode: "right", image: { status: "ready", url: "blob:cached" } });
+    await tick();
+    expect(target.querySelector("img")?.classList.contains("is-loaded")).toBe(true);
+  });
+  it("shows a blank loading region and preserves it when decoding fails", async () => {
+    const loading = mountCardItem({ cardImageMode: "inline", image: { status: "loading" } });
+    const ready = mountCardItem({ cardImageMode: "inline", image: { status: "ready", url: "blob:broken" } });
+    await tick();
+    expect(loading.target.querySelector(".fce-card-image-placeholder")?.children).toHaveLength(0);
+    const region = ready.target.querySelector(".fce-card-image"), image = ready.target.querySelector("img")!;
+    image.decode = vi.fn(async () => { throw new Error("decode failed"); });
+    image.dispatchEvent(new Event("load")); await tick();
+    expect(ready.target.querySelector(".fce-card-image")).toBe(region);
+    expect(ready.target.querySelector(".fce-card-image-placeholder")?.getAttribute("aria-label")).toBe("Image unavailable");
   });
   it("omits the image region for off and no-image cards", async () => {
     const off = mountCardItem({ image: { status: "ready", url: "blob:thumbnail" } });

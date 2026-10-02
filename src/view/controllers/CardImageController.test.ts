@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../../settings";
 import { getUiStrings } from "../../i18n";
 import { ThumbnailService } from "../../images/ThumbnailService";
-import type { ThumbnailResult } from "../../images/types";
+import { IMAGE_MAX_BYTES, type ThumbnailResult } from "../../images/types";
 import { createViewStateStore } from "../view-state-store";
 import { createViewEpochs } from "../view-epochs";
 import { createFolderScope } from "../scope";
@@ -31,15 +31,53 @@ function harness(mode: "off" | "right" | "inline" = "right") {
     storage: { get: async () => null, put: async () => undefined, close: vi.fn() }, generator: { available: () => true, generate, dispose: vi.fn() } });
   const controller = new CardImageController({ context, getService: () => ({ service, vault: "v" }), isLoading: () => false });
   const demand = (paths: string[] = [note.path]) => controller.requestViewport({ generation: epochs.load.value, sequenceRevision: store.getVisibleSequenceRevision(), requestVersion: controller.getPanelState().requestVersion, start: 0, end: paths.length, paths });
-  return { controller, settings, card, store, epochs, demand, getFileCache, resolve, urls, read, generate, publish, files, image, service };
+  return { controller, settings, card, store, epochs, demand, getFileCache, metadata, resolve, urls, read, generate, publish, files, image, service };
 }
 async function settle(): Promise<void> { await vi.advanceTimersByTimeAsync(80); }
 afterEach(() => vi.useRealTimers());
 describe("per-view images", () => {
   it("off mode performs zero metadata/attachment work", () => {
     const h = harness("off"); h.demand(); h.controller.handleMetadataChange(h.card.path);
+    expect(h.controller.resolvePlaceholder(h.card.path, h.epochs.load.value)).toBeUndefined();
     h.controller.handleVaultMutation({ eventType: "create", path: "x.png", oldPath: null, isFolder: false, fileKind: null });
     expect(h.getFileCache).not.toHaveBeenCalled(); expect(h.read).not.toHaveBeenCalled(); h.controller.dispose();
+  });
+  it("reserves a mounted card before thumbnail demand without starting IO", async () => {
+    vi.useFakeTimers(); const h = harness("inline"); h.card.hydrated = false;
+    expect(h.controller.resolvePlaceholder(h.card.path, h.epochs.load.value)).toEqual({ status: "loading" });
+    expect(h.service.getDiagnostics()).toMatchObject({ jobs: 0, owners: 0 });
+    expect(h.read).not.toHaveBeenCalled(); expect(h.generate).not.toHaveBeenCalled();
+    expect(h.controller.resolvePlaceholder(h.card.path, h.epochs.load.value + 1)).toBeUndefined();
+    h.demand();
+    expect(h.controller.getPanelState().byPath[h.card.path]).toEqual({ status: "loading" });
+    await settle(); expect(h.read).not.toHaveBeenCalled();
+    h.card.hydrated = true; h.controller.notifyTextReady(); await settle();
+    expect(h.controller.getPanelState().byPath[h.card.path]?.status).toBe("ready");
+    h.controller.dispose();
+  });
+  it.each([0, IMAGE_MAX_BYTES + 1])("omits byte-ineligible placeholders without reading (%s)", async (size) => {
+    vi.useFakeTimers(); const h = harness(); h.image.stat.size = size;
+    expect(h.controller.resolvePlaceholder(h.card.path, h.epochs.load.value)).toBeUndefined();
+    h.demand(); await settle();
+    expect(h.controller.getPanelState().byPath[h.card.path]).toBeUndefined();
+    expect(h.read).not.toHaveBeenCalled(); expect(h.generate).not.toHaveBeenCalled();
+    h.controller.dispose();
+  });
+  it("keeps the reserved region when the Worker rejects an image before decoding", async () => {
+    vi.useFakeTimers(); const h = harness(); h.generate.mockResolvedValue({ status: "skipped" });
+    h.demand(); expect(h.controller.getPanelState().byPath[h.card.path]).toEqual({ status: "loading" });
+    await settle();
+    expect(h.controller.getPanelState().byPath[h.card.path]).toEqual({ status: "failed" });
+    expect(h.controller.resolvePlaceholder(h.card.path, h.epochs.load.value)).toEqual({ status: "failed" });
+    h.controller.dispose();
+  });
+  it("republishes delayed metadata for mounted placeholders without thumbnail demand", async () => {
+    vi.useFakeTimers(); const h = harness(); h.getFileCache.mockReturnValue(null);
+    expect(h.controller.resolvePlaceholder(h.card.path, h.epochs.load.value)).toBeUndefined();
+    h.getFileCache.mockReturnValue(h.metadata); h.controller.handleMetadataChange(h.card.path); await settle();
+    expect(h.publish).toHaveBeenCalledWith("images");
+    expect(h.controller.resolvePlaceholder(h.card.path, h.epochs.load.value)).toEqual({ status: "loading" });
+    expect(h.read).not.toHaveBeenCalled(); h.controller.dispose();
   });
   it("publishes images alone, reuses mode/fit changes and revokes viewport URLs", async () => {
     vi.useFakeTimers(); const h = harness(); h.demand(); await settle();
