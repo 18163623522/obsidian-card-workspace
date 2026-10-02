@@ -1798,3 +1798,18 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 .folder-card-view .fce-nav-tree .fce-tree-row.is-drop-after {
   box-shadow: inset 0 -2px 0 0 var(--fce-accent);
 }
+
+.folder-card-view .fce-card-body.has-right-image { display: grid; grid-template-columns: minmax(0, 1fr) 88px; align-content: start; column-gap: 10px; }
+.folder-card-view .fce-card-body.has-right-image .fce-card-header { grid-column: 1 / -1; grid-row: 1; }
+.folder-card-view .fce-card-body.has-right-image .fce-excerpt { grid-column: 1; grid-row: 2; min-width: 0; }
+.folder-card-view .fce-card-body.has-right-image .fce-card-image { grid-column: 2; grid-row: 2; }
+.folder-card-view .fce-card-body.has-right-image .fce-card-task-footer { grid-column: 1 / -1; grid-row: 3; }
+.folder-card-view .fce-card-image {
+  width: 88px; height: 88px; flex: 0 0 88px; overflow: hidden;
+  border-radius: 6px; background: var(--background-secondary); position: relative;
+}
+.folder-card-view .fce-card-image.is-inline { width: 100%; height: 160px; flex: none; }
+.folder-card-view .fce-card-image img { width: 100%; height: 100%; display: block; object-fit: contain; -webkit-user-drag: none; }
+.folder-card-view .fce-card-image.is-cover img { object-fit: cover; }
+.folder-card-view .fce-card-image-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); }
+.folder-card-view .fce-card-image-placeholder svg { width: 20px; height: 20px; }

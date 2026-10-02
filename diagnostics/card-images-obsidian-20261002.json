@@ -1,0 +1,637 @@
+{
+  "schemaVersion": 1,
+  "platform": "linux",
+  "phases": [
+    {
+      "phase": "default-off",
+      "reads": 0,
+      "peak": 0,
+      "urls": 0,
+      "service": null,
+      "images": [],
+      "regions": [],
+      "longTasks": [
+        154
+      ]
+    },
+    {
+      "phase": "cold-right",
+      "reads": 3,
+      "peak": 1,
+      "urls": 3,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 1
+      },
+      "images": [
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        }
+      ],
+      "regions": [
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        }
+      ],
+      "longTasks": []
+    },
+    {
+      "phase": "scroll-right",
+      "peakScrollTop": 5400,
+      "endScrollTop": 0,
+      "reads": 3,
+      "peak": 1,
+      "urls": 3,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 1
+      },
+      "images": [
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        }
+      ],
+      "regions": [
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        }
+      ],
+      "longTasks": []
+    },
+    {
+      "phase": "refreshed-cached-scope",
+      "reads": 3,
+      "peak": 1,
+      "urls": 3,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 1
+      },
+      "images": [
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        }
+      ],
+      "regions": [
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        }
+      ],
+      "longTasks": []
+    },
+    {
+      "phase": "inline-cover",
+      "reads": 3,
+      "peak": 1,
+      "urls": 3,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 1
+      },
+      "images": [
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        }
+      ],
+      "regions": [
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        }
+      ],
+      "longTasks": []
+    },
+    {
+      "phase": "cross-view-memory",
+      "reads": 3,
+      "peak": 1,
+      "urls": 6,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 2
+      },
+      "images": [
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        }
+      ],
+      "regions": [
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 238,
+          "height": 160
+        },
+        {
+          "width": 290,
+          "height": 160
+        },
+        {
+          "width": 290,
+          "height": 160
+        },
+        {
+          "width": 290,
+          "height": 160
+        },
+        {
+          "width": 290,
+          "height": 160
+        },
+        {
+          "width": 290,
+          "height": 160
+        },
+        {
+          "width": 290,
+          "height": 160
+        },
+        {
+          "width": 290,
+          "height": 160
+        }
+      ],
+      "longTasks": []
+    },
+    {
+      "phase": "disabled",
+      "reads": 3,
+      "peak": 1,
+      "urls": 0,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 0
+      },
+      "images": [],
+      "regions": [],
+      "longTasks": []
+    },
+    {
+      "phase": "fresh-service-persistent",
+      "reads": 0,
+      "peak": 1,
+      "urls": 6,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 2
+      },
+      "images": [
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        },
+        {
+          "width": 34,
+          "height": 1024,
+          "complete": true
+        },
+        {
+          "width": 1024,
+          "height": 576,
+          "complete": true
+        }
+      ],
+      "regions": [
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        },
+        {
+          "width": 88,
+          "height": 88
+        }
+      ],
+      "longTasks": []
+    },
+    {
+      "phase": "ten-toggle-cycles",
+      "reads": 0,
+      "peak": 1,
+      "urls": 0,
+      "service": {
+        "entries": 3,
+        "bytes": 12958,
+        "jobs": 0,
+        "active": 0,
+        "owners": 0
+      },
+      "images": [],
+      "regions": [],
+      "longTasks": []
+    }
+  ],
+  "limitations": [
+    "Desktop window runs under Xvfb with software rendering.",
+    "Renderer RSS includes decoder buffers, UI and browser caches; internal decoder allocation is not separately exposed."
+  ],
+  "obsidian": "New tab - vault - Obsidian 1.13.7",
+  "chromium": "150.0.7871.212",
+  "rendererRSS": {
+    "before": 285130752,
+    "peak": 515035136,
+    "after": 392728576,
+    "intervalMs": 10,
+    "rendererPids": [
+      35025
+    ]
+  },
+  "heap": {
+    "before": 29542441,
+    "after": 29896864
+  },
+  "passed": true
+}

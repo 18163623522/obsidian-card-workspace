@@ -48,7 +48,8 @@ function checkOptions() {
     assertContract(options.platform === "browser", `${name} platform must be browser`);
     assertContract(options.target === "es2018", `${name} target must be es2018`);
     assertContract(arraysEqual(options.external, expectedHostExternals), `${name} host externals must match the required ordered list`);
-    assertContract(options.plugins?.length === 1 && options.plugins[0]?.name === "esbuild-svelte", `${name} must use exactly one Svelte plugin`);
+    assertContract(options.plugins?.filter((plugin) => plugin.name === "esbuild-svelte").length === 1, `${name} must use exactly one Svelte plugin`);
+    assertContract(options.plugins?.filter((plugin) => plugin.name === "inline-thumbnail-worker").length === 1, `${name} must inline exactly one thumbnail worker`);
   }
 }
 

@@ -121,6 +121,11 @@ export const NEW_NOTE_TEMPLATE_OPTIONS: ReadonlyArray<{
   },
 ];
 
+export type CardImageMode = "off" | "right" | "inline";
+export type CardImageFit = "contain" | "cover";
+export function isCardImageMode(value: unknown): value is CardImageMode { return value === "off" || value === "right" || value === "inline"; }
+export function isCardImageFit(value: unknown): value is CardImageFit { return value === "contain" || value === "cover"; }
+
 export interface PluginSettings {
   sort: {
     field: SortField;
@@ -137,6 +142,8 @@ export interface PluginSettings {
   cardCornerRadius: CardCornerRadius;
   newNoteTemplate: NewNoteTemplate;
   previewLines: number;
+  cardImageMode: CardImageMode;
+  cardImageFit: CardImageFit;
   lastFolderPath: string;
   expandedFolderPaths: string[];
   expandedTagPaths: string[];
@@ -174,6 +181,8 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   cardCornerRadius: DEFAULT_CARD_CORNER_RADIUS,
   newNoteTemplate: DEFAULT_NEW_NOTE_TEMPLATE,
   previewLines: DEFAULT_PREVIEW_LINES,
+  cardImageMode: "off",
+  cardImageFit: "contain",
   lastFolderPath: "",
   expandedFolderPaths: [], expandedTagPaths: [],
   visiblePropertyKeys: [], expandedPropertyKeys: [],
@@ -532,6 +541,8 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
     cardCornerRadius: normalizeCardCornerRadius(data.cardCornerRadius),
     newNoteTemplate: normalizeNewNoteTemplate(data.newNoteTemplate),
     previewLines: normalizePreviewLines(data.previewLines),
+    cardImageMode: isCardImageMode(data.cardImageMode) ? data.cardImageMode : "off",
+    cardImageFit: isCardImageFit(data.cardImageFit) ? data.cardImageFit : "contain",
     lastFolderPath: normalizeLastFolderPath(data.lastFolderPath, data.lastViewMode),
     expandedFolderPaths: normalizeExpandedFolderPaths(data.expandedFolderPaths), expandedTagPaths: normalizeExpandedTagPaths(data.expandedTagPaths),
     visiblePropertyKeys,

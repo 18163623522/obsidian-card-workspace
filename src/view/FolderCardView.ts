@@ -75,6 +75,7 @@ export class FolderCardView extends ItemView {
       notify: (message) => { new Notice(message); }, getViewWindow: () => this.getViewWindow(),
     };
     this.modules = createViewModules(this.context, {
+      getThumbnailService: () => this.plugin.getThumbnailService?.() ?? null,
       effectiveSortAndPins: () => {
         const { sort, pinnedPaths } = resolveViewConfig(this.store.getScope(), this.plugin.getSettings());
         return { sortField: sort.field, sortDirection: sort.direction, pinnedPaths };
@@ -116,6 +117,7 @@ export class FolderCardView extends ItemView {
       bulk: this.buildBulkGroup(),
       nav: this.buildNavGroup(),
       appearance: this.buildAppearanceGroup(),
+      images: this.modules.images.getPanelState(),
     });
   }
   private get cardScope(): CardScope { return this.store.getScope(); } private set cardScope(scope: CardScope) { this.store.setScope(scope); }
@@ -191,6 +193,7 @@ export class FolderCardView extends ItemView {
     this.metadataEventUnsubscribe?.();
     this.metadataEventUnsubscribe = this.plugin.subscribeMetadataEvents((event) => {
       if (event.kind === "resolved") {
+        this.modules.metadataImpact.handleMetadataResolved();
         if (isLinksScope(this.cardScope)) this.modules.scopeController.scheduleVaultRefresh();
         return Promise.resolve();
       }
@@ -303,6 +306,7 @@ export class FolderCardView extends ItemView {
    * re-collects files; the weaker tiers keep scroll position and loaded previews.
    */
   async applyUpdateIntent(intent: ViewUpdateIntent, reason: RefreshReason): Promise<void> {
+    this.modules.images.onSettingsChanged();
     const effective = !this.modules.scopeController.isScopeSettled() && (intent === "reproject" || intent === "rehydrate") ? "reload" : intent;
     switch (effective) {
       case "reload":
@@ -336,6 +340,7 @@ export class FolderCardView extends ItemView {
   }
 
   handleVaultMutation(event: VaultMutationEvent): VaultMutationResult {
+    this.modules.images.handleVaultMutation(event);
     if (event.eventType === "rename" && event.isFolder && event.oldPath) {
       this.modules.navLayout.rewriteFolderIdentity((path) =>
         rewritePathAfterRename(path, event.oldPath ?? "", event.path));
@@ -392,6 +397,7 @@ export class FolderCardView extends ItemView {
     const searchReport = this.modules.search.dispose();
     const hydrationReport = this.modules.hydration.dispose();
     this.modules.metadataImpact.dispose();
+    this.modules.images.dispose();
     this.modules.groupCollapse.dispose();
     this.modules.property.dispose();
 
@@ -548,16 +554,21 @@ export class FolderCardView extends ItemView {
       propertyFacets: this.modules.property.derivePropertyFacets(),
     });
   }
+  private buildImagesGroup(): PanelModelState["images"] { return this.modules.images.getPanelState(); }
   private buildAppearanceGroup(): PanelModelState["appearance"] {
     const settings = this.plugin.getSettings();
     return {
       cardCornerRadius: settings.cardCornerRadius,
       previewLines: settings.previewLines,
+      cardImageMode: settings.cardImageMode,
+      cardImageFit: settings.cardImageFit,
     };
   }
 
   /** Runtime events replace only the requested groups and notify listeners once. */
   private publishGroups(...groups: PanelGroup[]): void {
+    if (groups.includes("cards") && this.modules?.images.prepareGeneration() && !groups.includes("images")) groups.push("images");
+    if (groups.includes("cards")) this.modules?.images.notifyTextReady();
     const uniqueGroups = new Set(groups);
     this.panelModel.batch((state) => {
       for (const group of uniqueGroups) {
@@ -582,6 +593,9 @@ export class FolderCardView extends ItemView {
             break;
           case "nav":
             state.nav = this.buildNavGroup();
+            break;
+          case "images":
+            state.images = this.buildImagesGroup();
             break;
           case "appearance":
             state.appearance = this.buildAppearanceGroup();

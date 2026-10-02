@@ -11,6 +11,15 @@ export interface SettingTabStrings {
   newNoteTemplateDesc: string;
   cardCornerRadiusName: string;
   cardCornerRadiusDesc: string;
+  cardImageModeName: string;
+  cardImageModeDesc: string;
+  cardImageFitName: string;
+  cardImageFitDesc: string;
+  imageOff: string;
+  imageRight: string;
+  imageInline: string;
+  imageContain: string;
+  imageCover: string;
   previewLinesName: string;
   previewLinesDesc: (min: number, max: number) => string;
   showNavItemCountsName: string;
@@ -31,6 +40,12 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
       "Choose what the toolbar's create-note action writes into a new note: an empty tags property, or nothing at all.",
     cardCornerRadiusName: "Card corner radius",
     cardCornerRadiusDesc: "Adjust how square or rounded each card border feels in the panel.",
+    cardImageModeName: "Card images",
+    cardImageModeDesc: "Show the first supported local image in the note body. Images load near the viewport and thumbnails are cached locally.",
+    cardImageFitName: "Image fit",
+    cardImageFitDesc: "Show the whole image or crop it to fill the image area.",
+    imageOff: "Off", imageRight: "Right thumbnail", imageInline: "Below title",
+    imageContain: "Show whole image", imageCover: "Crop to fill",
     previewLinesName: "Preview lines",
     previewLinesDesc: (min: number, max: number) =>
       `Choose how many normalized summary lines each card preview can show (${min}-${max}).`,
@@ -49,6 +64,12 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     newNoteTemplateDesc: "选择工具栏“创建笔记”生成的笔记内容：带一个空的 tags 属性，或完全空白。",
     cardCornerRadiusName: "卡片圆角",
     cardCornerRadiusDesc: "调整面板中每张卡片边框的方正或圆润程度。",
+    cardImageModeName: "卡片图片",
+    cardImageModeDesc: "显示笔记正文中第一张受支持的本地图片。图片在浏览区域附近按需加载，缩略图在本地缓存。",
+    cardImageFitName: "图片显示方式",
+    cardImageFitDesc: "完整显示图片，或裁切铺满图片区域。",
+    imageOff: "关闭", imageRight: "右侧缩略图", imageInline: "标题下方内联图片",
+    imageContain: "完整显示", imageCover: "裁切铺满",
     previewLinesName: "预览行数",
     previewLinesDesc: (min: number, max: number) => `选择每张卡片预览可显示的规范化摘要行数（${min}-${max}）。`,
     showNavItemCountsName: "在导航栏显示条目计数",

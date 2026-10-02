@@ -160,6 +160,7 @@ function createInitialPanelState(): PanelModelState {
       focusRequest: null,
       revealRequest: null,
     },
+    images: { byPath: {}, requestVersion: 0 },
     appearance: { cardCornerRadius: "compact", previewLines: 5 },
   };
 }
@@ -216,6 +217,38 @@ describe("FolderCardPanel.svelte", () => {
     vi.restoreAllMocks();
     document.body.innerHTML = "";
     resetObsidianMenuInstances();
+  });
+
+  it("limits image demand to visible rows plus one while text uses five rows", async () => {
+    const target = document.createElement("div"); document.body.appendChild(target);
+    const state = createInitialPanelState();
+    state.cards.records = Array.from({ length: 100 }, (_, i) => createCard(`notes/${i}.md`, `${i}`));
+    state.appearance = { ...state.appearance, cardImageMode: "right" };
+    const panelModel = createPanelModel(state), onImageViewport = vi.fn(), onHydrateViewport = vi.fn();
+    const component = mount(FolderCardPanel, { target, props: { panelModel, onImageViewport, onHydrateViewport } });
+    await tick();
+    expect(onImageViewport).toHaveBeenCalled();
+    expect(onImageViewport.mock.calls.at(-1)![0].paths.length).toBeLessThan(onHydrateViewport.mock.calls.at(-1)![0].paths.length);
+    const cards = panelModel.getState().cards, nav = panelModel.getState().nav;
+    panelModel.mutate((draft) => { draft.images = { byPath: { "notes/0.md": { status: "loading" } }, requestVersion: 0 }; });
+    await tick(); expect(panelModel.getState().cards).toBe(cards); expect(panelModel.getState().nav).toBe(nav);
+    const requests = onImageViewport.mock.calls.length;
+    panelModel.mutate((draft) => { draft.appearance = { ...draft.appearance, cardImageFit: "cover" }; });
+    await tick(); expect(onImageViewport).toHaveBeenCalledTimes(requests);
+    await unmount(component);
+  });
+
+  it("clears image demand when the card pane is hidden without resetting its layout", async () => {
+    const target = document.createElement("div"); document.body.appendChild(target);
+    const state = createInitialPanelState(); state.cards.records = Array.from({ length: 30 }, (_, i) => createCard(`notes/${i}.md`, `${i}`));
+    state.appearance = { ...state.appearance, cardImageMode: "right" };
+    const panelModel = createPanelModel(state), onImageViewport = vi.fn();
+    const component = mount(FolderCardPanel, { target, props: { panelModel, onImageViewport } }); await tick();
+    expect(onImageViewport.mock.calls.at(-1)![0].paths.length).toBeGreaterThan(0);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(0); ResizeObserverStub.trigger(); await tick();
+    expect(onImageViewport.mock.calls.at(-1)![0].paths).toEqual([]);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(600); ResizeObserverStub.trigger(); await tick();
+    expect(onImageViewport.mock.calls.at(-1)![0].paths.length).toBeGreaterThan(0); await unmount(component);
   });
 
   it("renders empty state, populated list, and emits an identity-bearing viewport request", async () => {

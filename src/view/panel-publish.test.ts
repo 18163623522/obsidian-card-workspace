@@ -122,6 +122,7 @@ function buildState(): PanelModelState {
       focusRequest: null,
       revealRequest: null,
     },
+    images: { byPath: {}, requestVersion: 0 },
     appearance: { cardCornerRadius: "medium", previewLines: 8 },
   };
 }
@@ -141,6 +142,7 @@ function createPublishHarness(): {
     projection: { ...initial.projection, sortField: "name" },
     bulk: { ...initial.bulk, bulkMode: true },
     nav: { ...initial.nav, visible: false },
+    images: { byPath: {}, requestVersion: 0 },
     appearance: { ...initial.appearance, previewLines: 12 },
   };
   const view = Object.create(FolderCardView.prototype) as FolderCardView;
@@ -205,6 +207,7 @@ function createRuntimeRouteHarness(): {
     projection: { ...initial.projection, sortField: "name" },
     bulk: { ...initial.bulk, bulkMode: true },
     nav: { ...initial.nav, visible: false },
+    images: { byPath: {}, requestVersion: 0 },
     appearance: { ...initial.appearance, previewLines: 8 },
   };
   const host = view as unknown as Record<string, unknown>;

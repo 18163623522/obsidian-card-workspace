@@ -99,6 +99,7 @@ function createPanelState(): PanelModelState {
       focusRequest: null,
       revealRequest: null,
     },
+    images: { byPath: {}, requestVersion: 0 },
     appearance: { cardCornerRadius: "compact", previewLines: 5 },
   };
 }

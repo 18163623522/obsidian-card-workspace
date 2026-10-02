@@ -144,7 +144,10 @@ function mountCardItem(
       appearance: {
         cardCornerRadius: values.cardCornerRadius ?? "compact",
         previewLines: values.previewLines ?? 5,
+        cardImageMode: values.cardImageMode ?? "off",
+        cardImageFit: values.cardImageFit ?? "contain",
       },
+      image: values.image,
       selected: values.selected ?? false,
       bulkMode: values.bulkMode ?? false,
       bulkSelected: values.bulkSelected ?? false,
@@ -175,6 +178,25 @@ describe("CardItem.svelte", () => {
     await Promise.all(mountedComponents.map((component) => unmount(component)));
     mountedComponents = [];
     document.body.innerHTML = "";
+  });
+
+  it.each(["right", "inline"])("renders %s images with click/drag behavior and a stable failure region", async (cardImageMode) => {
+    const captured = createCapturedCallbacks();
+    const { target } = mountCardItem({ cardImageMode, cardImageFit: "cover", image: { status: "ready", url: "blob:thumbnail" } }, captured.callbacks);
+    await tick();
+    const image = target.querySelector("img")!;
+    expect(image.draggable).toBe(false);
+    expect(target.querySelector(".fce-card-image")?.classList.contains("is-inline")).toBe(cardImageMode === "inline");
+    expect(target.querySelector(".fce-card-image")?.classList.contains("is-cover")).toBe(true);
+    image.dispatchEvent(new MouseEvent("click", { bubbles: true })); expect(captured.openEvents).toHaveLength(1);
+    image.dispatchEvent(new Event("error")); await tick();
+    expect(target.querySelector(".fce-card-image")).not.toBeNull();
+    expect(target.querySelector(".fce-card-image-placeholder")?.getAttribute("aria-label")).toBe("Image unavailable");
+  });
+  it("omits the image region for off and no-image cards", async () => {
+    const off = mountCardItem({ image: { status: "ready", url: "blob:thumbnail" } });
+    const noImage = mountCardItem({ cardImageMode: "inline" }); await tick();
+    expect(off.target.querySelector(".fce-card-image")).toBeNull(); expect(noImage.target.querySelector(".fce-card-image")).toBeNull();
   });
 
   it("applies the configured card corner radius class", () => {

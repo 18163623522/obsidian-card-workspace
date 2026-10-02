@@ -614,6 +614,8 @@ describe("SettingsStore — layer manifest classification (C4)", () => {
     ["cardCornerRadius", { cardCornerRadius: "compact" }],
     ["newNoteTemplate", { newNoteTemplate: "blank" }],
     ["previewLines", { previewLines: 8 }],
+    ["cardImageMode", { cardImageMode: "inline" }],
+    ["cardImageFit", { cardImageFit: "cover" }],
     ["showNavItemCounts", { showNavItemCounts: true }],
     ["navSectionOrder", { navSectionOrder: ["boxes"] }],
     ["visiblePropertyKeys", { visiblePropertyKeys: ["status"] }],

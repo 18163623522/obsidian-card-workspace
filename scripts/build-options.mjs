@@ -1,3 +1,4 @@
+import esbuild from "esbuild";
 import sveltePlugin from "esbuild-svelte";
 
 export const HOST_EXTERNALS = Object.freeze([
@@ -15,6 +16,20 @@ export function createSvelteCompilerOptions({ production }) {
   };
 }
 
+export function thumbnailWorkerPlugin({ production }) {
+  return {
+    name: "inline-thumbnail-worker",
+    setup(build) {
+      build.onResolve({ filter: /thumbnail-worker-source$/ }, () => ({ path: "thumbnail-worker-source", namespace: "thumbnail-worker" }));
+      build.onLoad({ filter: /.*/, namespace: "thumbnail-worker" }, async () => {
+        const result = await esbuild.build({ entryPoints: ["src/images/thumbnail-worker.ts"], bundle: true,
+          write: false, format: "iife", platform: "browser", target: "es2018", minify: production, sourcemap: false });
+        return { contents: result.outputFiles[0].text, loader: "text", watchFiles: ["src/images/thumbnail-worker.ts", "src/images/image-header.ts", "src/images/thumbnail-render.ts", "src/images/types.ts"] };
+      });
+    },
+  };
+}
+
 export function createBuildOptions({ production }) {
   return {
     entryPoints: ["src/main.ts"],
@@ -28,6 +43,7 @@ export function createBuildOptions({ production }) {
     logLevel: "info",
     external: [...HOST_EXTERNALS],
     plugins: [
+      thumbnailWorkerPlugin({ production }),
       sveltePlugin({
         compilerOptions: createSvelteCompilerOptions({ production }),
       }),

@@ -10,6 +10,8 @@ import {
   PREVIEW_LINES_MAX,
   PREVIEW_LINES_MIN,
   isCardCornerRadius,
+  isCardImageMode,
+  isCardImageFit,
   isDefaultCardOpenBehavior,
   isDragInsertAction,
   isNewNoteTemplate,
@@ -52,6 +54,10 @@ function declarativeSettingPatch(key: string, value: unknown): PartialPluginSett
       return typeof value === "string" && isCardCornerRadius(value)
         ? { cardCornerRadius: value }
         : null;
+    case "cardImageMode":
+      return isCardImageMode(value) ? { cardImageMode: value } : null;
+    case "cardImageFit":
+      return isCardImageFit(value) ? { cardImageFit: value } : null;
     case "previewLines":
       return typeof value === "number"
         && Number.isInteger(value)
@@ -91,6 +97,8 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
         return settings.newNoteTemplate;
       case "cardCornerRadius":
         return settings.cardCornerRadius;
+      case "cardImageMode": return settings.cardImageMode;
+      case "cardImageFit": return settings.cardImageFit;
       case "previewLines":
         return settings.previewLines;
       case "showNavItemCounts":
@@ -164,6 +172,11 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
         desc: strings.locateLinkCardOnOpenDesc,
         control: { type: "toggle", key: "locateLinkCardOnOpen" },
       },
+      { name: strings.cardImageModeName, desc: strings.cardImageModeDesc,
+        control: { type: "dropdown", key: "cardImageMode", options: { off: strings.imageOff, right: strings.imageRight, inline: strings.imageInline } } },
+      { name: strings.cardImageFitName, desc: strings.cardImageFitDesc,
+        control: { type: "dropdown", key: "cardImageFit", options: { contain: strings.imageContain, cover: strings.imageCover } } },
+
     ];
   }
 
@@ -257,6 +270,14 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
           await this.saveDeclarativeSetting("locateLinkCardOnOpen", value);
         });
       });
+    for (const definition of this.getSettingDefinitions().filter((row) => row.control && "key" in row.control && ["cardImageMode", "cardImageFit"].includes(row.control.key))) {
+      const control = definition.control;
+      if (control?.type !== "dropdown") continue;
+      new Setting(containerEl).setName(definition.name).setDesc(definition.desc).addDropdown((dropdown) => {
+        for (const [value, label] of Object.entries(control.options)) dropdown.addOption(value, label);
+        dropdown.setValue(String(this.getControlValue(control.key) ?? (control.key === "cardImageMode" ? "off" : "contain"))).onChange(async (value) => { await this.saveDeclarativeSetting(control.key, value); });
+      });
+    }
   }
 
   private bindPreviewLinesSlider(setting: Setting): void {

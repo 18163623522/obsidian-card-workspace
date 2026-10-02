@@ -11,6 +11,8 @@ export interface CardItemStrings {
   dragInsert: string;
   placeholderLoading: string;
   placeholderEmpty: string;
+  imageLoading: string;
+  imageFailed: string;
   taskProgressAria: (completed: number, total: number) => string;
 }
 
@@ -27,6 +29,7 @@ export const cardItemStrings: Record<UiLanguage, CardItemStrings> = {
     dragInsert: "Insert here",
     placeholderLoading: "Loading preview...",
     placeholderEmpty: "No previewable text near the top.",
+    imageLoading: "Loading image", imageFailed: "Image unavailable",
     taskProgressAria: (completed: number, total: number) =>
       `${completed} of ${total} ${total === 1 ? "task" : "tasks"} complete`,
   },
@@ -41,6 +44,7 @@ export const cardItemStrings: Record<UiLanguage, CardItemStrings> = {
     dragInsert: "在此处插入",
     placeholderLoading: "正在加载预览...",
     placeholderEmpty: "顶部附近没有可预览的文本。",
+    imageLoading: "图片加载中", imageFailed: "图片不可用",
     taskProgressAria: (completed: number, total: number) =>
       `${total} 个任务中已完成 ${completed} 个`,
   },

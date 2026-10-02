@@ -263,3 +263,8 @@ export function setTooltip(el: Element, tooltip: string, _options?: unknown): vo
 export function getAllTags(cache: { tags?: Array<{ tag: string }> } | null): string[] {
   return cache?.tags?.map((entry) => entry.tag) ?? [];
 }
+
+export class TFile {
+  path = "";
+  stat = { mtime: 0, ctime: 0, size: 0 };
+}

@@ -13,6 +13,8 @@ import { TagActions } from "./actions/tag-actions";
 import { TagManagementActions } from "./actions/tag-manage-actions";
 import { BulkController } from "./controllers/BulkController";
 import { GroupCollapseController } from "./controllers/GroupCollapseController";
+import { CardImageController } from "./controllers/CardImageController";
+import type { ThumbnailService } from "../images/ThumbnailService";
 import { HydrationController } from "./controllers/HydrationController";
 import { MetadataImpactController, type MetadataImpactBatch } from "./controllers/MetadataImpactController";
 import { NavLayoutController } from "./controllers/NavLayoutController";
@@ -32,6 +34,7 @@ import { resolveViewConfig } from "./view-config";
  * function so `createViewModules` can run before the view finishes constructing.
  */
 export interface ViewModuleHost {
+  getThumbnailService?: () => { service: ThumbnailService; vault: string } | null;
   effectiveSortAndPins: () => { sortField: SortField; sortDirection: SortDirection; pinnedPaths: string[] };
   getDisplayFolderPath: () => string;
   getTooltipSide: () => "left" | "right";
@@ -61,6 +64,7 @@ export interface ViewModules {
   projection: ProjectionController;
   groupCollapse: GroupCollapseController;
   hydration: HydrationController;
+  images: CardImageController;
   metadataImpact: MetadataImpactController;
   search: SearchController;
   bulk: BulkController;
@@ -133,6 +137,8 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
     isLoading: gate.guard("scopeController.isLoading", () => scopeController.isLoading()),
     getCommittedQuery: gate.guard("search.getCommittedQuery", () => search.getCommittedQuery()),
   });
+  const images = new CardImageController({ context, getService: () => host.getThumbnailService?.() ?? null,
+    isLoading: gate.guard("scopeController.isLoading", () => scopeController.isLoading()) });
   const search: SearchController = new SearchController({
     context,
     getSearchService: () => host.getSearchService(),
@@ -185,7 +191,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
     clearBulkSelection: () => bulk.clearSelectionState(),
     hasPendingHydration: (path) => hydration.hasPending(path),
     deletePendingHydration: (path) => hydration.deletePending(path),
-    resetHydrationForLoad: () => hydration.resetForLoad(),
+    resetHydrationForLoad: () => { hydration.resetForLoad(); images.beginLoad(); },
     prepareRecordsFromCache: (records, scope) => hydration.prepareRecordsFromCache(records, scope),
     invalidateForVaultMutation: (event) => hydration.invalidateForVaultMutation(event),
     hydrateStartupCardPaths: (paths, token) =>
@@ -344,6 +350,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
   // reference; its callbacks only run once the view is live.
   const metadataImpact: MetadataImpactController = new MetadataImpactController({
     context,
+    onImageMetadataChange: (path) => images.handleMetadataChange(path),
     getGroupDimension: () => resolveGroupSpec().dimension,
     isBrowseTagFilterActive: () => resolveSourceCapabilities(context.store.getScope()).browseTagFilter && context.getSettings().filter.tags.length > 0,
     isSearchActive: () => search.getQuery().trim().length > 0,
@@ -403,6 +410,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
     projection,
     groupCollapse,
     hydration,
+    images,
     metadataImpact,
     search,
     bulk,

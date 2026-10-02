@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onDestroy, untrack } from "svelte";
   import { DEFAULT_GROUP_SPEC } from "../card-grouping-settings";
   import { getUiStrings } from "../i18n";
   import Toolbar from "./Toolbar.svelte";
@@ -123,6 +123,7 @@
     onNavContextMenu?: (payload: NavContextMenuPayload) => void;
     onNavigationIntent?: (payload: import("./navigation-model").NavigationIntent) => void;
     onFavoriteActivate?: (payload: { favorite: FavoriteEntry }) => void;
+    onImageViewport?: (payload: import("./image-request").ImageViewportRequest) => void;
     onHydrateViewport?: (payload: ReturnType<typeof createViewportRequest>["request"]) => void;
     onNavPaneResize?: (width: number) => void;
     onShellResize?: (width: number) => void;
@@ -194,7 +195,8 @@
       focusId: null, focusRequest: null,
       revealRequest: null,
     },
-    appearance: { cardCornerRadius: "compact", previewLines: 5 },
+    appearance: { cardCornerRadius: "compact", previewLines: 5, cardImageMode: "off", cardImageFit: "contain" },
+    images: { byPath: {}, requestVersion: 0 },
   };
 
   let {
@@ -220,6 +222,7 @@
     onNavigationIntent,
     onFavoriteActivate,
     onHydrateViewport,
+    onImageViewport,
     onNavPaneResize,
     onShellResize,
     onToggleNavPane,
@@ -248,6 +251,7 @@
   const bulk = $derived(panelState.bulk);
   const nav = $derived(panelState.nav);
   const appearance = $derived(panelState.appearance);
+  const images = $derived(panelState.images);
   const cardRecords = $derived(cards.records);
   const groupSegments = $derived(cards.groupSegments);
 
@@ -385,6 +389,7 @@
   let viewportEl = $state<HTMLDivElement | null>(null);
   let viewportHeight = $state(0);
   let viewportWidth = $state(0);
+  let viewportActive = $state(false);
   let scrollTop = $state(0);
   let listPaddingTop = $state(0);
   let followingHeaderLead = $state(0);
@@ -438,6 +443,43 @@
     .slice(viewportBounds.start, viewportBounds.end)
     .map((card) => card.path));
 
+  let lastImageRequestIdentity: string | null = null;
+  const imageWindow = $derived(computeVirtualRowWindow(projectedRows.length, baseStartRowIndex, baseEndRowIndex, 1));
+  const imageBounds = $derived(getHydrateRangeForPanelRows(projectedRows, imageWindow.start, imageWindow.end));
+  const imagePaths = $derived(cardRecords.slice(imageBounds.start, imageBounds.end).map((card) => card.path));
+  $effect(() => {
+    const mode = appearance.cardImageMode ?? "off";
+    if (mode === "off") { lastImageRequestIdentity = null; return; }
+    if (!viewportActive) {
+      const identity = `hidden:${cards.generation}:${cards.sequenceRevision}:${images.requestVersion}`;
+      if (identity !== lastImageRequestIdentity) {
+        lastImageRequestIdentity = identity;
+        onImageViewport?.({ generation: cards.generation, sequenceRevision: cards.sequenceRevision,
+          requestVersion: images.requestVersion, start: 0, end: 0, paths: [] });
+      }
+      return;
+    }
+    if (cards.loading || !viewportEl || viewportWidth === 0) { lastImageRequestIdentity = null; return; }
+    const request = { generation: cards.generation, sequenceRevision: cards.sequenceRevision,
+      requestVersion: images.requestVersion, start: imageBounds.start, end: imageBounds.end, paths: imagePaths };
+    const identity = JSON.stringify([request.generation, request.sequenceRevision, request.requestVersion, request.paths]);
+    if (identity === lastImageRequestIdentity) return;
+    lastImageRequestIdentity = identity;
+    onImageViewport?.(request);
+  });
+
+  // Capture the reading position before a layout switch changes mounted card sizes.
+  let previousImageMode: string | null = null;
+  $effect.pre(() => {
+    const mode = appearance.cardImageMode ?? "off";
+    untrack(() => {
+      if (previousImageMode !== null && mode !== previousImageMode && projectedRows.length) {
+        pendingLayoutAnchor = captureLayoutAnchor({ scrollTop, rowPositions, rows: projectedRows, preferCardIndex: false });
+      }
+      previousImageMode = mode;
+    });
+  });
+
   function markUserScrolling(): void {
     userScrollLockUntilMs = Date.now() + USER_SCROLL_LOCK_MS;
   }
@@ -479,7 +521,8 @@
 
   function syncViewportMetrics(node: HTMLDivElement): void {
     // A hidden pane measures 0 and would otherwise reset every cached row height.
-    if (node.clientWidth === 0) {
+    viewportActive = node.clientWidth > 0 && node.clientHeight > 0;
+    if (!viewportActive) {
       return;
     }
 
@@ -624,7 +667,8 @@
         rowPositions,
       });
       if (resolved !== null) {
-        applyScrollTop(clampLayoutScrollTop(resolved, totalHeight, viewportHeight));
+        const next = clampLayoutScrollTop(resolved, totalHeight, viewportHeight);
+        if (next !== scrollTop) applyScrollTop(next);
       }
       pendingLayoutAnchor = null;
     }
@@ -683,37 +727,66 @@
     onGroupCollapseCommand?.({ command: "toggle", key });
   }
 
+  const mountedRows = new Map<string, { node: HTMLDivElement; row: ProjectedRow }>();
+  let forceRowMeasurement = false;
+  let measureWindow: Window | null = null;
+  const pendingRowSizes = new Map<string, { row: ProjectedRow; height: number }>();
+  let measureFrame: number | null = null;
+  function scheduleRowMeasurement(): void {
+    if (measureFrame !== null) return;
+    measureWindow = viewportEl?.ownerDocument.defaultView ?? window;
+    measureFrame = measureWindow.requestAnimationFrame(flushRowSizes);
+  }
+  $effect(() => {
+    void cardRecords;
+    // A hydrated single-line/empty preview may have the same height as its
+    // loading text. Recheck it even when ResizeObserver has no new size event.
+    forceRowMeasurement = true;
+    scheduleRowMeasurement();
+  });
+  function flushRowSizes(): void {
+    measureFrame = null;
+    if (forceRowMeasurement) {
+      forceRowMeasurement = false;
+      for (const [key, item] of mountedRows) if (rowNeedsMeasuredHeight(item.row)) {
+        const height = item.node.getBoundingClientRect().height;
+        if (height > 0) pendingRowSizes.set(key, { row: item.row, height });
+      }
+    }
+    let first = projectedRows.length;
+    const anchor = pendingLayoutAnchor ?? captureLayoutAnchor({ scrollTop, rowPositions, rows: projectedRows, preferCardIndex: false });
+    for (const [key, item] of pendingRowSizes) {
+      const current = projectedRows[item.row.index];
+      if (current?.key !== key || !rowNeedsMeasuredHeight(current)) continue;
+      const oldHeight = rowHeightMap.get(key) ?? ESTIMATED_ROW_HEIGHT;
+      if (oldHeight !== item.height) { rowHeightMap.set(key, item.height); first = Math.min(first, current.index); }
+    }
+    pendingRowSizes.clear();
+    if (first === projectedRows.length) return;
+    const layout = buildRowPositions(projectedRows, rowHeightMap, ESTIMATED_ROW_HEIGHT, rowPositions, first);
+    rowPositions = layout.positions; totalHeight = layout.totalHeight;
+    const resolved = anchor && resolveAnchoredScrollTop({ anchor, rows: projectedRows, rowPositions });
+    if (viewportEl) applyScrollTop(clampLayoutScrollTop(resolved ?? scrollTop, totalHeight, viewportHeight));
+    pendingLayoutAnchor = null;
+  }
+  onDestroy(() => {
+    if (measureFrame !== null) measureWindow?.cancelAnimationFrame(measureFrame);
+    pendingRowSizes.clear(); mountedRows.clear();
+  });
   function measureRow(node: HTMLDivElement, row: ProjectedRow): { update: (nextRow: ProjectedRow) => void; destroy: () => void } {
     let currentRow = row;
+    mountedRows.set(row.key, { node, row });
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        if (!rowNeedsMeasuredHeight(currentRow)) {
-          continue;
-        }
-
+        if (!rowNeedsMeasuredHeight(currentRow)) continue;
         const height = entry.borderBoxSize && entry.borderBoxSize.length > 0
-          ? entry.borderBoxSize[0].blockSize
-          : entry.target.getBoundingClientRect().height;
-        const roundedHeight = Math.round(height);
-        const oldHeight = rowHeightMap.get(currentRow.key) || ESTIMATED_ROW_HEIGHT;
-
-        if (oldHeight !== roundedHeight) {
-          rowHeightMap.set(currentRow.key, roundedHeight);
-          rebuildPositionsFrom(currentRow.index, roundedHeight - oldHeight);
-        }
+          ? entry.borderBoxSize[0].blockSize : entry.target.getBoundingClientRect().height;
+        if (height > 0) pendingRowSizes.set(currentRow.key, { row: currentRow, height });
       }
+      if (pendingRowSizes.size) scheduleRowMeasurement();
     });
-
     resizeObserver.observe(node);
-
-    return {
-      update(nextRow: ProjectedRow) {
-        currentRow = nextRow;
-      },
-      destroy() {
-        resizeObserver.disconnect();
-      },
-    };
+    return { update(nextRow) { mountedRows.delete(currentRow.key); currentRow = nextRow; mountedRows.set(nextRow.key, { node, row: nextRow }); }, destroy() { resizeObserver.disconnect(); pendingRowSizes.delete(currentRow.key); mountedRows.delete(currentRow.key); } };
   }
 
   function isLastRow(rowIndex: number): boolean {
@@ -872,6 +945,7 @@
                 {card}
                 {strings}
                 {appearance}
+                image={cards.loading || images.generation === undefined || images.generation === cards.generation ? images.byPath[card.path] : undefined}
                 pinnedPaths={projection.pinnedPaths}
                 searchQuery={search.committedQuery}
                 bulkMode={bulk.bulkMode}

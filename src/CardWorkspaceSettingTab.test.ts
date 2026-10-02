@@ -169,7 +169,7 @@ describe("CardWorkspaceSettingTab", () => {
     tab.display();
 
     expect(mockState.containerEl.empty).toHaveBeenCalledTimes(1);
-    expect(mockState.settings).toHaveLength(7);
+    expect(mockState.settings).toHaveLength(9);
     expect(mockState.settings.map((setting) => setting.name)).toEqual([
       "Default card open behavior",
       "Card drag insert behavior",
@@ -178,6 +178,8 @@ describe("CardWorkspaceSettingTab", () => {
       "Preview lines",
       "Show item counts in navigation",
       "Jump to link location when opening a link card",
+      "Card images",
+      "Image fit",
     ]);
     expect(mockState.settings[0]?.dropdown).toMatchObject({
       value: "split-right",
@@ -277,6 +279,8 @@ describe("CardWorkspaceSettingTab", () => {
       "预览行数",
       "在导航栏显示条目计数",
       "双链卡片点击定位",
+      "卡片图片",
+      "图片显示方式",
     ]);
     expect(mockState.settings[0]?.dropdown?.options[0]).toEqual({
       value: "smart",
@@ -301,6 +305,8 @@ describe("CardWorkspaceSettingTab", () => {
       "预览行数",
       "在导航栏显示条目计数",
       "双链卡片点击定位",
+      "卡片图片",
+      "图片显示方式",
     ]);
     expect(tab.getSettingDefinitions()[0]?.control).toMatchObject({
       options: { smart: "当前窗格 / 当前标签页" },

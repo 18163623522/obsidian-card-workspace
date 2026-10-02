@@ -73,6 +73,14 @@ export function buildPanelProps(view: PanelHost): PanelCallbackProps {
         paths: request.paths,
       });
     },
+    onImageViewport: (detail: unknown) => {
+      if (typeof detail !== "object" || detail === null) return;
+      const request = detail as import("./image-request").ImageViewportRequest;
+      if (!Number.isInteger(request.generation) || !Number.isInteger(request.sequenceRevision)
+        || !Number.isInteger(request.requestVersion) || !Number.isInteger(request.start) || !Number.isInteger(request.end) || !Array.isArray(request.paths)
+        || !request.paths.every((path: unknown) => typeof path === "string")) return;
+      view.modules.images.requestViewport(request);
+    },
     onToolbarAction: (detail: { action?: unknown }) => {
       view.handleToolbarAction(detail);
     },

@@ -1,3 +1,5 @@
+import type { CardImageState } from "../images/types";
+import type { CardImageFit, CardImageMode } from "../settings";
 import type { GroupDimension, GroupSpec } from "../card-grouping-settings";
 import type { CardCornerRadius, SortDirection, SortField } from "../settings";
 import type { UiStrings } from "../i18n";
@@ -210,6 +212,8 @@ export interface PanelNavState {
 export interface PanelAppearanceState {
   cardCornerRadius: CardCornerRadius;
   previewLines: number;
+  cardImageMode?: CardImageMode;
+  cardImageFit?: CardImageFit;
 }
 
 export interface PanelModelState {
@@ -221,6 +225,7 @@ export interface PanelModelState {
   bulk: BulkRuntimePanelState;
   nav: PanelNavState;
   appearance: PanelAppearanceState;
+  images: { byPath: Record<string, CardImageState>; requestVersion: number; generation?: number };
 }
 
 export type PanelGroup = keyof PanelModelState;
@@ -234,6 +239,7 @@ export const PANEL_GROUPS: readonly PanelGroup[] = [
   "bulk",
   "nav",
   "appearance",
+  "images",
 ];
 
 /** Groups are replaced wholesale; deeply readonly values prevent in-place changes. */

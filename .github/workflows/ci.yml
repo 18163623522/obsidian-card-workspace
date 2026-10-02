@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -33,3 +35,16 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: Install Chromium for image diagnostics
+        run: npx playwright install --with-deps chromium
+
+      - name: Image browser contracts and diagnostic timings
+        run: npm run benchmark:images -- --smoke --samples 3 --warmups 1 --diagnostic-only --output "$RUNNER_TEMP/card-images.json"
+
+      - name: Upload image diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-image-diagnostics
+          path: ${{ runner.temp }}/card-images.json

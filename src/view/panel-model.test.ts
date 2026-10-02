@@ -92,6 +92,7 @@ function buildState(): PanelModelState {
       focusRequest: null,
       revealRequest: null,
     },
+    images: { byPath: {}, requestVersion: 0 },
     appearance: {
       cardCornerRadius: "medium",
       previewLines: 8,

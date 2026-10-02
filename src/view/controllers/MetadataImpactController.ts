@@ -22,6 +22,7 @@ export type MetadataImpactBatch =
 
 export interface MetadataImpactControllerDeps {
   context: ViewContext;
+  onImageMetadataChange?: (path?: string) => void;
   getGroupDimension: () => GroupDimension;
   /** True while the runtime scope is a folder with an active browse Tag filter. */
   isBrowseTagFilterActive: () => boolean;
@@ -113,6 +114,8 @@ export class MetadataImpactController implements DisposableController {
     if (this.disposed) {
       return;
     }
+
+    this.deps.onImageMetadataChange?.(path);
 
     // A path outside this scope can still belong to a folder cached for a
     // later return visit. Keep the current scope's hot snapshot intact here.
@@ -215,6 +218,10 @@ export class MetadataImpactController implements DisposableController {
     if (this.deps.isScopeSettled?.() === false) return;
     if (reproject) this.deps.reprojectCardsForMetadata();
     this.deps.publishImpactBatch(batch);
+  }
+
+  handleMetadataResolved(): void {
+    if (!this.disposed) this.deps.onImageMetadataChange?.();
   }
 
   dispose(): DisposeReport {

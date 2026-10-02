@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import type { CardImageState } from "../images/types";
   import { setIcon } from "obsidian";
   import { getUiStrings, type UiStrings } from "../i18n";
   import { getSearchDisplayTerms } from "../search-tokenization";
@@ -37,6 +38,7 @@
     card: NoteCardRecord;
     strings?: UiStrings;
     appearance?: PanelAppearanceState;
+    image?: CardImageState;
     selected?: boolean;
     bulkMode?: boolean;
     bulkSelected?: boolean;
@@ -60,6 +62,7 @@
     card,
     strings = getUiStrings("en"),
     appearance = { cardCornerRadius: "compact", previewLines: 5 },
+    image,
     selected = false,
     bulkMode = false,
     bulkSelected = false,
@@ -78,6 +81,9 @@
   const fileKindStrings = $derived(strings.fileKind);
   const cardCornerRadius = $derived(appearance.cardCornerRadius);
   const previewLines = $derived(appearance.previewLines);
+  const imageMode = $derived(appearance.cardImageMode ?? "off");
+  const showImage = $derived(imageMode !== "off" && image !== undefined);
+  let failedUrl = $state<string | null>(null);
   const isPinned = $derived(pinnedPaths.includes(card.path));
   const highlightedTitleSegments = $derived(getHighlightedTitleSegments(card.title, searchQuery));
   const normalizedSearchQuery = $derived(searchQuery.trim());
@@ -368,7 +374,7 @@
   ondrag={onCardDrag}
   ondragend={onCardDragEnd}
 >
-  <div class="fce-card-body">
+  <div class="fce-card-body" class:has-right-image={showImage && imageMode === "right"}>
     <div class="fce-card-header">
       <div class="fce-card-title-group" role="presentation" onmouseenter={emitCardHoverLink}>
         <span class="fce-card-file-icon" aria-hidden="true" data-file-kind={card.fileKind} use:applyIcon={getCardFileIcon(card.fileKind)}></span>
@@ -413,6 +419,15 @@
         {/if}
       </div>
     </div>
+    {#if showImage}
+      <div class="fce-card-image" class:is-inline={imageMode === "inline"} class:is-cover={appearance.cardImageFit === "cover"}>
+        {#if image?.status === "ready" && image.url !== failedUrl}
+          <img src={image.url} alt="" draggable="false" decoding="async" onerror={() => { if (image?.status === "ready") failedUrl = image.url; }} />
+        {:else}
+          <span class="fce-card-image-placeholder" role="img" aria-label={image?.status === "loading" ? cardStrings.imageLoading : cardStrings.imageFailed} use:applyIcon={"image"}></span>
+        {/if}
+      </div>
+    {/if}
     <div
       class="fce-excerpt {card.previewMode === 'code' ? 'is-code' : ''} {card.hydrated ? '' : 'is-loading'} {(card.previewMode === 'empty' || (card.previewMode !== 'placeholder' && !card.previewHtml)) && card.hydrated ? 'is-empty' : ''}"
       role="presentation"

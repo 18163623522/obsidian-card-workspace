@@ -9,6 +9,11 @@ import {
   WorkspaceLeaf,
   debounce,
 } from "obsidian";
+import { isSupportedImagePath } from "./images/image-source";
+import { ThumbnailService } from "./images/ThumbnailService";
+import { ThumbnailStore } from "./images/ThumbnailStore";
+import { ThumbnailWorker } from "./images/ThumbnailWorker";
+import { resolveSearchVaultNamespace } from "./services/SearchDocumentSource";
 import { EditorView, dropCursor } from "@codemirror/view";
 import { getUiStrings, resolveUiLanguage, type UiLanguage, type UiStrings } from "./i18n";
 import { CardWorkspaceSettingTab } from "./CardWorkspaceSettingTab";
@@ -53,6 +58,7 @@ export default class CardWorkspacePlugin extends Plugin {
     load: () => this.loadData(),
     save: (data) => this.saveData(data),
   });
+  private thumbnails: { service: ThumbnailService; vault: string } | null = null;
   private selectionRequestSeq = 0;
   private cardOpenSeq = 0;
   private cancelLinkCorrection: (() => void) | null = null;
@@ -104,6 +110,27 @@ export default class CardWorkspacePlugin extends Plugin {
     getSettings: () => this.getSettings(),
     saveSettings: (patch) => this.saveSettings(patch),
   });
+
+  getThumbnailService(): { service: ThumbnailService; vault: string } | null {
+    if (this.disposed || this.getSettings().cardImageMode === "off") return null;
+    if (!this.thumbnails) {
+      const vault = resolveSearchVaultNamespace(this.app);
+      const service = new ThumbnailService({
+        storage: new ThumbnailStore(vault), generator: new ThumbnailWorker(),
+        isCurrent: (fingerprint) => {
+          const file = this.app.vault.getAbstractFileByPath(fingerprint.path);
+          return file instanceof TFile && file.stat.mtime === fingerprint.mtime && file.stat.size === fingerprint.size;
+        },
+        read: async (fingerprint) => {
+          const file = this.app.vault.getAbstractFileByPath(fingerprint.path);
+          if (!(file instanceof TFile) || file.stat.mtime !== fingerprint.mtime || file.stat.size !== fingerprint.size) throw new Error("Image changed");
+          return this.app.vault.readBinary(file);
+        },
+      });
+      this.thumbnails = { service, vault };
+    }
+    return this.thumbnails;
+  }
 
   onload(): void {
     this.registerVaultEventListeners();
@@ -202,6 +229,8 @@ export default class CardWorkspacePlugin extends Plugin {
     this.vaultEventUnsubscribers = [];
     this.vaultEventListenersRegistered = false;
     this.searchCoordinator.dispose();
+    this.thumbnails?.service.dispose();
+    this.thumbnails = null;
     this.withFolderViews((view) => {
       view.cleanupLifecycle();
     });
@@ -743,6 +772,9 @@ export default class CardWorkspacePlugin extends Plugin {
 
   private dispatchVaultMutation(event: VaultMutationEvent): void {
     if (this.disposed) return;
+    if (event.isFolder || isSupportedImagePath(event.path) || (event.oldPath !== null && isSupportedImagePath(event.oldPath))) {
+      this.thumbnails?.service.invalidate([event.path, ...(event.oldPath === null ? [] : [event.oldPath])], event.isFolder);
+    }
     this.runDetached(this.vaultEventBus.publish(event), "Vault event publication failed.");
   }
 

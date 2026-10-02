@@ -16,13 +16,17 @@
     "test": "vitest run",
     "test:node": "vitest run --project node",
     "test:component": "vitest run --project jsdom",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "benchmark:images": "node scripts/run-card-image-benchmark.mjs",
+    "benchmark:images:obsidian": "node scripts/run-card-image-obsidian.mjs"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@types/node": "^22.10.7",
     "esbuild": "^0.25.0",
     "esbuild-svelte": "^0.9.4",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^27.0.1",
     "obsidian": "^1.8.7",
     "oxlint": "^1.63.0",
