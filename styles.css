@@ -1688,8 +1688,13 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   min-width: 220px;
 }
 
-.menu.fce-card-drag-insert-menu {
+.menu.fce-card-drag-insert-menu,
+.menu.fce-card-drag-heading-menu {
   min-width: 220px;
+}
+
+.menu.fce-card-drag-heading-menu .menu-item-icon {
+  margin-inline-start: calc(var(--fce-heading-depth, 0) * var(--size-4-4, 16px));
 }
 
 .menu.fce-card-context-menu .menu-item.fce-menu-item-danger,

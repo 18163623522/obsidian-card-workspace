@@ -379,6 +379,8 @@ export class EditorDropController {
 
   private appendHeadingItems(menu: Menu, operation: DropOperation, action: SupportedDragInsertAction): void {
     const strings = this.getUiStrings().view.dragInsertMenu;
+    const menuDom = getMenuDom(menu);
+    menuDom?.classList.add("fce-card-drag-heading-menu");
     menu.addItem((item) => item.setTitle(strings.wholeNote).setIcon("file-text").onClick(() => {
       void this.insertCardDragContent(operation, action, { kind: "whole" });
     }));
@@ -388,10 +390,17 @@ export class EditorDropController {
         ? strings.headingsUnavailable : strings.noOtherSections).setDisabled(true));
       return;
     }
+    // Keep native icon/title columns aligned; the highest level in this note is depth zero.
+    const baseLevel = operation.headings.reduce((level, heading) => Math.min(level, heading.level), 6);
     for (const heading of operation.headings) {
-      menu.addItem((item) => item.setTitle(`H${heading.level}  ${heading.heading}`).onClick(() => {
-        void this.insertCardDragContent(operation, action, { kind: "heading", heading });
-      }));
+      menu.addItem((item) => {
+        item.setTitle(heading.heading).setIcon(`heading-${heading.level}`).onClick(() => {
+          void this.insertCardDragContent(operation, action, { kind: "heading", heading });
+        });
+        // Native Menu attaches rows only when shown, so decorate the item's detached DOM.
+        const row = (item as unknown as { dom?: HTMLElement }).dom;
+        row?.style.setProperty("--fce-heading-depth", String(heading.level - baseLevel));
+      });
     }
   }
 

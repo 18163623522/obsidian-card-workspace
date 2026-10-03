@@ -6,6 +6,7 @@ interface MenuEntry {
   onClick: (() => void) | null;
   disabled: boolean;
   submenu: MenuState | null;
+  dom: { style: { setProperty: ReturnType<typeof vi.fn> } };
 }
 
 interface MenuState {
@@ -32,7 +33,11 @@ vi.mock("obsidian", () => {
   class MockMenu {
     items: MenuEntry[] = [];
     positions: Array<{ x: number; y: number }> = [];
-    dom = { classList: { add: vi.fn() } };
+    dom = {
+      classList: { add: vi.fn() },
+      // Native Menu items stay detached until the menu is sorted for display.
+      querySelectorAll: vi.fn((_selector: string) => [] as Element[]),
+    };
     hideCallback: (() => void) | null = null;
 
     constructor() {
@@ -46,8 +51,10 @@ vi.mock("obsidian", () => {
       setSubmenu: () => MockMenu | undefined;
       onClick: (callback: () => void) => unknown;
     }) => void): this {
-      const entry: MenuEntry = { title: "", icon: "", onClick: null, disabled: false, submenu: null };
+      const entry: MenuEntry = { title: "", icon: "", onClick: null, disabled: false, submenu: null,
+        dom: { style: { setProperty: vi.fn() } } };
       const item = {
+        dom: entry.dom,
         setTitle: (title: string) => {
           entry.title = title;
           return item;
@@ -81,7 +88,8 @@ vi.mock("obsidian", () => {
     }
 
     addSeparator(): this {
-      this.items.push({ title: "separator", icon: "", onClick: null, disabled: true, submenu: null });
+      this.items.push({ title: "separator", icon: "", onClick: null, disabled: true, submenu: null,
+        dom: { style: { setProperty: vi.fn() } } });
       return this;
     }
 
@@ -465,8 +473,19 @@ describe("EditorDropController", () => {
     expect(menu.items.map((item) => item.title)).toEqual([
       "Insert section link", "Insert embed link", "Insert section content", "Insert section heading & content",
     ]);
-    const titles = ["Whole note", "separator", "H1  Intro", "H2  **Method**", "H3  Example", "H2  Conclusion", "H1  Empty", "H1  Final"];
-    for (const action of menu.items) expect(action.submenu?.items.map((item) => item.title)).toEqual(titles);
+    const titles = ["Whole note", "separator", "Intro", "**Method**", "Example", "Conclusion", "Empty", "Final"];
+    for (const action of menu.items) {
+      const submenu = action.submenu!;
+      expect(submenu.items.map((item) => item.title)).toEqual(titles);
+      expect(submenu.dom.classList.add).toHaveBeenCalledWith("fce-card-drag-heading-menu");
+      expect(submenu.items[0].icon).toBe("file-text");
+      expect(submenu.items.slice(2).map((item) => item.icon)).toEqual([
+        "heading-1", "heading-2", "heading-3", "heading-2", "heading-1", "heading-1",
+      ]);
+      submenu.items.slice(2).forEach((item, index) => {
+        expect(item.dom.style.setProperty).toHaveBeenCalledWith("--fce-heading-depth", String([0, 1, 2, 1, 0, 0][index]));
+      });
+    }
     expect(app.vault.cachedRead).not.toHaveBeenCalled();
     expect(app.metadataCache.fileToLinktext).not.toHaveBeenCalled();
   });
@@ -482,7 +501,7 @@ describe("EditorDropController", () => {
     expect(mockState.menus).toHaveLength(1);
     expect(editor.replaceRange).not.toHaveBeenCalled();
     expect(app.vault.cachedRead).not.toHaveBeenCalled();
-    choose(menu, "H2  **Method**");
+    choose(menu, "**Method**");
     await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith(expected, { line: 2, ch: 4 }, undefined, "card-workspace-drag"));
     if (action === "wiki" || action === "embed") {
       expect(app.metadataCache.fileToLinktext).toHaveBeenCalledWith(expect.any(TFile), "target/Target.md", true);
@@ -507,8 +526,27 @@ describe("EditorDropController", () => {
     choose(menu, "Insert embed link");
     const picker = mockState.menus[1];
     expect(picker.positions).toEqual([{ x: 120, y: 180 }]);
-    choose(picker, "H1  Final");
+    expect(picker.dom.classList.add).toHaveBeenCalledWith("fce-card-drag-heading-menu");
+    choose(picker, "Final");
     expect(editor.replaceRange).toHaveBeenCalledWith("![[Source#Final]]", expect.anything(), undefined, "card-workspace-drag");
+  });
+
+  it.each([
+    [[2, 3, 2], [0, 1, 0]],
+    [[3, 2, 3], [1, 0, 1]],
+    [[3, 3], [0, 0]],
+    [[2, 4, 6], [0, 2, 4]],
+  ])("indents headings %j relative to the highest level in the note", async (levels, depths) => {
+    const content = levels.map((level, index) => `${"#".repeat(level)} Section ${index}`).join("\n");
+    const headings = levels.map((level, index) => heading(content,
+      `${"#".repeat(level)} Section ${index}`, `Section ${index}`, level));
+    const { menu } = await startHeadingDrop("wiki", content, headings);
+    expect(menu.dom.classList.add).toHaveBeenCalledWith("fce-card-drag-heading-menu");
+    expect(menu.items[0].dom.style.setProperty).not.toHaveBeenCalled();
+    menu.items.slice(2).forEach((item, index) => {
+      expect(item.icon).toBe(`heading-${levels[index]}`);
+      expect(item.dom.style.setProperty).toHaveBeenCalledWith("--fce-heading-depth", String(depths[index]));
+    });
   });
 
   it.each([[], null] as const)("retains a whole-note entry and disabled hint when headings are %j", async (headings) => {
@@ -533,11 +571,11 @@ describe("EditorDropController", () => {
 
   it("copies the last section and does not insert a whitespace-only section", async () => {
     const { menu, editor, controller, event, info } = await startHeadingDrop("content");
-    choose(menu, "H1  Empty");
+    choose(menu, "Empty");
     await Promise.resolve();
     expect(editor.replaceRange).not.toHaveBeenCalled();
     await controller.handleCardEditorDrop(event as unknown as DragEvent, editor as never, info as never);
-    choose(mockState.menus[1], "H1  Final");
+    choose(mockState.menus[1], "Final");
     await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith("End  ", expect.anything(), undefined, "card-workspace-drag"));
   });
 
@@ -549,7 +587,7 @@ describe("EditorDropController", () => {
       heading(content, "Next\r\n====", "Next", 1),
     ];
     const { menu, editor } = await startHeadingDrop(action, content, headings);
-    choose(menu, "H1  Title *original*");
+    choose(menu, "Title *original*");
     const expected = `${action === "title-content" ? "Title *original*\r\n================\r\n\r\n" : ""}    indented  \r\n\r\nChild\r\n-----\r\n\r\nchild body`;
     await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith(expected, expect.anything(), undefined, "card-workspace-drag"));
   });
@@ -558,8 +596,8 @@ describe("EditorDropController", () => {
     const content = "# A\n## B\n### C\n#### D\n##### E\n###### F";
     const headings = Array.from({ length: 6 }, (_, index) => heading(content, `${"#".repeat(index + 1)} ${"ABCDEF"[index]}`, "ABCDEF"[index], index + 1));
     const { menu, editor } = await startHeadingDrop("title-content", content, headings);
-    expect(menu.items.slice(2).map((item) => item.title)).toEqual(["H1  A", "H2  B", "H3  C", "H4  D", "H5  E", "H6  F"]);
-    choose(menu, "H6  F");
+    expect(menu.items.slice(2).map((item) => item.title)).toEqual(["A", "B", "C", "D", "E", "F"]);
+    choose(menu, "F");
     await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith("###### F", expect.anything(), undefined, "card-workspace-drag"));
     expect(extractHeadingSection(content, headings, headings[5], false)).toBe("");
   });
@@ -591,7 +629,7 @@ describe("EditorDropController", () => {
     const content = "# Heading: has # and | symbols\nbody";
     const headings = [heading(content, content.split("\n")[0], "Heading: has # and | symbols", 1)];
     const { menu, editor } = await startHeadingDrop("wiki", content, headings);
-    choose(menu, "H1  Heading: has # and | symbols");
+    choose(menu, "Heading: has # and | symbols");
     expect(editor.replaceRange).toHaveBeenCalledWith("[[Source#Heading has and symbols]]", expect.anything(), undefined, "card-workspace-drag");
   });
 
@@ -610,7 +648,7 @@ describe("EditorDropController", () => {
   it("reports a failed content read without inserting", async () => {
     const { app, menu, editor } = await startHeadingDrop("content");
     app.vault.cachedRead.mockRejectedValue(new Error("Read failed"));
-    choose(menu, "H1  Intro");
+    choose(menu, "Intro");
     await vi.waitFor(() => expect(mockState.notices).toEqual(["Could not read the card source note."]));
     expect(editor.replaceRange).not.toHaveBeenCalled();
   });
@@ -618,7 +656,7 @@ describe("EditorDropController", () => {
   it("cancels when heading metadata changes after opening the menu", async () => {
     const { app, menu, editor } = await startHeadingDrop("content");
     app.metadataCache.getFileCache.mockReturnValue({ headings: [] });
-    choose(menu, "H1  Intro");
+    choose(menu, "Intro");
     expect(app.vault.cachedRead).not.toHaveBeenCalled();
     expect(editor.replaceRange).not.toHaveBeenCalled();
     expect(mockState.notices).toEqual(["The source note or target editor changed. Drop the card again."]);
@@ -629,7 +667,7 @@ describe("EditorDropController", () => {
       const { app, menu, editor, file, controller, info, event } = await startHeadingDrop("content");
       let finish!: (value: string) => void;
       app.vault.cachedRead.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
-      choose(menu, "H2  **Method**");
+      choose(menu, "**Method**");
       switch (change) {
         case "source-delete": app.vault.getAbstractFileByPath.mockReturnValue(null); break;
         case "source-mtime": file.stat.mtime++; break;
@@ -672,14 +710,14 @@ describe("EditorDropController", () => {
     const { controller, editor, sourceEditor, file, menu, info } = await startHeadingDrop("wiki");
     controller.handleEditorChange(editor as never, info as never);
     controller.handleEditorChange(sourceEditor as never, { file } as never);
-    choose(menu, "H1  Intro");
+    choose(menu, "Intro");
     expect(editor.replaceRange).toHaveBeenCalledTimes(1);
   });
 
   it.each(["target", "source"])("rejects a changed %s CodeMirror document even if its text is unchanged and its event is delayed", async (which) => {
     const { menu, editor, app, cm, sourceCm } = await startHeadingDrop("content");
     Object.assign((which === "target" ? cm : sourceCm).state, { doc: {} });
-    choose(menu, "H1  Intro");
+    choose(menu, "Intro");
     expect(app.vault.cachedRead).not.toHaveBeenCalled();
     expect(editor.replaceRange).not.toHaveBeenCalled();
   });
