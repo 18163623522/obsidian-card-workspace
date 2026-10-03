@@ -1,9 +1,11 @@
-import { Modal, Setting, type App } from "obsidian";
+import type { App } from "obsidian";
 import type { UiStrings } from "../../i18n";
 import { normalizePropertyFilterClauses } from "../../property-filter-settings";
 import type { SortDirection, SortField } from "../../settings";
 import type { CardBoxDefinition, CardBoxSortSpec, Rule } from "../types";
 import { removeRuleFromBox, restoreExcludedPaths } from "../card-boxes";
+import { FormModal } from "./FormModal";
+import { addEmptyGroupRow, createModalGroup } from "./modal-layout";
 
 export interface BoxConfigModalOptions {
   box: CardBoxDefinition;
@@ -34,13 +36,18 @@ const SORT_CHOICES: ReadonlyArray<{
  * Edits a local draft; nothing is persisted until "Done" is pressed.
  * This is the only place to edit rules, manual members, and removed members.
  */
-export class BoxConfigModal extends Modal {
+export class BoxConfigModal extends FormModal {
   private readonly options: BoxConfigModalOptions;
   private draft: CardBoxDefinition;
-  private submitting = false;
 
   constructor(app: App, options: BoxConfigModalOptions) {
-    super(app);
+    super(app, {
+      cancel: options.strings.box.cancel,
+      submit: options.strings.box.done,
+      submitting: options.strings.box.done,
+    });
+    this.addClass("fce-box-config");
+    this.useScrollableLayout();
     this.options = options;
     this.draft = {
       ...options.box,
@@ -57,32 +64,57 @@ export class BoxConfigModal extends Modal {
     };
   }
 
-  onOpen(): void {
-    this.render();
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
-  }
-
   private sortValue(sort: CardBoxSortSpec): string {
     return `${sort.field}:${sort.direction}`;
   }
 
-  private render(): void {
+  protected override render(): void {
+    const scrollTop = this.contentEl.scrollTop;
+    super.render();
+    this.contentEl.scrollTop = scrollTop;
+  }
+
+  protected renderBody(): void {
     const strings = this.options.strings.box;
     this.setTitle(strings.configTitle(this.draft.name));
-    this.contentEl.empty();
-    this.contentEl.addClass("fce-box-config");
 
-    // Rules section.
-    this.contentEl.createEl("h4", { text: strings.rulesHeading, cls: "fce-box-config__heading" });
+    this.renderSortGroup();
+    this.renderRulesGroup();
+    this.renderManualGroup();
+    this.renderExcludedGroup();
+  }
 
+  private renderSortGroup(): void {
+    const strings = this.options.strings;
+    createModalGroup(this.contentEl).addSetting((setting) => {
+      setting.setName(strings.box.sortHeading).addDropdown((dropdown) => {
+        for (const choice of SORT_CHOICES) {
+          dropdown.addOption(choice.value, strings.toolbar.sortOptions[choice.labelKey]);
+        }
+        dropdown.setValue(this.sortValue(this.draft.sort)).onChange((value) => {
+          const choice = SORT_CHOICES.find((entry) => entry.value === value);
+          if (choice) {
+            this.draft = {
+              ...this.draft,
+              sort: { field: choice.field, direction: choice.direction },
+            };
+          }
+        });
+      });
+    });
+  }
+
+  private renderRulesGroup(): void {
+    const strings = this.options.strings.box;
+    const group = createModalGroup(this.contentEl, { heading: strings.rulesHeading, compact: true });
     if (this.draft.rules.length === 0) {
-      this.contentEl.createEl("p", { text: strings.noRules, cls: "fce-box-config__empty" });
-    } else {
-      this.draft.rules.forEach((rule, index) => {
-        const setting = new Setting(this.contentEl).setName(this.options.describeRule(rule));
+      addEmptyGroupRow(group, strings.noRules);
+      return;
+    }
+
+    this.draft.rules.forEach((rule, index) => {
+      group.addSetting((setting) => {
+        setting.setName(this.options.describeRule(rule));
         if (this.options.isRuleFolderMissing(rule)) {
           setting.setDesc(strings.ruleFolderMissing);
           setting.setClass("fce-box-config__rule-missing");
@@ -103,7 +135,7 @@ export class BoxConfigModal extends Modal {
         });
         setting.addExtraButton((button) => {
           button
-            .setIcon("trash-2")
+            .setIcon("x")
             .setTooltip(strings.removeRule)
             .onClick(() => {
               this.draft = removeRuleFromBox(this.draft, index);
@@ -111,38 +143,25 @@ export class BoxConfigModal extends Modal {
             });
         });
       });
+    });
+  }
+
+  private renderManualGroup(): void {
+    const strings = this.options.strings.box;
+    const group = createModalGroup(this.contentEl, { heading: strings.manualHeading, compact: true });
+    if (this.draft.manualPaths.length === 0) {
+      addEmptyGroupRow(group, strings.noManualMembers);
+      return;
     }
 
-    // Sort section.
-    this.contentEl.createEl("h4", { text: strings.sortHeading, cls: "fce-box-config__heading" });
-    new Setting(this.contentEl).addDropdown((dropdown) => {
-      for (const choice of SORT_CHOICES) {
-        dropdown.addOption(choice.value, this.options.strings.toolbar.sortOptions[choice.labelKey]);
-      }
-      dropdown.setValue(this.sortValue(this.draft.sort)).onChange((value) => {
-        const choice = SORT_CHOICES.find((entry) => entry.value === value);
-        if (choice) {
-          this.draft = {
-            ...this.draft,
-            sort: { field: choice.field, direction: choice.direction },
-          };
-        }
-      });
-    });
-
-    // Manually added members section.
-    this.contentEl.createEl("h4", { text: strings.manualHeading, cls: "fce-box-config__heading" });
-    if (this.draft.manualPaths.length === 0) {
-      this.contentEl.createEl("p", { text: strings.noManualMembers, cls: "fce-box-config__empty" });
-    } else {
-      const list = this.contentEl.createDiv({ cls: "fce-box-config__member-list" });
-      for (const path of this.draft.manualPaths) {
-        new Setting(list)
+    for (const path of this.draft.manualPaths) {
+      group.addSetting((setting) => {
+        setting
           .setName(this.options.describeMemberPath(path))
           .setDesc(path)
           .addExtraButton((button) => {
             button
-              .setIcon("trash-2")
+              .setIcon("x")
               .setTooltip(strings.removeManualMember)
               .onClick(() => {
                 this.draft = {
@@ -152,17 +171,30 @@ export class BoxConfigModal extends Modal {
                 this.render();
               });
           });
-      }
+      });
+    }
+  }
+
+  private renderExcludedGroup(): void {
+    const strings = this.options.strings.box;
+    const group = createModalGroup(this.contentEl, { heading: strings.excludedHeading, compact: true });
+    if (this.draft.excludedPaths.length === 0) {
+      addEmptyGroupRow(group, strings.noExcludedMembers);
+      return;
     }
 
-    // Excluded members section.
-    this.contentEl.createEl("h4", { text: strings.excludedHeading, cls: "fce-box-config__heading" });
-    if (this.draft.excludedPaths.length === 0) {
-      this.contentEl.createEl("p", { text: strings.noExcludedMembers, cls: "fce-box-config__empty" });
-    } else {
-      const list = this.contentEl.createDiv({ cls: "fce-box-config__member-list" });
-      for (const path of this.draft.excludedPaths) {
-        new Setting(list)
+    group.addExtraButton((button) => {
+      button
+        .setIcon("rotate-ccw")
+        .setTooltip(strings.restoreAllExcluded)
+        .onClick(() => {
+          this.draft = restoreExcludedPaths(this.draft);
+          this.render();
+        });
+    });
+    for (const path of this.draft.excludedPaths) {
+      group.addSetting((setting) => {
+        setting
           .setName(this.options.describeMemberPath(path))
           .setDesc(path)
           .addExtraButton((button) => {
@@ -174,42 +206,12 @@ export class BoxConfigModal extends Modal {
                 this.render();
               });
           });
-      }
-      new Setting(this.contentEl).addButton((button) => {
-        button.setButtonText(strings.restoreAllExcluded).onClick(() => {
-          this.draft = restoreExcludedPaths(this.draft);
-          this.render();
-        });
       });
     }
-
-    // Footer.
-    new Setting(this.contentEl)
-      .addButton((button) => {
-        button.setButtonText(strings.cancel).onClick(() => {
-          this.close();
-        });
-      })
-      .addButton((button) => {
-        button
-          .setCta()
-          .setButtonText(strings.done)
-          .onClick(() => {
-            void this.submit();
-          });
-      });
   }
 
-  private async submit(): Promise<void> {
-    if (this.submitting) {
-      return;
-    }
-    this.submitting = true;
-    try {
-      await this.options.onConfirm(this.draft);
-      this.close();
-    } finally {
-      this.submitting = false;
-    }
+  protected async handleSubmit(): Promise<boolean> {
+    await this.options.onConfirm(this.draft);
+    return true;
   }
 }

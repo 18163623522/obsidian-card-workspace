@@ -101,6 +101,24 @@ export class Modal {
   }
 }
 
+export class ConfirmationModal extends Modal {
+  addClass(_cls: string): this {
+    return this;
+  }
+
+  setContent(_content: string): this {
+    return this;
+  }
+
+  addButton(_configure: (button: unknown) => unknown): this {
+    return this;
+  }
+
+  addCancelButton(_text?: string): this {
+    return this;
+  }
+}
+
 export class Vault {
   getRoot(): TFolder {
     return new TFolder();

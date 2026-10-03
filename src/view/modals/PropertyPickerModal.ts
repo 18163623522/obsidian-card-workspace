@@ -6,6 +6,7 @@ import {
   type PropertyInventorySnapshot,
 } from "../../property-filter-settings";
 import { FormModal } from "./FormModal";
+import { addEmptyGroupRow, createModalGroup } from "./modal-layout";
 
 export interface PropertyPickerModalOptions {
   strings: UiStrings;
@@ -50,6 +51,8 @@ export class PropertyPickerModal extends FormModal {
       submit: options.strings.box.done,
       submitting: options.strings.box.done,
     });
+    this.addClass("fce-property-picker");
+    this.useScrollableLayout();
     this.options = options;
     this.inventory = options.collectPropertyInventory();
     this.draftKeys = new Set(normalizeVisiblePropertyKeys(options.selectedKeys));
@@ -92,18 +95,21 @@ export class PropertyPickerModal extends FormModal {
   protected renderBody(): void {
     const strings = this.options.strings.property;
     this.setTitle(strings.chooseVisible);
-    this.contentEl.addClass("fce-property-picker");
 
-    new Setting(this.contentEl).addText((text) => {
-      text.inputEl.setAttribute("aria-label", strings.searchPlaceholder);
-      text
-        .setPlaceholder(strings.searchPlaceholder)
-        .setValue(this.searchQuery)
-        .onChange((value) => {
-          this.searchQuery = value;
-          this.renderList();
-        });
-    });
+    // The native first-child rule zeroes a setting's top padding, which clips the focus
+    // ring against the scrolling body, so the pinned bar owns the breathing room.
+    const searchBarEl = this.contentEl.createDiv({ cls: "fce-property-picker__search" });
+    new Setting(searchBarEl)
+      .addSearch((search) => {
+        search.inputEl.setAttribute("aria-label", strings.searchPlaceholder);
+        search
+          .setPlaceholder(strings.searchPlaceholder)
+          .setValue(this.searchQuery)
+          .onChange((value) => {
+            this.searchQuery = value;
+            this.renderList();
+          });
+      });
 
     this.listEl = this.contentEl.createDiv({ cls: "fce-property-picker__list" });
     this.renderList();
@@ -116,35 +122,38 @@ export class PropertyPickerModal extends FormModal {
     }
     listEl.empty();
     const strings = this.options.strings.property;
+    const group = createModalGroup(listEl, { compact: true });
 
     if (this.inventory.status === "partial") {
-      listEl.createEl("p", { text: strings.partialWarning, cls: "fce-property-picker__warning" });
+      addEmptyGroupRow(group, strings.partialWarning, "fce-property-picker__warning");
     } else if (this.inventory.status === "unavailable") {
-      listEl.createEl("p", { text: strings.unavailable, cls: "fce-property-picker__warning" });
+      addEmptyGroupRow(group, strings.unavailable, "fce-property-picker__warning");
     }
 
     const rows = this.buildRows();
     if (rows.length === 0) {
       if (this.inventory.status === "ready") {
-        listEl.createEl("p", { text: strings.emptyNoProperties, cls: "fce-property-picker__empty" });
+        addEmptyGroupRow(group, strings.emptyNoProperties);
       }
       return;
     }
 
     for (const row of rows) {
-      const setting = new Setting(listEl).setName(row.label);
-      if (!row.available) {
-        setting.setDesc(strings.unavailable);
-        setting.setClass("fce-property-picker__unavailable");
-      }
-      setting.addToggle((toggle) => {
-        toggle.setValue(row.selected).onChange((checked) => {
-          // Draft-only: no persistence and no re-render until Done/search.
-          if (checked) {
-            this.draftKeys.add(row.key);
-          } else {
-            this.draftKeys.delete(row.key);
-          }
+      group.addSetting((setting) => {
+        setting.setName(row.label);
+        if (!row.available) {
+          setting.setDesc(strings.unavailable);
+          setting.setClass("fce-property-picker__unavailable");
+        }
+        setting.addToggle((toggle) => {
+          toggle.setValue(row.selected).onChange((checked) => {
+            // Draft-only: no persistence and no re-render until Done/search.
+            if (checked) {
+              this.draftKeys.add(row.key);
+            } else {
+              this.draftKeys.delete(row.key);
+            }
+          });
         });
       });
     }

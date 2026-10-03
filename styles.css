@@ -1725,57 +1725,52 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 }
 
 /* === modal === */
-.fce-box-config__heading {
-  margin: 12px 0 4px;
-  color: var(--fce-text-muted);
-  font-size: var(--font-ui-smaller, 12px);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.fce-box-config__empty {
-  margin: 0 0 8px;
-  color: var(--fce-text-muted);
-  font-size: var(--font-ui-small, 13px);
-}
-
-.fce-box-config__member-list {
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.fce-box-config__rule-missing .setting-item-name {
+/* Modals mount on document.body, outside .folder-card-view, so only core Obsidian variables apply. */
+.fce-box-name__preview {
+  margin: 0 0 var(--size-4-2);
   color: var(--text-muted);
+  font-size: var(--font-ui-small);
 }
 
 .fce-box-config__rule-missing .setting-item-description {
   color: var(--text-error);
 }
 
-.fce-box-name__preview {
-  margin: 0 0 8px;
-  color: var(--fce-text-muted);
-  font-size: var(--font-ui-small, 13px);
+.fce-modal-preview {
+  max-height: 240px;
+  overflow: auto;
+  padding: var(--setting-items-padding-y) var(--setting-items-padding-x);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  font-size: var(--font-smaller);
+  line-height: var(--line-height-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
 }
 
-.fce-property-picker__list {
-  max-height: 320px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-gutter: stable;
-  margin-bottom: 8px;
+.fce-modal-preview.is-error {
+  color: var(--text-error);
 }
 
-.fce-property-picker__warning {
-  margin: 0 0 8px;
-  color: var(--text-warning, #b58900);
-  font-size: var(--font-ui-small, 13px);
+.fce-property-picker__search {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding-block: var(--size-4-2) var(--size-4-3);
+  background-color: var(--modal-background);
 }
 
-.fce-property-picker__empty {
-  margin: 0 0 8px;
-  color: var(--fce-text-muted);
-  font-size: var(--font-ui-small, 13px);
+.fce-property-picker__search .setting-item-info {
+  display: none;
+}
+
+.fce-property-picker__search .search-input-container {
+  width: 100%;
+}
+
+.fce-property-picker__warning .setting-item-name {
+  color: var(--text-warning);
 }
 
 .fce-property-picker__unavailable .setting-item-name {

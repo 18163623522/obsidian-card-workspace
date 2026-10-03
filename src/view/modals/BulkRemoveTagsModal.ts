@@ -23,6 +23,7 @@ export class BulkRemoveTagsModal extends FormModal {
   private readonly tagOptions: BulkRemovableTagOption[];
   private readonly onSubmit: (tags: string[]) => Promise<boolean>;
   private readonly selectedTags = new Set<string>();
+  private summaryEl: HTMLElement | null = null;
 
   constructor(app: App, options: BulkRemoveTagsModalOptions, onSubmit: (tags: string[]) => Promise<boolean>) {
     super(app, { cancel: options.cancelText, submit: options.submitText, submitting: options.submittingText });
@@ -43,7 +44,7 @@ export class BulkRemoveTagsModal extends FormModal {
       this.contentEl.createEl("p", { text: this.emptyMessage });
       return;
     }
-    this.contentEl.createEl("p", { text: this.selectionSummary(this.selectedTags.size) });
+    this.summaryEl = this.contentEl.createEl("p", { text: this.selectionSummary(this.selectedTags.size) });
     const checkboxGrid = this.contentEl.createDiv({ cls: "fce-tag-checkbox-grid" });
     for (const tagOption of this.tagOptions) {
       const optionEl = checkboxGrid.createEl("label", { cls: "fce-tag-checkbox-option" });
@@ -55,9 +56,8 @@ export class BulkRemoveTagsModal extends FormModal {
         } else {
           this.selectedTags.delete(tagOption.normalizedTag);
         }
-        if (this.contentEl.isConnected) {
-          this.render();
-        }
+        this.summaryEl?.setText(this.selectionSummary(this.selectedTags.size));
+        this.refreshFooter();
       });
       optionEl.createSpan({ cls: "fce-tag-checkbox-label", text: tagOption.label });
     }

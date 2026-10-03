@@ -340,6 +340,20 @@ const mockState = vi.hoisted(() => {
     keydownHandlers: Array<(event: { key: string; preventDefault: () => void }) => void>;
   }
 
+  interface MockModalDropdown {
+    label: string;
+    value: string;
+    options: Array<{ value: string; label: string }>;
+    onChange: ((value: string) => void) | null;
+  }
+
+  interface MockModalExtraButton {
+    icon: string;
+    tooltip: string;
+    disabled: boolean;
+    onClick: (() => void) | null;
+  }
+
   interface MockModalCheckbox {
     label: string;
     checked: boolean;
@@ -406,9 +420,27 @@ const mockState = vi.hoisted(() => {
       return new MockModalElement(this.__ownerModal, tag, attrs?.text ?? null);
     }
 
-    createDiv(_attrs?: { cls?: string }): MockModalElement {
-      return new MockModalElement(this.__ownerModal, "div");
+    createDiv(attrs?: { cls?: string }): MockModalElement {
+      const div = new MockModalElement(this.__ownerModal, "div");
+      div.isPreview = attrs?.cls?.split(" ").includes("fce-modal-preview") ?? false;
+      return div;
     }
+
+    isPreview = false;
+
+    isConnected = true;
+
+    setText(text: string): void {
+      if (this.isPreview) {
+        this.__ownerModal.renderedPreviewText = text;
+      }
+    }
+
+    toggleClass(_cls: string, _on: boolean): void {}
+
+    addClass(..._classes: string[]): void {}
+
+    setAttribute(_name: string, _value: string): void {}
 
     createSpan(attrs?: { text?: string; cls?: string }): MockModalElement { return this.createEl("span", attrs); }
 
@@ -432,6 +464,10 @@ const mockState = vi.hoisted(() => {
     textInputs: MockModalTextInput[] = [];
     toggles: MockModalToggle[] = [];
     checkboxes: MockModalCheckbox[] = [];
+    dropdowns: MockModalDropdown[] = [];
+    extraButtons: MockModalExtraButton[] = [];
+    groupHeadings: string[] = [];
+    footerButtons: MockModalButton[] = [];
     modalEl: {
       scrollTop: number;
       scrollHeight: number;
@@ -458,12 +494,25 @@ const mockState = vi.hoisted(() => {
         this.messages = [];
         this.renderedPreviewText = "";
         this.renderOrder = [];
-        this.buttons = [];
+        this.buttons = [...this.footerButtons];
         this.textInputs = [];
         this.toggles = [];
         this.checkboxes = [];
+        this.dropdowns = [];
+        this.extraButtons = [];
+        this.groupHeadings = [];
       };
       this.contentEl = contentEl;
+    }
+
+    onOpen(): void {}
+
+    onClose(): void {}
+
+    setContent(content: string): this {
+      this.messages.push(content);
+      this.renderOrder.push(`p:${content}`);
+      return this;
     }
 
     setTitle(title: string): this {
@@ -617,6 +666,95 @@ const mockState = vi.hoisted(() => {
       return this;
     }
 
+    setClass(_cls: string): this {
+      return this;
+    }
+
+    addSearch(configure: (text: {
+      setValue: (value: string) => unknown;
+      setPlaceholder: (value: string) => unknown;
+      onChange: (handler: (value: string) => void) => unknown;
+      inputEl: { setAttribute: (name: string, value: string) => void };
+    }) => void): this {
+      const record: MockModalTextInput = { value: "", onChange: null, keydownHandlers: [] };
+      const chain = {
+        setValue: (value: string) => {
+          record.value = value;
+          return chain;
+        },
+        setPlaceholder: (_value: string) => chain,
+        onChange: (handler: (value: string) => void) => {
+          record.onChange = handler;
+          return chain;
+        },
+        inputEl: { setAttribute: (_name: string, _value: string) => undefined },
+      };
+      configure(chain);
+      this.modal?.textInputs.push(record);
+      return this;
+    }
+
+    addDropdown(configure: (dropdown: {
+      addOption: (value: string, label: string) => unknown;
+      setValue: (value: string) => unknown;
+      onChange: (handler: (value: string) => void) => unknown;
+    }) => void): this {
+      const record: MockModalDropdown = {
+        label: this.currentName,
+        value: "",
+        options: [],
+        onChange: null,
+      };
+      const chain = {
+        addOption: (value: string, label: string) => {
+          record.options.push({ value, label });
+          return chain;
+        },
+        setValue: (value: string) => {
+          record.value = value;
+          return chain;
+        },
+        onChange: (handler: (value: string) => void) => {
+          record.onChange = handler;
+          return chain;
+        },
+      };
+      configure(chain);
+      this.modal?.renderOrder.push(`dropdown:${record.label}`);
+      this.modal?.dropdowns.push(record);
+      return this;
+    }
+
+    addExtraButton(configure: (button: {
+      setIcon: (icon: string) => unknown;
+      setTooltip: (tooltip: string) => unknown;
+      setDisabled: (disabled: boolean) => unknown;
+      onClick: (handler: () => void) => unknown;
+    }) => void): this {
+      const record: MockModalExtraButton = { icon: "", tooltip: "", disabled: false, onClick: null };
+      const chain = {
+        setIcon: (icon: string) => {
+          record.icon = icon;
+          return chain;
+        },
+        setTooltip: (tooltip: string) => {
+          record.tooltip = tooltip;
+          return chain;
+        },
+        setDisabled: (disabled: boolean) => {
+          record.disabled = disabled;
+          return chain;
+        },
+        onClick: (handler: () => void) => {
+          record.onClick = handler;
+          return chain;
+        },
+      };
+      configure(chain);
+      this.modal?.extraButtons.push(record);
+      return this;
+    }
+
     addButton(configure: (button: {
       setButtonText: (text: string) => unknown;
       onClick: (handler: () => void) => unknown;
@@ -662,6 +800,123 @@ const mockState = vi.hoisted(() => {
     }
   }
 
+  class MockSettingGroup {
+    readonly listEl: MockModalElement;
+    private readonly modal: MockModal | null;
+    private readonly headingIndex: number;
+
+    constructor(containerEl: unknown) {
+      const owner = (containerEl as { __ownerModal?: MockModal } | null)?.__ownerModal ?? null;
+      this.modal = owner;
+      this.listEl = new MockModalElement(owner as MockModal, "div");
+      this.headingIndex = owner?.groupHeadings.push("") ?? 0;
+    }
+
+    setHeading(text: string): this {
+      if (this.modal) {
+        this.modal.groupHeadings[this.headingIndex - 1] = text;
+      }
+      return this;
+    }
+
+    addClass(..._classes: string[]): this {
+      return this;
+    }
+
+    addSetting(configure: (setting: MockSetting) => void): this {
+      configure(new MockSetting(this.listEl));
+      return this;
+    }
+
+    addSearch(): this {
+      return this;
+    }
+
+    addExtraButton(configure: (button: {
+      setIcon: (icon: string) => unknown;
+      setTooltip: (tooltip: string) => unknown;
+      onClick: (handler: () => void) => unknown;
+    }) => void): this {
+      new MockSetting(this.listEl).addExtraButton(configure as never);
+      return this;
+    }
+  }
+
+  class MockConfirmationModal extends MockModal {
+    addClass(_cls: string): this {
+      return this;
+    }
+
+    addButton(configure: (button: {
+      setButtonText: (text: string) => unknown;
+      onClick: (handler: () => unknown) => unknown;
+      setWarning: () => unknown;
+      setCta: () => unknown;
+      setDisabled: (disabled: boolean) => unknown;
+      setCancel: () => unknown;
+      setInitialFocus: () => unknown;
+      setSecondary: () => unknown;
+    }) => void): this {
+      const record: MockModalButton = {
+        text: "",
+        warning: false,
+        cta: false,
+        disabled: false,
+        onClick: null,
+      };
+      let handler: (() => unknown) | null = null;
+      const chain = {
+        setButtonText: (text: string) => {
+          record.text = text;
+          return chain;
+        },
+        onClick: (next: () => unknown) => {
+          handler = next;
+          return chain;
+        },
+        setWarning: () => {
+          record.warning = true;
+          return chain;
+        },
+        setCta: () => {
+          record.cta = true;
+          return chain;
+        },
+        setDisabled: (disabled: boolean) => {
+          record.disabled = disabled;
+          return chain;
+        },
+        setCancel: () => chain,
+        setInitialFocus: () => chain,
+        setSecondary: () => chain,
+      };
+      // Native contract: the dialog closes after the handler unless it returns truthy.
+      record.onClick = () => {
+        const result = handler?.();
+        if (result !== null && typeof result === "object" && "then" in result) {
+          void (result as Promise<unknown>).then((resolved) => {
+            if (!resolved) {
+              this.close();
+            }
+          });
+        } else if (!result) {
+          this.close();
+        }
+      };
+      configure(chain);
+      this.footerButtons.push(record);
+      this.buttons.push(record);
+      return this;
+    }
+
+    addCancelButton(text: string = "Cancel"): this {
+      return this.addButton((button) => {
+        button.setButtonText(text);
+        button.setCancel();
+      });
+    }
+  }
+
   class MockItemView {
     app: any;
     leaf: any;
@@ -682,8 +937,10 @@ const mockState = vi.hoisted(() => {
     MockItemView,
     MockMenu,
     MockModal,
+    MockConfirmationModal,
     MockNotice,
     MockSetting,
+    MockSettingGroup,
     MockSuggestModal,
     MockTFile,
     MockTFolder,
@@ -710,9 +967,11 @@ vi.mock("obsidian", () => {
     FuzzySuggestModal: mockState.MockSuggestModal,
     ItemView: mockState.MockItemView,
     Menu: mockState.MockMenu,
+    ConfirmationModal: mockState.MockConfirmationModal,
     Modal: mockState.MockModal,
     Notice: mockState.MockNotice,
     Setting: mockState.MockSetting,
+    SettingGroup: mockState.MockSettingGroup,
     Platform: {
       get isDesktopApp() {
         return mockState.runtimeFlags.isDesktopApp;
@@ -1010,6 +1269,35 @@ export function setLatestModalTextInput(index: number, value: string): void {
   expect(input).toBeDefined();
   input!.value = value;
   input?.onChange?.(value);
+}
+
+export function setLatestModalDropdown(label: string, value: string): void {
+  const modal = mockState.modalInstances.at(-1);
+  expect(modal).toBeDefined();
+
+  const dropdown = modal?.dropdowns.find((candidate) => candidate.label === label);
+  expect(dropdown).toBeDefined();
+  dropdown!.value = value;
+  dropdown?.onChange?.(value);
+}
+
+export function setLatestModalToggle(label: string, value: boolean): void {
+  const modal = mockState.modalInstances.at(-1);
+  expect(modal).toBeDefined();
+
+  const toggle = modal?.toggles.find((candidate) => candidate.label === label);
+  expect(toggle).toBeDefined();
+  toggle!.value = value;
+  toggle?.onChange?.(value);
+}
+
+export function clickLatestModalExtraButton(tooltip: string, occurrence: number = 0): void {
+  const modal = mockState.modalInstances.at(-1);
+  expect(modal).toBeDefined();
+
+  const matches = modal?.extraButtons.filter((candidate) => candidate.tooltip === tooltip) ?? [];
+  expect(matches[occurrence]).toBeDefined();
+  matches[occurrence]?.onClick?.();
 }
 
 export function setLatestModalCheckbox(label: string, checked: boolean): void {

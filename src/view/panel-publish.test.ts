@@ -11,11 +11,13 @@ vi.mock("obsidian", () => ({
       this.app = leaf.app;
     }
   },
+  ConfirmationModal: class {},
   FuzzySuggestModal: class {},
   Menu: class {},
   Modal: class {},
   Notice: class {},
   Setting: class {},
+  SettingGroup: class {},
   TFile: class {},
   TFolder: class {},
   getAllTags: () => [],

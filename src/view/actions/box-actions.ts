@@ -1,4 +1,4 @@
-import { Menu, Modal, Setting, TFile, TFolder } from "obsidian";
+import { ConfirmationModal, Menu, TFile, TFolder } from "obsidian";
 import type { UiStrings } from "../../i18n";
 import { normalizePropertyFilterClauses } from "../../property-filter-settings";
 import {
@@ -21,6 +21,7 @@ import { isSupportedCardFile } from "../file-kind";
 import { pruneFavoriteBoxes } from "../favorites";
 import { BoxConfigModal } from "../modals/BoxConfigModal";
 import { BoxNameModal } from "../modals/BoxNameModal";
+import { createModalGroup } from "../modals/modal-layout";
 import type { BoxSummary } from "../panel-model";
 import { createBoxScope, isBoxScope, scopeDisplayPath, resolveBrowseIncludeSubfolders, type CardScope } from "../scope";
 import { resolveSourceCapabilities } from "../source-capabilities";
@@ -282,33 +283,28 @@ export class BoxActions {
       return;
     }
     const strings = this.strings.box;
-    const modal = new Modal(this.deps.context.getApp());
+    const modal = new ConfirmationModal(this.deps.context.getApp());
     modal.setTitle(strings.deleteConfirmTitle);
-    modal.contentEl.createEl("p", { text: strings.deleteConfirmBody(box.name) });
-    new Setting(modal.contentEl)
-      .addButton((button) => {
-        button.setButtonText(strings.cancel).onClick(() => {
-          modal.close();
-        });
-      })
-      .addButton((button) => {
-        button
-          .setWarning()
-          .setButtonText(strings.deleteConfirm)
-          .onClick(async () => {
-            const current = this.deps.context.getSettings();
-            const scope = this.deps.context.store.getScope();
-            if (isBoxScope(scope) && scope.boxId === box.id) {
-              const result = await this.deps.moveScopeToFolder(current.lastFolderPath);
-              if (result.action === "rejected_invalid") {
-                return;
-              }
+    modal.setContent(strings.deleteConfirmBody(box.name));
+    modal.addButton((button) => {
+      button
+        .setWarning()
+        .setButtonText(strings.deleteConfirm)
+        .onClick(async () => {
+          const current = this.deps.context.getSettings();
+          const scope = this.deps.context.store.getScope();
+          if (isBoxScope(scope) && scope.boxId === box.id) {
+            const result = await this.deps.moveScopeToFolder(current.lastFolderPath);
+            if (result.action === "rejected_invalid") {
+              // Truthy keeps the dialog open.
+              return true;
             }
-            const nextBoxes = deleteCardBox(current.boxes, box.id);
-            await this.persistBoxes(nextBoxes);
-            modal.close();
-          });
-      });
+          }
+          const nextBoxes = deleteCardBox(current.boxes, box.id);
+          await this.persistBoxes(nextBoxes);
+        });
+    });
+    modal.addCancelButton(strings.cancel);
     modal.open();
   }
 
@@ -524,25 +520,31 @@ export class BoxActions {
     }
 
     const strings = this.strings.box;
-    const modal = new Modal(this.deps.context.getApp());
+    const modal = new ConfirmationModal(this.deps.context.getApp());
+    modal.addClass("mod-scrollable-content");
     modal.setTitle(strings.bulkAddToBoxTitle);
+    const group = createModalGroup(modal.contentEl, { compact: true });
     for (const box of settings.boxes) {
-      new Setting(modal.contentEl).setName(box.name).addButton((button) => {
-        button.setButtonText(strings.addToBox).onClick(() => {
-          void this.addPathsToBox(box.id, selectedPaths);
-          modal.close();
+      group.addSetting((setting) => {
+        setting.setName(box.name).addButton((button) => {
+          button.setButtonText(strings.addToBox).onClick(() => {
+            void this.addPathsToBox(box.id, selectedPaths);
+            modal.close();
+          });
         });
       });
     }
-    new Setting(modal.contentEl).addButton((button) => {
+    modal.addButton((button) => {
       button
         .setCta()
         .setButtonText(strings.addToNewBox)
         .onClick(() => {
           modal.close();
           this.openCreateBoxModalWithPaths(selectedPaths);
+          return true;
         });
     });
+    modal.addCancelButton(strings.cancel);
     modal.open();
   }
 

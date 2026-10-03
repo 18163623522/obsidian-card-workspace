@@ -209,6 +209,7 @@ const testState = vi.hoisted(() => {
 
 vi.mock("obsidian", () => {
   return {
+    ConfirmationModal: testState.TestModal,
     ItemView: testState.TestItemView,
     Menu: testState.TestMenu,
     Modal: testState.TestModal,
@@ -219,6 +220,7 @@ vi.mock("obsidian", () => {
     },
     Platform: { isDesktopApp: true },
     Setting: testState.TestSetting,
+    SettingGroup: class {},
     TFile: testState.TestTFile,
     TFolder: testState.TestTFolder,
     setIcon: (el: Element, icon: string) => {

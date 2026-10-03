@@ -9,7 +9,9 @@ import {
   createNonMarkdownFile,
   createFolder,
   clickLatestModalButton,
-  setLatestModalTextInput,
+  clickLatestModalExtraButton,
+  setLatestModalDropdown,
+  setLatestModalToggle,
   flushAsyncWork,
   createDeferred,
   buildNoteOpsMock,
@@ -374,7 +376,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
         [third.path]: "Third body",
       };
 
-      app.vault.read = vi.fn(async (file: { path: string }) => {
+      app.vault.cachedRead = vi.fn(async (file: { path: string }) => {
         return bodyByPath[file.path] ?? "";
       });
       app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
@@ -426,17 +428,20 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
 
       expect(mockState.modalInstances).toHaveLength(1);
       expect(mockState.modalInstances[0]?.title).toBe("Merge selected notes");
-      expect(mockState.modalInstances[0]?.renderOrder.indexOf("button:Cancel")).toBeLessThan(
-        mockState.modalInstances[0]?.renderOrder.indexOf("h4:Preview") ?? -1,
-      );
-      expect(mockState.modalInstances[0]?.renderOrder.indexOf("button:Merge notes")).toBeLessThan(
-        mockState.modalInstances[0]?.renderOrder.indexOf("h4:Preview") ?? -1,
-      );
+      expect(mockState.modalInstances[0]?.groupHeadings).toEqual([
+        "",
+        "Merge order · 3 source notes",
+        "Preview",
+      ]);
+      expect(mockState.modalInstances[0]?.footerButtons.map((button) => button.text)).toEqual([
+        "Merge notes",
+        "Cancel",
+      ]);
 
-      clickLatestModalButton("Down", 0);
+      clickLatestModalExtraButton("Move down", 0);
       await flushAsyncWork();
 
-      expect(mockState.modalInstances[0]?.textInputs[1]?.value).toBe("\n\n");
+      expect(mockState.modalInstances[0]?.dropdowns[0]?.value).toBe("blankLine");
       const defaultPreview = [
         "# second\n\nSecond body",
         "# first\n\nFirst body",
@@ -444,14 +449,14 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       ].join("\n\n");
       expect(mockState.modalInstances.at(-1)?.renderedPreviewText).toBe(defaultPreview);
 
-      setLatestModalTextInput(1, "\n\n***\n\n");
+      setLatestModalDropdown("Separator", "rule");
       await flushAsyncWork();
 
       const expectedPreview = [
         "# second\n\nSecond body",
         "# first\n\nFirst body",
         "# third\n\nThird body",
-      ].join("\n\n***\n\n");
+      ].join("\n\n---\n\n");
 
       expect(mockState.modalInstances.at(-1)?.renderedPreviewText).toBe(expectedPreview);
       expect(mergeNotes).not.toHaveBeenCalled();
@@ -465,7 +470,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
         [second, first, third],
         notesFolder,
         "Merged notes",
-        "\n\n***\n\n",
+        "\n\n---\n\n",
         getUiStrings("en").noteOps,
       );
     });
@@ -512,7 +517,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
         [second.path]: "---\ntags:\n  - drop\n---\n\nSecond body",
       };
 
-      app.vault.read = vi.fn(async (file: { path: string }) => {
+      app.vault.cachedRead = vi.fn(async (file: { path: string }) => {
         return bodyByPath[file.path] ?? "";
       });
       app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
@@ -555,7 +560,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       );
     });
 
-    it("preserves modal scroll position across reorder and cleanup actions", async () => {
+    it("preserves modal scroll position across reorder and cleanup toggles", async () => {
       const { view, app } = createViewWithFile("notes/seed.md");
       const first = createMarkdownFile("notes/first.md");
       const second = createMarkdownFile("notes/second.md");
@@ -567,7 +572,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
         [third.path]: "Third body",
       };
 
-      app.vault.read = vi.fn(async (file: { path: string }) => {
+      app.vault.cachedRead = vi.fn(async (file: { path: string }) => {
         return bodyByPath[file.path] ?? "";
       });
       app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
@@ -614,15 +619,15 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       const modal = mockState.modalInstances.at(-1);
       expect(modal).toBeDefined();
 
-      modal!.modalEl.scrollTop = 180;
-      clickLatestModalButton("Keep source notes");
-      expect(modal!.modalEl.scrollTop).toBe(180);
+      modal!.contentEl.scrollTop = 180;
+      setLatestModalToggle("Trash source notes after merge", true);
+      expect(modal!.contentEl.scrollTop).toBe(180);
 
-      modal!.modalEl.scrollTop = 240;
-      clickLatestModalButton("Down", 0);
-      expect(modal!.modalEl.scrollTop).toBe(240);
+      modal!.contentEl.scrollTop = 240;
+      clickLatestModalExtraButton("Move down", 0);
+      expect(modal!.contentEl.scrollTop).toBe(240);
       await flushAsyncWork();
-      expect(modal!.modalEl.scrollTop).toBe(240);
+      expect(modal!.contentEl.scrollTop).toBe(240);
     });
 
     it("does not rerender bulk merge preview after the modal closes", async () => {
@@ -632,7 +637,6 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       const notesFolder = createFolder("notes");
       const pendingRead = createDeferred<string>();
 
-      app.vault.read = vi.fn(() => pendingRead.promise);
       app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
         if (requestedPath === first.path) {
           return first;
@@ -663,6 +667,8 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       ]);
 
       await (view as any).onOpen();
+      await flushAsyncWork();
+      app.vault.cachedRead = vi.fn(() => pendingRead.promise);
 
       const toolbarActionHandler = mockState.panelEventHandlers["toolbar-action"];
       toolbarActionHandler({ detail: { action: "bulk-merge-selected" } });
@@ -670,17 +676,18 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
 
       const modal = mockState.modalInstances.at(-1);
       expect(modal).toBeDefined();
-      expect(app.vault.read).toHaveBeenCalledTimes(1);
+      expect(app.vault.cachedRead).toHaveBeenCalledTimes(1);
 
       clickLatestModalButton("Cancel");
-      expect(modal?.buttons).toEqual([]);
+      expect(modal?.renderOrder).toEqual([]);
       expect(modal?.renderedPreviewText).toBe("");
 
       pendingRead.resolve("First body");
       await flushAsyncWork();
 
-      expect(app.vault.read).toHaveBeenCalledTimes(1);
-      expect(modal?.buttons).toEqual([]);
+      expect(app.vault.cachedRead).toHaveBeenCalledTimes(1);
+      expect(modal?.renderOrder).toEqual([]);
+      expect(modal?.dropdowns).toEqual([]);
       expect(modal?.messages).toEqual([]);
       expect(modal?.renderedPreviewText).toBe("");
     });
@@ -690,15 +697,8 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       const first = createMarkdownFile("notes/first.md");
       const second = createMarkdownFile("notes/second.md");
       const notesFolder = createFolder("notes");
-      const immediateBodies: Record<string, string> = {
-        [first.path]: "First body",
-        [second.path]: "Second body",
-      };
       const pendingReads: Array<ReturnType<typeof createDeferred<string>>> = [];
 
-      app.vault.read = vi.fn(async (file: { path: string }) => {
-        return immediateBodies[file.path] ?? "";
-      });
       app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
         if (requestedPath === first.path) {
           return first;
@@ -729,44 +729,41 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       ]);
 
       await (view as any).onOpen();
-
-      const toolbarActionHandler = mockState.panelEventHandlers["toolbar-action"];
-      toolbarActionHandler({ detail: { action: "bulk-merge-selected" } });
       await flushAsyncWork();
-
-      app.vault.read = vi.fn(() => {
+      app.vault.cachedRead = vi.fn(() => {
         const deferred = createDeferred<string>();
         pendingReads.push(deferred);
         return deferred.promise;
       });
 
-      setLatestModalTextInput(1, "\n\n***\n\n");
+      const toolbarActionHandler = mockState.panelEventHandlers["toolbar-action"];
+      toolbarActionHandler({ detail: { action: "bulk-merge-selected" } });
       await flushAsyncWork(1);
-      setLatestModalTextInput(1, "\n\n===\n\n");
+      expect(pendingReads).toHaveLength(1);
+
+      setLatestModalDropdown("Separator", "rule");
+      await flushAsyncWork(1);
+      setLatestModalDropdown("Separator", "newline");
       await flushAsyncWork(1);
 
-      expect(pendingReads).toHaveLength(2);
-
-      pendingReads[1]!.resolve("First body");
-      await flushAsyncWork(1);
       expect(pendingReads).toHaveLength(3);
 
-      pendingReads[2]!.resolve("Second body");
+      pendingReads[2]!.resolve("First body");
+      await flushAsyncWork(1);
+      expect(pendingReads).toHaveLength(4);
+
+      pendingReads[3]!.resolve("Second body");
       await flushAsyncWork();
 
-      expect(mockState.modalInstances.at(-1)?.renderedPreviewText).toBe([
-        "# first\n\nFirst body",
-        "# second\n\nSecond body",
-      ].join("\n\n===\n\n"));
+      const latestPreview = ["# first\n\nFirst body", "# second\n\nSecond body"].join("\n");
+      expect(mockState.modalInstances.at(-1)?.renderedPreviewText).toBe(latestPreview);
 
-      pendingReads[0]!.resolve("First body");
+      pendingReads[0]!.resolve("Stale first body");
+      pendingReads[1]!.resolve("Stale first body");
       await flushAsyncWork();
 
-      expect(app.vault.read).toHaveBeenCalledTimes(3);
-      expect(mockState.modalInstances.at(-1)?.renderedPreviewText).toBe([
-        "# first\n\nFirst body",
-        "# second\n\nSecond body",
-      ].join("\n\n===\n\n"));
+      expect(app.vault.cachedRead).toHaveBeenCalledTimes(4);
+      expect(mockState.modalInstances.at(-1)?.renderedPreviewText).toBe(latestPreview);
     });
 
     it("does not rerender bulk merge modal after successful submit closes it", async () => {
@@ -775,7 +772,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       const second = createMarkdownFile("notes/second.md");
       const notesFolder = createFolder("notes");
 
-      app.vault.read = vi.fn(async (file: { path: string }) => {
+      app.vault.cachedRead = vi.fn(async (file: { path: string }) => {
         return `${file.path} body`;
       });
       app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
@@ -826,7 +823,9 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       await flushAsyncWork();
 
       expect(mergeNotes).toHaveBeenCalledTimes(1);
-      expect(modal?.buttons).toEqual([]);
+      expect(modal?.contentEl.isConnected).toBe(false);
+      expect(modal?.renderOrder).toEqual([]);
+      expect(modal?.dropdowns).toEqual([]);
       expect(modal?.messages).toEqual([]);
       expect(modal?.renderedPreviewText).toBe("");
     });
@@ -837,7 +836,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
       const second = createMarkdownFile("notes/second.md");
       const notesFolder = createFolder("notes");
 
-      app.vault.read = vi.fn(async (file: { path: string }) => {
+      app.vault.cachedRead = vi.fn(async (file: { path: string }) => {
         return `${file.path} body`;
       });
       app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
@@ -879,7 +878,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
 
       toolbarActionHandler({ detail: { action: "bulk-merge-selected" } });
       await flushAsyncWork();
-      clickLatestModalButton("Trash source notes after merge");
+      setLatestModalToggle("Trash source notes after merge", true);
       await flushAsyncWork(1);
       clickLatestModalButton("Merge notes");
       await flushAsyncWork();
@@ -902,7 +901,7 @@ describe("MergeActions batch move, bulk delete, and merge workflows", () => {
 
       toolbarActionHandler({ detail: { action: "bulk-merge-selected" } });
       await flushAsyncWork();
-      clickLatestModalButton("Trash source notes after merge");
+      setLatestModalToggle("Trash source notes after merge", true);
       await flushAsyncWork(1);
       clickLatestModalButton("Merge notes");
       await flushAsyncWork();

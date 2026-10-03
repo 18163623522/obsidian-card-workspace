@@ -56,6 +56,7 @@ export class TagInputModal extends FormModal {
         text.setValue(this.tagValue).setPlaceholder(this.strings.tagPlaceholder).onChange((value) => {
           this.tagValue = value;
         });
+        this.submitOnEnter(text.inputEl);
       });
   }
 

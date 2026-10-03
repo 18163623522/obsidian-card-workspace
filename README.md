@@ -71,7 +71,7 @@ Card Workspace restores the last **folder** you browsed. If it was the vault roo
 - **Local full-text search.** Search the current folder, card box, outgoing links, or backlinks. Matching text is highlighted inside Markdown excerpts, and each card shows its hit count. Chinese search uses characters and adjacent character pairs; pinyin is not indexed.
 - **Arrange the stream.** Sort by edited time, created time, or filename, and group the cards. Pin notes to keep them at the top. Pins only reorder cards that already match the active filters and search.
 - **Drag into the editor.** Drop a Markdown card at the cursor to insert a wikilink, an embed, the note body, or its title and body. Choose each time, or set a default.
-- **Optional card images.** In plugin settings, choose a right thumbnail or an image below the title, with whole-image or cropped display. Local PNG, JPEG, WebP, and BMP body embeds load near the viewport. Thumbnails are cached across restarts; images are off by default. See [image previews](docs/card-images.md).
+- **Card image previews.** Since 1.3.4, images default to a right thumbnail with Crop to fill. In plugin settings, switch to an image below the title, choose Show whole image, or turn images off. Local PNG, JPEG, WebP, and BMP body embeds load near the viewport. Thumbnails are cached across restarts. See [image previews](docs/card-images.md).
 - **Bulk actions.** Click to select individual cards, Shift-click a range, or select the whole view. Then move notes, add or remove tags, change card-box membership, merge Markdown notes with a live preview, or delete the selection.
 - **Favorites.** Keep frequently used folders, files, tags, and boxes in one section, and reorder them by drag in any mix of kinds.
 - **Context menus.** Right-click in the navigation pane or on a card to create notes, folders, canvases, and bases, rename, duplicate, move, delete, copy vault or system paths, reveal in the system file explorer, and search within a folder. Rename or delete a tag with confirmation; the change updates notes, active filters, favorites, and card-box rules.
@@ -82,7 +82,7 @@ Card Workspace restores the last **folder** you browsed. If it was the vault roo
 
 - **Desktop only.** Card Workspace does not run on mobile.
 - **Left sidebar.** Open it from the ribbon icon or the command palette.
-- **Obsidian version.** Requires Obsidian 1.9.0 or later, because card support for Bases depends on it. Behavior and compatibility follow what is declared in `manifest.json`.
+- **Obsidian version.** Requires Obsidian 1.13.0 or later, because the settings page and the plugin dialogs use the setting groups, confirmation dialog, and declarative settings APIs introduced by 1.11 and 1.13. Behavior and compatibility follow what is declared in `manifest.json`. Earlier Obsidian versions keep receiving the last compatible release (1.3.4).
 - **Supported files.** Markdown (`.md`) cards receive full previews and full-text search. Bases (`.base`), Canvas (`.canvas`), and Excalidraw (`.excalidraw` and `.excalidraw.md`) use a title and placeholder and are searched by title.
 
 ## Privacy
@@ -128,7 +128,7 @@ This repo creates draft GitHub Releases from bare semver tags through `.github/w
    To also raise the minimum supported Obsidian version, pass it as the second argument:
 
    ```bash
-   npm run release:prepare -- "$TAG" 1.9.0
+   npm run release:prepare -- "$TAG" 1.13.0
    ```
 
 3. Run the normal checks plus release validation:

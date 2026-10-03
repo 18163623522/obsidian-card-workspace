@@ -1,6 +1,8 @@
 import type { UiLanguage } from "./types";
 
 export interface SettingTabStrings {
+  behaviorHeading: string;
+  appearanceHeading: string;
   defaultCardOpenBehaviorName: string;
   defaultCardOpenBehaviorDesc: string;
   locateLinkCardOnOpenName: string;
@@ -28,6 +30,8 @@ export interface SettingTabStrings {
 
 export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
   en: {
+    behaviorHeading: "Behavior",
+    appearanceHeading: "Appearance",
     defaultCardOpenBehaviorName: "Default card open behavior",
     defaultCardOpenBehaviorDesc:
       "Choose what happens when you click a card directly. Right-click menu actions stay available separately.",
@@ -54,6 +58,8 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
       "Show how many cards each folder and tag contributes in the navigation pane. Folder counts follow the include-subfolders toggle, and tag counts include child tags.",
   },
   zh: {
+    behaviorHeading: "行为",
+    appearanceHeading: "外观",
     defaultCardOpenBehaviorName: "卡片默认打开方式",
     defaultCardOpenBehaviorDesc: "选择直接点击卡片时的行为。右键菜单操作仍可单独使用。",
     locateLinkCardOnOpenName: "双链卡片点击定位",

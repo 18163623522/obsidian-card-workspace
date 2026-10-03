@@ -29,12 +29,7 @@ export class CreateFolderModal extends FormModal {
       text.setValue(this.nextName).onChange((value) => {
         this.nextName = value;
       });
-      text.inputEl.addEventListener("keydown", (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          void this.submit();
-        }
-      });
+      this.submitOnEnter(text.inputEl);
     });
   }
 

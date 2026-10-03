@@ -1,227 +1,48 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  asMock,
+  elementsIn,
+  groupsIn,
+  type MockEl,
+  Setting,
+  type MockText,
+} from "../../__mocks__/obsidian-modal-mock";
 import { getUiStrings } from "../../i18n";
 import type { PropertyInventorySnapshot } from "../../property-filter-settings";
 
-interface TextRecord {
-  placeholder: string;
-  value: string;
-  ariaLabel: string;
-  onChange: ((value: string) => void) | null;
-}
-
-interface ToggleRecord {
-  value: boolean;
-  onChange: ((checked: boolean) => void) | null;
-}
-
-interface ButtonRecord {
-  text: string;
-  cta: boolean;
-  disabled: boolean;
-  onClick: (() => void) | null;
-}
-
-interface SettingRecord {
-  name: string;
-  desc: string;
-  classes: string[];
-  texts: TextRecord[];
-  toggles: ToggleRecord[];
-  buttons: ButtonRecord[];
-}
-
-interface ElRecord {
-  tag: string;
-  text: string;
-  cls: string;
-}
-
-interface MockElementShape {
-  isConnected: boolean;
-  cls: string;
-  classes: string[];
-  settings: SettingRecord[];
-  els: ElRecord[];
-  divs: MockElementShape[];
-}
-
-const mockState = vi.hoisted(() => ({
-  title: "",
-}));
-
-vi.mock("obsidian", () => {
-  class MockElement {
-    isConnected = true;
-    cls = "";
-    classes: string[] = [];
-    settings: SettingRecord[] = [];
-    els: ElRecord[] = [];
-    divs: MockElement[] = [];
-
-    addClass(cls: string): void {
-      this.classes.push(cls);
-    }
-
-    empty(): void {
-      this.settings.length = 0;
-      this.els.length = 0;
-      this.divs.length = 0;
-    }
-
-    createEl(tag: string, options?: { text?: string; cls?: string }): MockElement {
-      this.els.push({ tag, text: options?.text ?? "", cls: options?.cls ?? "" });
-      return new MockElement();
-    }
-
-    createDiv(options?: { cls?: string }): MockElement {
-      const div = new MockElement();
-      div.cls = options?.cls ?? "";
-      this.divs.push(div);
-      return div;
-    }
-  }
-
-  class Modal {
-    app: unknown;
-    contentEl = new MockElement();
-    closeCount = 0;
-
-    constructor(app: unknown) {
-      this.app = app;
-    }
-
-    setTitle(title: string): this {
-      mockState.title = title;
-      return this;
-    }
-
-    open(): void {
-      (this as unknown as { onOpen?: () => void }).onOpen?.();
-    }
-
-    close(): void {
-      this.closeCount += 1;
-      this.contentEl.isConnected = false;
-      (this as unknown as { onClose?: () => void }).onClose?.();
-    }
-  }
-
-  class Setting {
-    private readonly record: SettingRecord;
-
-    constructor(containerEl: MockElement) {
-      this.record = { name: "", desc: "", classes: [], texts: [], toggles: [], buttons: [] };
-      containerEl.settings.push(this.record);
-    }
-
-    setName(name: string): this {
-      this.record.name = name;
-      return this;
-    }
-
-    setDesc(desc: string): this {
-      this.record.desc = desc;
-      return this;
-    }
-
-    setClass(cls: string): this {
-      this.record.classes.push(cls);
-      return this;
-    }
-
-    addText(configure: (text: unknown) => void): this {
-      const record: TextRecord = { placeholder: "", value: "", ariaLabel: "", onChange: null };
-      const chain = {
-        inputEl: {
-          setAttribute: (name: string, value: string) => {
-            if (name === "aria-label") {
-              record.ariaLabel = value;
-            }
-          },
-        },
-        setPlaceholder: (placeholder: string) => {
-          record.placeholder = placeholder;
-          return chain;
-        },
-        setValue: (value: string) => {
-          record.value = value;
-          return chain;
-        },
-        onChange: (handler: (value: string) => void) => {
-          record.onChange = handler;
-          return chain;
-        },
-      };
-      configure(chain);
-      this.record.texts.push(record);
-      return this;
-    }
-
-    addToggle(configure: (toggle: unknown) => void): this {
-      const record: ToggleRecord = { value: false, onChange: null };
-      const chain = {
-        setValue: (value: boolean) => {
-          record.value = value;
-          return chain;
-        },
-        onChange: (handler: (checked: boolean) => void) => {
-          record.onChange = handler;
-          return chain;
-        },
-      };
-      configure(chain);
-      this.record.toggles.push(record);
-      return this;
-    }
-
-    addButton(configure: (button: unknown) => void): this {
-      const record: ButtonRecord = { text: "", cta: false, disabled: false, onClick: null };
-      const chain = {
-        setButtonText: (text: string) => {
-          record.text = text;
-          return chain;
-        },
-        setCta: () => {
-          record.cta = true;
-          return chain;
-        },
-        setDisabled: (disabled: boolean) => {
-          record.disabled = disabled;
-          return chain;
-        },
-        onClick: (handler: () => void) => {
-          record.onClick = handler;
-          return chain;
-        },
-      };
-      configure(chain);
-      this.record.buttons.push(record);
-      return this;
-    }
-  }
-
-  return { Modal, Setting };
-});
+vi.mock("obsidian", async () => await import("../../__mocks__/obsidian-modal-mock"));
 
 const { PropertyPickerModal } = await import("./PropertyPickerModal");
 type PropertyPickerModalInstance = InstanceType<typeof PropertyPickerModal>;
 
 const strings = getUiStrings("en");
 
-function contentOf(modal: PropertyPickerModalInstance): MockElementShape {
-  return modal.contentEl as unknown as MockElementShape;
+function contentOf(modal: PropertyPickerModalInstance): MockEl {
+  return modal.contentEl as unknown as MockEl;
 }
 
-function listElOf(modal: PropertyPickerModalInstance): MockElementShape {
-  const list = contentOf(modal).divs.find((div) => div.cls === "fce-property-picker__list");
+function listElOf(modal: PropertyPickerModalInstance): MockEl {
+  const [list] = elementsIn(contentOf(modal), (el) => el.hasClass("fce-property-picker__list"));
   if (!list) {
     throw new Error("property picker list element not rendered");
   }
   return list;
 }
 
-function rowSettings(modal: PropertyPickerModalInstance): SettingRecord[] {
-  return listElOf(modal).settings;
+function listGroupOf(modal: PropertyPickerModalInstance) {
+  const [group] = groupsIn(listElOf(modal));
+  if (!group) {
+    throw new Error("property picker list group not rendered");
+  }
+  return group;
+}
+
+function isNoticeRow(setting: Setting): boolean {
+  return setting.classes.includes("mod-empty-state");
+}
+
+function rowSettings(modal: PropertyPickerModalInstance): Setting[] {
+  return listGroupOf(modal).settings.filter((setting) => !isNoticeRow(setting));
 }
 
 function rowNames(modal: PropertyPickerModalInstance): string[] {
@@ -229,33 +50,39 @@ function rowNames(modal: PropertyPickerModalInstance): string[] {
 }
 
 function noticeTexts(modal: PropertyPickerModalInstance): string[] {
-  return listElOf(modal).els.map((el) => el.text);
+  return listGroupOf(modal).settings.filter(isNoticeRow).map((setting) => setting.name);
 }
 
-function searchInput(modal: PropertyPickerModalInstance): TextRecord {
-  const input = contentOf(modal).settings[0]?.texts[0];
+function searchBarOf(modal: PropertyPickerModalInstance): MockEl {
+  const [bar] = elementsIn(contentOf(modal), (el) => el.hasClass("fce-property-picker__search"));
+  if (!bar) {
+    throw new Error("search bar not rendered");
+  }
+  return bar;
+}
+
+function searchSetting(modal: PropertyPickerModalInstance): Setting {
+  const setting = searchBarOf(modal).nodes[0];
+  if (!(setting instanceof Setting)) {
+    throw new Error("search row not rendered");
+  }
+  return setting;
+}
+
+function searchInput(modal: PropertyPickerModalInstance): MockText {
+  const input = searchSetting(modal).searches[0];
   if (!input) {
     throw new Error("search input not rendered");
   }
   return input;
 }
 
-function clickButton(modal: PropertyPickerModalInstance, predicate: (button: ButtonRecord) => boolean): void {
-  const button = contentOf(modal).settings
-    .flatMap((setting) => setting.buttons)
-    .find(predicate);
-  if (!button) {
-    throw new Error("button not rendered");
-  }
-  button.onClick?.();
-}
-
 function clickCancel(modal: PropertyPickerModalInstance): void {
-  clickButton(modal, (button) => button.text === strings.box.cancel && !button.cta);
+  void asMock(modal).buttons.find((button) => button.cancel)?.click();
 }
 
 function clickDone(modal: PropertyPickerModalInstance): void {
-  clickButton(modal, (button) => button.cta);
+  void asMock(modal).buttons.find((button) => button.cta)?.click();
 }
 
 async function flush(): Promise<void> {
@@ -297,10 +124,6 @@ function openModal(options: {
 }
 
 describe("PropertyPickerModal", () => {
-  beforeEach(() => {
-    mockState.title = "";
-  });
-
   it("collects the inventory exactly once per open and never on re-render", () => {
     const { modal, collect } = openModal({
       inventory: {
@@ -312,10 +135,10 @@ describe("PropertyPickerModal", () => {
       },
     });
     expect(collect).toHaveBeenCalledTimes(1);
-    expect(mockState.title).toBe(strings.property.chooseVisible);
+    expect(asMock(modal).title).toBe(strings.property.chooseVisible);
 
-    searchInput(modal).onChange?.("alp");
-    searchInput(modal).onChange?.("");
+    searchInput(modal).type("alp");
+    searchInput(modal).type("");
     expect(collect).toHaveBeenCalledTimes(1);
   });
 
@@ -351,11 +174,11 @@ describe("PropertyPickerModal", () => {
     });
 
     // Toggle beta on, then hide it behind a search; the draft must survive.
-    rowSettings(modal)[1]?.toggles[0]?.onChange?.(true);
-    searchInput(modal).onChange?.("alpha label");
+    rowSettings(modal)[1]?.toggles[0]?.set(true);
+    searchInput(modal).type("alpha label");
     expect(rowNames(modal)).toEqual(["Alpha Label"]);
 
-    searchInput(modal).onChange?.("beta");
+    searchInput(modal).type("beta");
     expect(rowNames(modal)).toEqual(["Beta"]);
 
     clickDone(modal);
@@ -377,10 +200,11 @@ describe("PropertyPickerModal", () => {
     });
 
     const before = rowNames(modal);
-    rowSettings(modal)[1]?.toggles[0]?.onChange?.(true);
+    const group = listGroupOf(modal);
+    rowSettings(modal)[1]?.toggles[0]?.set(true);
     expect(onSubmit).not.toHaveBeenCalled();
-    // No re-render: rows keep their initial grouping and identity.
-    expect(rowSettings(modal)[1]?.toggles[0]?.value).toBe(false);
+    // No re-render: the same group stays mounted and rows keep their initial order.
+    expect(listGroupOf(modal)).toBe(group);
     expect(rowNames(modal)).toEqual(before);
   });
 
@@ -399,7 +223,7 @@ describe("PropertyPickerModal", () => {
     expect(ghost?.desc).toBe(strings.property.unavailable);
     expect(ghost?.toggles[0]?.value).toBe(true);
 
-    ghost?.toggles[0]?.onChange?.(false);
+    ghost?.toggles[0]?.set(false);
     clickDone(modal);
     await flush();
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -454,7 +278,7 @@ describe("PropertyPickerModal", () => {
       },
     });
 
-    rowSettings(modal)[0]?.toggles[0]?.onChange?.(true);
+    rowSettings(modal)[0]?.toggles[0]?.set(true);
     clickCancel(modal);
     expect(onSubmit).not.toHaveBeenCalled();
   });
@@ -471,7 +295,7 @@ describe("PropertyPickerModal", () => {
     clickDone(modal);
     await flush();
     expect(onSubmit).not.toHaveBeenCalled();
-    expect((modal as unknown as { closeCount: number }).closeCount).toBe(1);
+    expect(asMock(modal).closeCount).toBe(1);
   });
 
   it("commits the normalized draft exactly once on Done", async () => {
@@ -488,15 +312,15 @@ describe("PropertyPickerModal", () => {
     });
 
     // Rows: alpha (selected), then beta, gamma (remaining, identity-sorted).
-    rowSettings(modal)[0]?.toggles[0]?.onChange?.(false);
-    rowSettings(modal)[1]?.toggles[0]?.onChange?.(true);
-    rowSettings(modal)[2]?.toggles[0]?.onChange?.(true);
+    rowSettings(modal)[0]?.toggles[0]?.set(false);
+    rowSettings(modal)[1]?.toggles[0]?.set(true);
+    rowSettings(modal)[2]?.toggles[0]?.set(true);
     clickDone(modal);
     await flush();
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith(["beta", "gamma"]);
-    expect((modal as unknown as { closeCount: number }).closeCount).toBe(1);
+    expect(asMock(modal).closeCount).toBe(1);
   });
 
   it("keeps the modal open after a rejected submit and permits retry", async () => {
@@ -522,20 +346,20 @@ describe("PropertyPickerModal", () => {
     });
     modal.open();
 
-    rowSettings(modal)[0]?.toggles[0]?.onChange?.(true);
+    rowSettings(modal)[0]?.toggles[0]?.set(true);
 
     const first = modal.triggerSubmit();
     const firstAssertion = expect(first).rejects.toThrow("save failed");
     deferreds[0]?.reject(new Error("save failed"));
     await firstAssertion;
-    expect((modal as unknown as { closeCount: number }).closeCount).toBe(0);
-    expect(contentOf(modal).isConnected).toBe(true);
+    expect(asMock(modal).closeCount).toBe(0);
+    expect(modal.contentEl.isConnected).toBe(true);
 
     const second = modal.triggerSubmit();
     deferreds[1]?.resolve();
     await second;
     expect(onSubmit).toHaveBeenCalledTimes(2);
-    expect((modal as unknown as { closeCount: number }).closeCount).toBe(1);
+    expect(asMock(modal).closeCount).toBe(1);
   });
 
   it("runs a single submit flight even when Done is clicked repeatedly", async () => {
@@ -549,7 +373,7 @@ describe("PropertyPickerModal", () => {
       onSubmit,
     });
 
-    rowSettings(modal)[0]?.toggles[0]?.onChange?.(true);
+    rowSettings(modal)[0]?.toggles[0]?.set(true);
     clickDone(modal);
     clickDone(modal);
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -557,6 +381,48 @@ describe("PropertyPickerModal", () => {
     deferred.resolve();
     await flush();
     expect(onSubmit).toHaveBeenCalledTimes(1);
-    expect((modal as unknown as { closeCount: number }).closeCount).toBe(1);
+    expect(asMock(modal).closeCount).toBe(1);
+  });
+
+  it("uses a scrolling modal body with a pinned search field and a compact list group", () => {
+    const { modal } = openModal({
+      inventory: { status: "ready", options: [{ key: "alpha", label: "alpha", available: true }] },
+    });
+
+    expect(asMock(modal).modalEl.hasClass("mod-scrollable-content")).toBe(true);
+    expect(asMock(modal).modalEl.hasClass("fce-property-picker")).toBe(true);
+    expect(contentOf(modal).nodes[0]).toBe(searchBarOf(modal));
+    expect(searchInput(modal)).toMatchObject({ placeholder: strings.property.searchPlaceholder });
+    expect(searchInput(modal).ariaLabel).toBe(strings.property.searchPlaceholder);
+    expect(listGroupOf(modal).classes).toContain("mod-list");
+  });
+
+  it("keeps the search field mounted while the list group is rebuilt", () => {
+    const { modal } = openModal({
+      inventory: {
+        status: "ready",
+        options: [
+          { key: "alpha", label: "alpha", available: true },
+          { key: "beta", label: "beta", available: true },
+        ],
+      },
+    });
+
+    const search = searchSetting(modal);
+    const group = listGroupOf(modal);
+    searchInput(modal).type("beta");
+
+    expect(searchSetting(modal)).toBe(search);
+    expect(listGroupOf(modal)).not.toBe(group);
+    expect(rowNames(modal)).toEqual(["beta"]);
+  });
+
+  it("uses the native footer with Done before Cancel", () => {
+    const { modal } = openModal();
+
+    expect(asMock(modal).buttons.map((button) => button.text)).toEqual([
+      strings.box.done,
+      strings.box.cancel,
+    ]);
   });
 });

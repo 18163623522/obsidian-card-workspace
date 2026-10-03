@@ -5,9 +5,9 @@
 **Card Workspace** (also "Folder Card Explorer") is a desktop-only Obsidian plugin that renders a folder's or card box's notes as a virtualized card stream in the **left sidebar**. It provides indexed full-text search, tag filtering, pin reordering, bulk operations, favorites, nav/card context menus, card-to-editor drag insert, and its own two-column navigation pane for folders, tags, properties, and boxes.
 
 - **Plugin ID**: `card-workspace`
-- **Version**: `1.2.9` (source of truth: `manifest.json`)
+- **Version**: `1.4.0` (source of truth: `manifest.json`)
 - **License**: MIT
-- **Min Obsidian**: `1.9.0`
+- **Min Obsidian**: `1.13.0` (setting groups, `ConfirmationModal`, declarative settings; do not use APIs tagged `@since 1.13.1` or later)
 - **Runtime dependency**: `minisearch` ^7.2.0 (bundled)
 - **Desktop only**: `manifest.json` declares `isDesktopOnly: true`
 

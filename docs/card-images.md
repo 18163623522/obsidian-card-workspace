@@ -1,8 +1,8 @@
 # Card images / 卡片图片
 
-Images are **off by default**. Open Obsidian **Settings → Card Workspace → Card images** and choose **Right thumbnail** (88 × 88 CSS pixels) or **Below title** (160 CSS pixels high). **Image fit** defaults to **Show whole image**; **Crop to fill** crops within the same region. Notes without a supported local image reference keep their normal text layout. Columns remain aligned by rows, with each card keeping its own height.
+Since 1.3.4, **Card images** defaults to **Right thumbnail** (88 × 88 CSS pixels), and **Image fit** defaults to **Crop to fill**. Open Obsidian **Settings → Card Workspace → Card images** to switch to **Below title** (160 CSS pixels high) or **Off**. Choose **Show whole image** under **Image fit** to display the entire image within the same region. Notes without a supported local image reference keep their normal text layout. Columns remain aligned by rows, with each card keeping its own height.
 
-图片默认关闭。在 Obsidian **设置 → Card Workspace → 卡片图片**中选择**右侧缩略图**（88 × 88 CSS 像素）或**标题下方内联图片**（固定高度 160 CSS 像素）。**图片显示方式**默认为**完整显示**，也可选择**裁切铺满**。没有受支持本地图片引用的笔记保留普通文字布局；多列仍按行排列，卡片保持各自高度。
+从 1.3.4 起，**卡片图片**默认使用**右侧缩略图**（88 × 88 CSS 像素），**图片显示方式**默认为**裁切铺满**。可在 Obsidian **设置 → Card Workspace → 卡片图片**中切换为**标题下方内联图片**（固定高度 160 CSS 像素）或**关闭**；在**图片显示方式**中选择**完整显示**，可在相同区域内展示整张图片。没有受支持本地图片引用的笔记保留普通文字布局；多列仍按行排列，卡片保持各自高度。
 
 The plugin uses Obsidian's cached body embeds to find the first resolvable local PNG, JPEG, WebP, or BMP image, including Wiki embeds and Markdown images. Attachments may live outside the folder being browsed. Missing and unsupported references are skipped. Remote images, frontmatter cover fields, HTML images, embedded notes, SVG, AVIF, GIF, and animated PNG/WebP are excluded. A selected image that fails generation does not cause another attachment to be read.
 

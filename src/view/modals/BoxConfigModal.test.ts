@@ -1,178 +1,16 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  asMock,
+  requireGroup,
+  settingsIn,
+  type MockEl,
+  type Setting,
+} from "../../__mocks__/obsidian-modal-mock";
 import { getUiStrings } from "../../i18n";
 import { describeBoxRule } from "../box-rule-identity";
 import type { CardBoxDefinition, Rule } from "../types";
 
-interface TextRecord {
-  placeholder: string;
-  value: string;
-  ariaLabel: string;
-  onChange: ((value: string) => void) | null;
-}
-
-interface ButtonRecord {
-  text: string;
-  icon: string;
-  cta: boolean;
-  onClick: (() => void) | null;
-}
-
-interface SettingRecord {
-  name: string;
-  desc: string;
-  classes: string[];
-  texts: TextRecord[];
-  buttons: ButtonRecord[];
-  extraButtons: ButtonRecord[];
-}
-
-const mockState = vi.hoisted(() => ({
-  settings: [] as SettingRecord[],
-  title: "",
-}));
-
-vi.mock("obsidian", () => {
-  class MockElement {
-    addClass(): void {}
-
-    empty(): void {
-      mockState.settings.length = 0;
-    }
-
-    createEl(): MockElement {
-      return new MockElement();
-    }
-
-    createDiv(): MockElement {
-      return new MockElement();
-    }
-  }
-
-  class Modal {
-    app: unknown;
-    contentEl = new MockElement();
-
-    constructor(app: unknown) {
-      this.app = app;
-    }
-
-    setTitle(title: string): this {
-      mockState.title = title;
-      return this;
-    }
-
-    open(): void {
-      (this as unknown as { onOpen?: () => void }).onOpen?.();
-    }
-
-    close(): void {
-      (this as unknown as { onClose?: () => void }).onClose?.();
-    }
-  }
-
-  class Setting {
-    private readonly record: SettingRecord;
-
-    constructor(_containerEl: unknown) {
-      this.record = { name: "", desc: "", classes: [], texts: [], buttons: [], extraButtons: [] };
-      mockState.settings.push(this.record);
-    }
-
-    setName(name: string): this {
-      this.record.name = name;
-      return this;
-    }
-
-    setDesc(desc: string): this {
-      this.record.desc = desc;
-      return this;
-    }
-
-    setClass(cls: string): this {
-      this.record.classes.push(cls);
-      return this;
-    }
-
-    addText(configure: (text: unknown) => void): this {
-      const record: TextRecord = { placeholder: "", value: "", ariaLabel: "", onChange: null };
-      const chain = {
-        inputEl: {
-          setAttribute: (name: string, value: string) => {
-            if (name === "aria-label") {
-              record.ariaLabel = value;
-            }
-          },
-        },
-        setPlaceholder: (placeholder: string) => {
-          record.placeholder = placeholder;
-          return chain;
-        },
-        setValue: (value: string) => {
-          record.value = value;
-          return chain;
-        },
-        onChange: (handler: (value: string) => void) => {
-          record.onChange = handler;
-          return chain;
-        },
-      };
-      configure(chain);
-      this.record.texts.push(record);
-      return this;
-    }
-
-    addDropdown(configure: (dropdown: unknown) => void): this {
-      const chain = {
-        addOption: () => chain,
-        setValue: () => chain,
-        onChange: () => chain,
-      };
-      configure(chain);
-      return this;
-    }
-
-    addExtraButton(configure: (button: unknown) => void): this {
-      const record: ButtonRecord = { text: "", icon: "", cta: false, onClick: null };
-      const chain = {
-        setIcon: (icon: string) => {
-          record.icon = icon;
-          return chain;
-        },
-        setTooltip: () => chain,
-        onClick: (handler: () => void) => {
-          record.onClick = handler;
-          return chain;
-        },
-      };
-      configure(chain);
-      this.record.extraButtons.push(record);
-      return this;
-    }
-
-    addButton(configure: (button: unknown) => void): this {
-      const record: ButtonRecord = { text: "", icon: "", cta: false, onClick: null };
-      const chain = {
-        setButtonText: (text: string) => {
-          record.text = text;
-          return chain;
-        },
-        setCta: () => {
-          record.cta = true;
-          return chain;
-        },
-        onClick: (handler: () => void) => {
-          record.onClick = handler;
-          return chain;
-        },
-      };
-      configure(chain);
-      this.record.buttons.push(record);
-      return this;
-    }
-  }
-
-  return { Modal, Setting };
-});
+vi.mock("obsidian", async () => await import("../../__mocks__/obsidian-modal-mock"));
 
 const { BoxConfigModal } = await import("./BoxConfigModal");
 
@@ -206,6 +44,12 @@ function createBox(): CardBoxDefinition {
   };
 }
 
+let current: InstanceType<typeof BoxConfigModal>;
+
+function contentOf(modal: InstanceType<typeof BoxConfigModal> = current): MockEl {
+  return modal.contentEl as unknown as MockEl;
+}
+
 function openModal(box: CardBoxDefinition = createBox()) {
   const onConfirm = vi.fn(async (_confirmed: CardBoxDefinition) => {});
   const modal = new BoxConfigModal({} as never, {
@@ -217,18 +61,16 @@ function openModal(box: CardBoxDefinition = createBox()) {
     onConfirm,
   });
   modal.open();
+  current = modal;
   return { box, modal, onConfirm };
 }
 
-function ruleSettings(): SettingRecord[] {
-  return mockState.settings.filter((setting) => setting.texts.length > 0);
+function ruleSettings(): Setting[] {
+  return requireGroup(contentOf(), strings.box.rulesHeading).settings.filter((setting) => setting.texts.length > 0);
 }
 
-function clickButton(text: string): void {
-  const button = mockState.settings
-    .flatMap((setting) => setting.buttons)
-    .find((candidate) => candidate.text === text);
-  button?.onClick?.();
+async function clickButton(text: string): Promise<void> {
+  await asMock(current).buttons.find((candidate) => candidate.text === text)?.click();
 }
 
 async function flush(): Promise<void> {
@@ -236,11 +78,6 @@ async function flush(): Promise<void> {
 }
 
 describe("BoxConfigModal rule names", () => {
-  beforeEach(() => {
-    mockState.settings.length = 0;
-    mockState.title = "";
-  });
-
   it("renders one name input per rule seeded from the rule name", () => {
     openModal();
 
@@ -263,16 +100,16 @@ describe("BoxConfigModal rule names", () => {
   it("does not re-render while a name input is edited", () => {
     openModal();
 
-    const before = mockState.settings.length;
-    ruleSettings()[1]?.texts[0]?.onChange?.("Inbox");
-    expect(mockState.settings.length).toBe(before);
+    const before = requireGroup(contentOf(), strings.box.rulesHeading);
+    ruleSettings()[1]?.texts[0]?.type("Inbox");
+    expect(requireGroup(contentOf(), strings.box.rulesHeading)).toBe(before);
   });
 
   it("confirms only the edited rule's name and preserves both rule ids", async () => {
     const { onConfirm } = openModal();
 
-    ruleSettings()[1]?.texts[0]?.onChange?.("Inbox");
-    clickButton(strings.box.done);
+    ruleSettings()[1]?.texts[0]?.type("Inbox");
+    await clickButton(strings.box.done);
     await flush();
 
     expect(onConfirm).toHaveBeenCalledTimes(1);
@@ -284,8 +121,8 @@ describe("BoxConfigModal rule names", () => {
   it("passes an all-whitespace name through to the confirm handler", async () => {
     const { onConfirm } = openModal();
 
-    ruleSettings()[0]?.texts[0]?.onChange?.("   ");
-    clickButton(strings.box.done);
+    ruleSettings()[0]?.texts[0]?.type("   ");
+    await clickButton(strings.box.done);
     await flush();
 
     const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
@@ -295,7 +132,7 @@ describe("BoxConfigModal rule names", () => {
   it("retains the box group on the confirmed draft", async () => {
     const { box, onConfirm } = openModal();
 
-    clickButton(strings.box.done);
+    await clickButton(strings.box.done);
     await flush();
 
     const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
@@ -306,8 +143,8 @@ describe("BoxConfigModal rule names", () => {
   it("does not confirm when cancel is pressed", async () => {
     const { onConfirm } = openModal();
 
-    ruleSettings()[1]?.texts[0]?.onChange?.("Inbox");
-    clickButton(strings.box.cancel);
+    ruleSettings()[1]?.texts[0]?.type("Inbox");
+    await clickButton(strings.box.cancel);
     await flush();
 
     expect(onConfirm).not.toHaveBeenCalled();
@@ -316,14 +153,14 @@ describe("BoxConfigModal rule names", () => {
   it("removes the rule at the clicked index while another name field holds a draft edit", async () => {
     const { onConfirm } = openModal();
 
-    ruleSettings()[1]?.texts[0]?.onChange?.("Inbox");
-    expect(() => ruleSettings()[0]?.extraButtons[0]?.onClick?.()).not.toThrow();
+    ruleSettings()[1]?.texts[0]?.type("Inbox");
+    expect(() => ruleSettings()[0]?.extraButtons[0]?.click()).not.toThrow();
 
     const remaining = ruleSettings();
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.texts[0]?.value).toBe("Inbox");
 
-    clickButton(strings.box.done);
+    await clickButton(strings.box.done);
     await flush();
 
     const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
@@ -348,6 +185,7 @@ describe("BoxConfigModal rule names", () => {
       onConfirm: vi.fn(async () => {}),
     });
     modal.open();
+    current = modal;
 
     expect(ruleSettings()[0]?.name).toBe(
       `Projects (${strings.box.ruleSubfolderSuffix})${strings.box.rulePropertiesSeparator}status: open`,
@@ -360,9 +198,9 @@ describe("BoxConfigModal rule names", () => {
     box.rules = [createRule({ properties: [clause] })];
     const { onConfirm } = openModal(box);
 
-    ruleSettings()[0]?.texts[0]?.onChange?.("Renamed");
-    expect(() => ruleSettings()[0]?.extraButtons[0]?.onClick?.()).not.toThrow();
-    clickButton(strings.box.done);
+    ruleSettings()[0]?.texts[0]?.type("Renamed");
+    expect(() => ruleSettings()[0]?.extraButtons[0]?.click()).not.toThrow();
+    await clickButton(strings.box.done);
     await flush();
 
     expect(box.rules).toHaveLength(1);
@@ -370,5 +208,183 @@ describe("BoxConfigModal rule names", () => {
     expect(box.rules[0]?.properties).toEqual([clause]);
     const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
     expect(confirmed.rules).toHaveLength(0);
+  });
+});
+
+describe("BoxConfigModal layout", () => {
+  function createPopulatedBox(): CardBoxDefinition {
+    return {
+      ...createBox(),
+      manualPaths: ["Inbox/a.md", "Inbox/b.md"],
+      excludedPaths: ["Old/c.md", "Old/d.md"],
+    };
+  }
+
+  it("uses the native footer with the primary action before cancel and a scrolling body", () => {
+    const { modal } = openModal();
+
+    expect(asMock(modal).buttons.map((button) => button.text)).toEqual([strings.box.done, strings.box.cancel]);
+    expect(asMock(modal).buttons[0]?.cta).toBe(true);
+    expect(asMock(modal).modalEl.hasClass("mod-scrollable-content")).toBe(true);
+    expect(asMock(modal).title).toBe(strings.box.configTitle("Reading"));
+  });
+
+  it("renders sort, rules, manual, and removed groups in order", () => {
+    openModal();
+
+    const content = contentOf();
+    const headings = content.nodes.map((node) => (node as { heading?: string }).heading);
+    expect(headings).toEqual([
+      "",
+      strings.box.rulesHeading,
+      strings.box.manualHeading,
+      strings.box.excludedHeading,
+    ]);
+  });
+
+  it("seeds the sort dropdown from the box and confirms a changed sort", async () => {
+    const { onConfirm } = openModal();
+
+    const sortRow = settingsIn(contentOf())[0];
+    expect(sortRow?.name).toBe(strings.box.sortHeading);
+    expect(sortRow?.dropdowns[0]?.value).toBe("mtime:desc");
+    expect(sortRow?.dropdowns[0]?.options.map((option) => option.label)).toEqual([
+      strings.toolbar.sortOptions.mtimeDesc,
+      strings.toolbar.sortOptions.mtimeAsc,
+      strings.toolbar.sortOptions.ctimeDesc,
+      strings.toolbar.sortOptions.ctimeAsc,
+      strings.toolbar.sortOptions.nameAsc,
+      strings.toolbar.sortOptions.nameDesc,
+    ]);
+
+    sortRow?.dropdowns[0]?.select("name:asc");
+    await clickButton(strings.box.done);
+    await flush();
+
+    const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
+    expect(confirmed.sort).toEqual({ field: "name", direction: "asc" });
+  });
+
+  it("shows an empty-state row in each list group that has no entries", () => {
+    const box = createBox();
+    box.rules = [];
+    openModal(box);
+
+    for (const [heading, message] of [
+      [strings.box.rulesHeading, strings.box.noRules],
+      [strings.box.manualHeading, strings.box.noManualMembers],
+      [strings.box.excludedHeading, strings.box.noExcludedMembers],
+    ] as const) {
+      const group = requireGroup(contentOf(), heading);
+      expect(group.settings.map((setting) => setting.name)).toEqual([message]);
+      expect(group.settings[0]?.classes).toContain("mod-empty-state");
+    }
+    expect(requireGroup(contentOf(), strings.box.excludedHeading).extraButtons).toHaveLength(0);
+  });
+
+  it("flags a rule whose folder is gone without changing its row structure", () => {
+    const modal = new BoxConfigModal({} as never, {
+      box: createBox(),
+      strings,
+      describeRule: (rule) => rule.folder,
+      isRuleFolderMissing: (rule) => rule.id === "rule-2",
+      describeMemberPath: (path) => path,
+      onConfirm: vi.fn(async () => {}),
+    });
+    modal.open();
+    current = modal;
+
+    const [first, second] = ruleSettings();
+    expect(first?.desc).toBe("");
+    expect(second?.desc).toBe(strings.box.ruleFolderMissing);
+    expect(second?.classes).toContain("fce-box-config__rule-missing");
+  });
+
+  it("removes a manual member from the draft with a close icon", async () => {
+    const { onConfirm } = openModal(createPopulatedBox());
+
+    const manual = requireGroup(contentOf(), strings.box.manualHeading);
+    expect(manual.settings.map((setting) => [setting.name, setting.desc])).toEqual([
+      ["Inbox/a.md", "Inbox/a.md"],
+      ["Inbox/b.md", "Inbox/b.md"],
+    ]);
+    expect(manual.settings[0]?.extraButtons[0]).toMatchObject({
+      icon: "x",
+      tooltip: strings.box.removeManualMember,
+    });
+
+    manual.settings[0]?.extraButtons[0]?.click();
+    expect(
+      requireGroup(contentOf(), strings.box.manualHeading).settings.map((setting) => setting.name),
+    ).toEqual(["Inbox/b.md"]);
+
+    await clickButton(strings.box.done);
+    await flush();
+    const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
+    expect(confirmed.manualPaths).toEqual(["Inbox/b.md"]);
+  });
+
+  it("restores one removed note from its row", async () => {
+    const { onConfirm } = openModal(createPopulatedBox());
+
+    const excluded = requireGroup(contentOf(), strings.box.excludedHeading);
+    expect(excluded.settings[0]?.extraButtons[0]).toMatchObject({
+      icon: "undo-2",
+      tooltip: strings.box.restoreExcluded,
+    });
+    excluded.settings[0]?.extraButtons[0]?.click();
+
+    expect(
+      requireGroup(contentOf(), strings.box.excludedHeading).settings.map((setting) => setting.name),
+    ).toEqual(["Old/d.md"]);
+
+    await clickButton(strings.box.done);
+    await flush();
+    const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
+    expect(confirmed.excludedPaths).toEqual(["Old/d.md"]);
+  });
+
+  it("restores every removed note from the group header", async () => {
+    const { onConfirm } = openModal(createPopulatedBox());
+
+    const header = requireGroup(contentOf(), strings.box.excludedHeading).extraButtons[0];
+    expect(header).toMatchObject({ icon: "rotate-ccw", tooltip: strings.box.restoreAllExcluded });
+    header?.click();
+
+    const refreshed = requireGroup(contentOf(), strings.box.excludedHeading);
+    expect(refreshed.settings.map((setting) => setting.name)).toEqual([strings.box.noExcludedMembers]);
+    expect(refreshed.extraButtons).toHaveLength(0);
+
+    await clickButton(strings.box.done);
+    await flush();
+    const confirmed = onConfirm.mock.calls[0]?.[0] as CardBoxDefinition;
+    expect(confirmed.excludedPaths).toEqual([]);
+  });
+
+  it("closes after a confirmed Done and stays open while the save is pending", async () => {
+    let finish!: () => void;
+    const onConfirm = vi.fn(() => new Promise<void>((resolve) => {
+      finish = resolve;
+    }));
+    const modal = new BoxConfigModal({} as never, {
+      box: createBox(),
+      strings,
+      describeRule: (rule) => rule.folder,
+      isRuleFolderMissing: () => false,
+      describeMemberPath: (path) => path,
+      onConfirm,
+    });
+    modal.open();
+    current = modal;
+
+    await clickButton(strings.box.done);
+    await clickButton(strings.box.done);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    expect(asMock(modal).closeCount).toBe(0);
+    expect(asMock(modal).buttons[0]?.disabled).toBe(true);
+
+    finish();
+    await flush();
+    expect(asMock(modal).closeCount).toBe(1);
   });
 });

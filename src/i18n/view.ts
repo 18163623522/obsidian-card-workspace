@@ -40,12 +40,14 @@ export interface ViewStrings {
     mergedTitle: string;
     targetFolder: string;
     separator: string;
+    separatorDesc: string;
+    separatorBlankLine: string;
+    separatorRule: string;
+    separatorNewline: string;
     chooseFolder: string;
     sourceOrder: string;
     up: string;
     down: string;
-    sourceCleanup: string;
-    keepSourceNotes: string;
     trashSourceNotesAfterMerge: string;
     preview: string;
     loadingPreview: string;
