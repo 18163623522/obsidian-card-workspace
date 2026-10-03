@@ -173,6 +173,7 @@ export function resolveSettingsUpdateIntent(
   if (previous.defaultCardOpenBehavior !== next.defaultCardOpenBehavior) intent = mergeIntent(intent, "patch");
   if (previous.locateLinkCardOnOpen !== next.locateLinkCardOnOpen) intent = mergeIntent(intent, "patch");
   if (previous.dragInsertAction !== next.dragInsertAction) intent = mergeIntent(intent, "patch");
+  if (previous.enableHeadingDragInsert !== next.enableHeadingDragInsert) intent = mergeIntent(intent, "patch");
   if (previous.cardImageMode !== next.cardImageMode) intent = mergeIntent(intent, "patch");
   if (previous.cardImageFit !== next.cardImageFit) intent = mergeIntent(intent, "patch");
   if (previous.cardCornerRadius !== next.cardCornerRadius) intent = mergeIntent(intent, "patch");

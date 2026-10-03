@@ -38,6 +38,7 @@ function createPlugin(
       defaultCardOpenBehavior: "split-right",
       locateLinkCardOnOpen: false,
       dragInsertAction: "embed",
+      enableHeadingDragInsert: false,
       newNoteTemplate: "blank",
       previewLines: 6,
       showNavItemCounts: false,
@@ -87,6 +88,7 @@ describe("CardWorkspaceSettingTab", () => {
       "Default card open behavior",
       "Jump to link location when opening a link card",
       "Card drag insert behavior",
+      "Enable section drag insertion",
       "New note content",
     ]);
     expect(rowsOf(appearance).map((row) => row.name)).toEqual([
@@ -125,7 +127,8 @@ describe("CardWorkspaceSettingTab", () => {
         "title-content": "Insert card title & content",
       },
     });
-    expect(controlOf(behaviorRows[3])).toEqual({
+    expect(controlOf(behaviorRows[3])).toEqual({ type: "toggle", key: "enableHeadingDragInsert" });
+    expect(controlOf(behaviorRows[4])).toEqual({
       type: "dropdown",
       key: "newNoteTemplate",
       options: {
@@ -193,6 +196,7 @@ describe("CardWorkspaceSettingTab", () => {
       "卡片默认打开方式",
       "双链卡片点击定位",
       "卡片拖拽插入行为",
+      "启用章节拖拽插入",
       "新建笔记内容",
     ]);
     expect(rowsOf(appearance).map((row) => row.name)).toEqual([
@@ -225,6 +229,7 @@ describe("CardWorkspaceSettingTab", () => {
 
     expect(tab.getControlValue("defaultCardOpenBehavior")).toBe("split-right");
     expect(tab.getControlValue("dragInsertAction")).toBe("embed");
+    expect(tab.getControlValue("enableHeadingDragInsert")).toBe(false);
     expect(tab.getControlValue("newNoteTemplate")).toBe("blank");
     expect(tab.getControlValue("cardCornerRadius")).toBe("medium");
     expect(tab.getControlValue("previewLines")).toBe(6);
@@ -241,6 +246,8 @@ describe("CardWorkspaceSettingTab", () => {
 
     await tab.setControlValue("defaultCardOpenBehavior", "new-window");
     await tab.setControlValue("dragInsertAction", "embed");
+    await tab.setControlValue("enableHeadingDragInsert", true);
+    await tab.setControlValue("enableHeadingDragInsert", "yes");
     await tab.setControlValue("newNoteTemplate", "blank");
     await tab.setControlValue("newNoteTemplate", "daily-note");
     await tab.setControlValue("cardCornerRadius", "rounded");
@@ -256,6 +263,7 @@ describe("CardWorkspaceSettingTab", () => {
     expect(plugin.saveSettings.mock.calls).toEqual([
       [{ defaultCardOpenBehavior: "new-window" }],
       [{ dragInsertAction: "embed" }],
+      [{ enableHeadingDragInsert: true }],
       [{ newNoteTemplate: "blank" }],
       [{ cardCornerRadius: "rounded" }],
       [{ previewLines: 4 }],

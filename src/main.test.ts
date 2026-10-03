@@ -144,6 +144,12 @@ const editorDropMockState = vi.hoisted(() => ({
     handleDragOver: ReturnType<typeof vi.fn>;
     handleDomDrop: ReturnType<typeof vi.fn>;
     handleWorkspaceEditorDrop: ReturnType<typeof vi.fn>;
+    handleEditorChange: ReturnType<typeof vi.fn>;
+    handleActiveLeafChange: ReturnType<typeof vi.fn>;
+    handleTargetChange: ReturnType<typeof vi.fn>;
+    handleVaultMutation: ReturnType<typeof vi.fn>;
+    handleDragStart: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
   }>,
 }));
 
@@ -152,6 +158,12 @@ vi.mock("./services/EditorDropController", () => ({
     handleDragOver = vi.fn(() => true);
     handleDomDrop = vi.fn(() => true);
     handleWorkspaceEditorDrop = vi.fn(() => true);
+    handleEditorChange = vi.fn();
+    handleActiveLeafChange = vi.fn();
+    handleTargetChange = vi.fn();
+    handleVaultMutation = vi.fn();
+    handleDragStart = vi.fn();
+    dispose = vi.fn();
 
     constructor() {
       editorDropMockState.instances.push(this);
@@ -1596,6 +1608,37 @@ describe("CardWorkspacePlugin startup leaf suppression and guaranteed scope load
 });
 
 describe("CardWorkspacePlugin editor drop registration", () => {
+  it("forwards editor, leaf, file, vault, drag-start and unload invalidation to the drop controller", async () => {
+    const { plugin } = createPluginHarness();
+    plugin.onload();
+    await waitForPluginLoad(plugin);
+    const controller = editorDropMockState.instances.at(-1)!;
+    const editor = {};
+    const info = { editor };
+    getWorkspaceCallback<[typeof editor, typeof info]>("editor-change")(editor, info);
+    getWorkspaceCallback<[null]>("active-leaf-change")(null);
+    getWorkspaceCallback<[null]>("file-open")(null);
+    expect(controller.handleEditorChange).toHaveBeenCalledWith(editor, info);
+    expect(controller.handleActiveLeafChange).toHaveBeenCalledWith(null);
+    expect(controller.handleTargetChange).toHaveBeenCalledTimes(1);
+
+    const testDocument = {};
+    getWorkspaceCallback<[unknown, { document: typeof testDocument }]>("window-open")({}, { document: testDocument });
+    const domEvents = (plugin as unknown as { registerDomEvent: ReturnType<typeof vi.fn> }).registerDomEvent;
+    const registration = domEvents.mock.calls.find((call) => call[0] === testDocument);
+    expect(registration?.[1]).toBe("dragstart");
+    const dragEvent = {};
+    registration?.[2](dragEvent);
+    expect(controller.handleDragStart).toHaveBeenCalledWith(dragEvent);
+
+    const event = { eventType: "modify", path: "Source.md", oldPath: null, isFolder: false, fileKind: "markdown" } as const;
+    await (plugin as unknown as { vaultEventBus: { publish: (event: unknown) => Promise<void> } }).vaultEventBus.publish(event);
+    expect(controller.handleVaultMutation).toHaveBeenCalledWith(event);
+    plugin.onunload();
+    plugin.onunload();
+    expect(controller.dispose).toHaveBeenCalledTimes(1);
+  });
+
   it("forwards editor extension and workspace drop events to the controller", async () => {
     const { plugin } = createPluginHarness();
     plugin.onload();
@@ -2495,7 +2538,7 @@ describe("CardWorkspacePlugin indexed search lifecycle", () => {
     expect(mockPlugin.registerHoverLinkSource.mock.invocationCallOrder[0]).toBeLessThan(
       mockPlugin.registerEvent.mock.invocationCallOrder[0],
     );
-    expect(mockPlugin.registerDomEvent).not.toHaveBeenCalled();
+    expect(mockPlugin.registerDomEvent.mock.calls.every((call) => call[1] === "dragstart")).toBe(true);
 
     const obsidianModule = await import("obsidian");
     const addIcon = vi.mocked(obsidianModule.addIcon);

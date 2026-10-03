@@ -63,6 +63,7 @@ const EXPECTED_INTENTS: Record<keyof PluginSettings, ViewUpdateIntent> = {
   defaultCardOpenBehavior: "patch",
   locateLinkCardOnOpen: "patch",
   dragInsertAction: "patch",
+  enableHeadingDragInsert: "patch",
   cardCornerRadius: "patch",
   newNoteTemplate: "patch",
   previewLines: "rehydrate",
@@ -96,6 +97,7 @@ function changeSetting(settings: PluginSettings, key: keyof PluginSettings): voi
     case "defaultCardOpenBehavior": settings.defaultCardOpenBehavior = "new-tab"; break;
     case "locateLinkCardOnOpen": settings.locateLinkCardOnOpen = !settings.locateLinkCardOnOpen; break;
     case "dragInsertAction": settings.dragInsertAction = "wiki"; break;
+    case "enableHeadingDragInsert": settings.enableHeadingDragInsert = !settings.enableHeadingDragInsert; break;
     case "cardCornerRadius": settings.cardCornerRadius = "compact"; break;
     case "newNoteTemplate": settings.newNoteTemplate = "blank"; break;
     case "cardImageMode": settings.cardImageMode = "off"; break;

@@ -9,6 +9,8 @@ export interface SettingTabStrings {
   locateLinkCardOnOpenDesc: string;
   dragInsertActionName: string;
   dragInsertActionDesc: string;
+  enableHeadingDragInsertName: string;
+  enableHeadingDragInsertDesc: string;
   newNoteTemplateName: string;
   newNoteTemplateDesc: string;
   cardCornerRadiusName: string;
@@ -39,6 +41,8 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     locateLinkCardOnOpenDesc: "Open a backlinks or outgoing-links card at its previewed link location. With Remember Cursor Position enabled, an older position may appear briefly before the link location is restored. Other cursor-restoring plugins depend on their implementation. This may save the new position as the note's last position.",
     dragInsertActionName: "Card drag insert behavior",
     dragInsertActionDesc: "Choose what happens when a card is dropped into a Markdown editor.",
+    enableHeadingDragInsertName: "Enable section drag insertion",
+    enableHeadingDragInsertDesc: "Choose a heading section when dropping a Markdown card. Uses the selected drag insert behavior; whole-note insertion stays available.",
     newNoteTemplateName: "New note content",
     newNoteTemplateDesc:
       "Choose what the toolbar's create-note action writes into a new note: an empty tags property, or nothing at all.",
@@ -66,6 +70,8 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     locateLinkCardOnOpenDesc: "打开反链或出链卡片时跳到预览的链接位置。启用 Remember Cursor Position 时可能短暂显示旧位置，随后回到链接位置；其他恢复光标插件的行为取决于其实现。跳转后，新位置可能被记为笔记的上次位置。",
     dragInsertActionName: "卡片拖拽插入行为",
     dragInsertActionDesc: "选择将卡片拖入 Markdown 编辑器时的处理方式。",
+    enableHeadingDragInsertName: "启用章节拖拽插入",
+    enableHeadingDragInsertDesc: "拖入 Markdown 卡片时选择标题章节，沿用当前拖拽插入方式，并保留整篇笔记入口。",
     newNoteTemplateName: "新建笔记内容",
     newNoteTemplateDesc: "选择工具栏“创建笔记”生成的笔记内容：带一个空的 tags 属性，或完全空白。",
     cardCornerRadiusName: "卡片圆角",

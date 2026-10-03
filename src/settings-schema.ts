@@ -30,6 +30,7 @@ export const SETTINGS_LAYER_BY_KEY = {
   defaultCardOpenBehavior: "preferences",
   locateLinkCardOnOpen: "preferences",
   dragInsertAction: "preferences",
+  enableHeadingDragInsert: "preferences",
   cardCornerRadius: "preferences",
   newNoteTemplate: "preferences",
   previewLines: "preferences",

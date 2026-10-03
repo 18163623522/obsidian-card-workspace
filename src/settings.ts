@@ -139,6 +139,7 @@ export interface PluginSettings {
   defaultCardOpenBehavior: DefaultCardOpenBehavior;
   locateLinkCardOnOpen: boolean;
   dragInsertAction: DragInsertAction;
+  enableHeadingDragInsert: boolean;
   cardCornerRadius: CardCornerRadius;
   newNoteTemplate: NewNoteTemplate;
   previewLines: number;
@@ -178,6 +179,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   defaultCardOpenBehavior: DEFAULT_CARD_OPEN_BEHAVIOR,
   locateLinkCardOnOpen: false,
   dragInsertAction: DEFAULT_DRAG_INSERT_ACTION,
+  enableHeadingDragInsert: false,
   cardCornerRadius: DEFAULT_CARD_CORNER_RADIUS,
   newNoteTemplate: DEFAULT_NEW_NOTE_TEMPLATE,
   previewLines: DEFAULT_PREVIEW_LINES,
@@ -538,6 +540,7 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
     defaultCardOpenBehavior: normalizeDefaultCardOpenBehavior(data.defaultCardOpenBehavior),
     locateLinkCardOnOpen: normalizeBooleanSetting(data.locateLinkCardOnOpen, false),
     dragInsertAction: normalizeDragInsertAction(data.dragInsertAction),
+    enableHeadingDragInsert: normalizeBooleanSetting(data.enableHeadingDragInsert, false),
     cardCornerRadius: normalizeCardCornerRadius(data.cardCornerRadius),
     newNoteTemplate: normalizeNewNoteTemplate(data.newNoteTemplate),
     previewLines: normalizePreviewLines(data.previewLines),

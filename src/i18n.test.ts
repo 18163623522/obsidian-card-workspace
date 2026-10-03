@@ -32,6 +32,22 @@ describe("i18n", () => {
     expect(getCardCornerRadiusOptions("zh")[2]?.label).toBe("圆角");
   });
 
+  it("provides section insertion labels and retry/error hints in both languages", () => {
+    const en = getUiStrings("en");
+    const zh = getUiStrings("zh");
+    expect(en.settingTab.enableHeadingDragInsertName).toBe("Enable section drag insertion");
+    expect(zh.settingTab.enableHeadingDragInsertName).toBe("启用章节拖拽插入");
+    expect([en.view.dragInsertMenu.insertSectionLink, en.view.dragInsertMenu.wholeNote, en.view.dragInsertMenu.noOtherSections])
+      .toEqual(["Insert section link", "Whole note", "No other sections to insert"]);
+    expect([zh.view.dragInsertMenu.insertSectionLink, zh.view.dragInsertMenu.wholeNote, zh.view.dragInsertMenu.noOtherSections])
+      .toEqual(["插入章节链接", "整篇笔记", "没有其他可插入章节"]);
+    for (const strings of [en, zh]) {
+      expect(strings.settingTab.enableHeadingDragInsertDesc.length).toBeGreaterThan(0);
+      for (const hint of [strings.view.dragInsertMenu.headingsUnavailable, strings.view.dragInsertMenu.headingLinkUnavailable,
+        strings.view.dragInsertMenu.staleDrop, strings.view.dragInsertMenu.readFailed]) expect(hint.length).toBeGreaterThan(0);
+    }
+  });
+
   it("provides exact navigation filter, empty, and accessibility copy", () => {
     const en = getUiStrings("en").toolbar.navPane;
     const zh = getUiStrings("zh").toolbar.navPane;

@@ -154,6 +154,12 @@ export default class CardWorkspacePlugin extends Plugin {
       },
     });
     this.registerSearchCommands();
+    if (typeof document !== "undefined") {
+      this.registerDomEvent(document, "dragstart", (event) => this.editorDropController.handleDragStart(event));
+    }
+    this.registerEvent(this.app.workspace.on("window-open", (_workspaceWindow, win) => {
+      this.registerDomEvent(win.document, "dragstart", (event) => this.editorDropController.handleDragStart(event));
+    }));
     this.registerEditorExtension([
       dropCursor(),
       EditorView.domEventHandlers({
@@ -168,7 +174,18 @@ export default class CardWorkspacePlugin extends Plugin {
       }),
     );
     this.registerEvent(
+      this.app.workspace.on("editor-change", (editor, info) => {
+        this.editorDropController.handleEditorChange(editor, info);
+      }),
+    );
+    this.registerEvent(
+      this.app.workspace.on("active-leaf-change", (leaf) => {
+        this.editorDropController.handleActiveLeafChange(leaf);
+      }),
+    );
+    this.registerEvent(
       this.app.workspace.on("file-open", (file) => {
+        this.editorDropController.handleTargetChange();
         this.syncSelection(file instanceof TFile ? file.path : null);
       }),
     );
@@ -213,6 +230,7 @@ export default class CardWorkspacePlugin extends Plugin {
   private disposeRuntime(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.editorDropController.dispose();
     this.cancelLinkCorrection?.();
     this.cancelLinkCorrection = null;
     this.vaultEventBus.dispose();
@@ -766,6 +784,7 @@ export default class CardWorkspacePlugin extends Plugin {
       this.subscribeVaultEvents((event) => this.pinnedPathReconciler.handleVaultMutation(event)),
       this.subscribeVaultEvents((event) => this.boxReconciler.handleVaultMutation(event)),
       this.subscribeVaultEvents((event) => this.favoriteReconciler.handleVaultMutation(event)),
+      this.subscribeVaultEvents((event) => this.editorDropController.handleVaultMutation(event)),
     ];
     this.searchCoordinator.subscribeTo(this.vaultEventBus);
   }

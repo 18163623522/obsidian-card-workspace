@@ -111,6 +111,22 @@ describe("SettingsStore", () => {
     expect(store.getFlat()).toMatchObject({ lastFolderPath: "notes", previewLines: 6 });
   });
 
+  it("persists section drag insertion immediately as a preference with patch intent", async () => {
+    const { store, save, documents } = createStore({
+      load: async () => ({ schemaVersion: 2, preferences: { dragInsertAction: "embed" } }),
+    });
+    await store.init();
+    expect(store.getFlat().enableHeadingDragInsert).toBe(false);
+    const result = await store.updatePreferences({ enableHeadingDragInsert: true });
+    expect(result).toBe("patch");
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(documents[0]).toMatchObject({
+      schemaVersion: 2,
+      preferences: { enableHeadingDragInsert: true, dragInsertAction: "embed" },
+    });
+    expect(migrateSettings(documents[0]).enableHeadingDragInsert).toBe(true);
+  });
+
   it("loads a v2 three-layer document without writing", async () => {
     const { store, save } = createStore({
       load: async () => ({
@@ -611,6 +627,7 @@ describe("SettingsStore — layer manifest classification (C4)", () => {
     ["defaultCardOpenBehavior", { defaultCardOpenBehavior: "new-tab" }],
     ["locateLinkCardOnOpen", { locateLinkCardOnOpen: true }],
     ["dragInsertAction", { dragInsertAction: "wiki" }],
+    ["enableHeadingDragInsert", { enableHeadingDragInsert: true }],
     ["cardCornerRadius", { cardCornerRadius: "compact" }],
     ["newNoteTemplate", { newNoteTemplate: "blank" }],
     ["previewLines", { previewLines: 8 }],

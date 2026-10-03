@@ -231,6 +231,15 @@ export interface ViewStrings {
     insertTitleAndContent: string;
     unsupportedForFileType: string;
     sourceFileMissing: string;
+    insertSectionLink: string;
+    insertSectionContent: string;
+    insertSectionTitleAndContent: string;
+    wholeNote: string;
+    noOtherSections: string;
+    headingsUnavailable: string;
+    headingLinkUnavailable: string;
+    staleDrop: string;
+    readFailed: string;
   };
 }
 

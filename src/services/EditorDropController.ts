@@ -7,6 +7,8 @@ import {
   TFile,
   type App,
   type EditorPosition,
+  type HeadingCache,
+  type WorkspaceLeaf,
 } from "obsidian";
 import { EditorView } from "@codemirror/view";
 
@@ -15,6 +17,8 @@ import type { DragInsertAction, PluginSettings } from "../settings";
 import { resolveCardFileKind } from "../view/file-kind";
 import { getMenuDom } from "../view/menu-dom";
 import { buildContentClipboardText, buildTitleAndContentClipboardText } from "../view/note-ops";
+import { extractHeadingSection, headingsEqual, resolveHeadingAnchor, snapshotHeadings } from "./heading-drag-insert";
+import type { VaultMutationEvent } from "./vault-events";
 
 // Duplicated in CardItem.svelte to preserve the Svelte/services boundary; update both together.
 export const CARD_WORKSPACE_DRAG_MIME = "application/x-card-workspace-note";
@@ -35,6 +39,28 @@ interface EditorWithCodeMirror {
 
 type SupportedDragInsertAction = Exclude<DragInsertAction, "ask">;
 
+type DragInsertTarget = { kind: "whole" } | { kind: "heading"; heading: HeadingCache };
+
+interface DropOperation {
+  editor: Editor;
+  info: MarkdownView | MarkdownFileInfo;
+  targetFile: TFile | null;
+  targetPath: string | null;
+  targetContent: string;
+  targetDocument: unknown;
+  sourceEditorDocuments: Array<{ editor: Editor; document: unknown }>;
+  file: TFile;
+  sourcePath: string;
+  mtime: number;
+  size: number;
+  position: EditorPosition;
+  menuPosition: { x: number; y: number };
+  headings: HeadingCache[] | null;
+  useHeadings: boolean;
+  menu: Menu | null;
+  inserting: boolean;
+}
+
 export interface EditorDropControllerDeps {
   app: App;
   getSettings: () => PluginSettings;
@@ -46,11 +72,62 @@ export class EditorDropController {
   private readonly app: App;
   private readonly getSettings: () => PluginSettings;
   private readonly getUiStrings: () => UiStrings;
+  private pendingDrop: DropOperation | null = null;
+  private disposed = false;
 
   constructor(deps: EditorDropControllerDeps) {
     this.app = deps.app;
     this.getSettings = deps.getSettings;
     this.getUiStrings = deps.getUiStrings;
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    this.cancelPendingDrop();
+  }
+
+  cancelPendingDrop(): void {
+    const operation = this.pendingDrop;
+    this.pendingDrop = null;
+    operation?.menu?.hide();
+  }
+
+  handleEditorChange(editor: Editor, info: MarkdownView | MarkdownFileInfo): void {
+    const operation = this.pendingDrop;
+    if (!operation) return;
+    // Obsidian may deliver a debounced event from before this drop. Immutable
+    // CodeMirror documents distinguish that event from a change (even an undo).
+    if (editor === operation.editor && !this.isDropCurrent(operation)) this.cancelPendingDrop();
+    if (info.file?.path === operation.sourcePath) {
+      const snapshot = operation.sourceEditorDocuments.find((entry) => entry.editor === editor);
+      if (!snapshot || snapshot.document === null || this.getEditorDocument(editor) !== snapshot.document) {
+        this.cancelPendingDrop();
+      }
+    }
+  }
+
+  handleActiveLeafChange(leaf: WorkspaceLeaf | null): void {
+    if (this.pendingDrop && (!(leaf?.view instanceof MarkdownView)
+      || leaf.view.editor !== this.pendingDrop.editor || !this.isDropCurrent(this.pendingDrop))) {
+      this.cancelPendingDrop();
+    }
+  }
+
+  handleTargetChange(): void {
+    if (this.pendingDrop && !this.isDropCurrent(this.pendingDrop)) this.cancelPendingDrop();
+  }
+
+  handleVaultMutation(event: VaultMutationEvent): void {
+    const operation = this.pendingDrop;
+    if (!operation) return;
+    const affects = (path: string | null) => path !== null && [event.path, event.oldPath].some(
+      (changed) => changed !== null && (path === changed || (event.isFolder && path.startsWith(`${changed}/`))),
+    );
+    if (affects(operation.sourcePath) || affects(operation.targetPath)) this.cancelPendingDrop();
+  }
+
+  handleDragStart(event: DragEvent): void {
+    if (this.hasCardWorkspaceDragTypes(event)) this.cancelPendingDrop();
   }
 
   handleDragOver(event: DragEvent): boolean {
@@ -65,6 +142,8 @@ export class EditorDropController {
     if (event.dataTransfer != null) {
       event.dataTransfer.dropEffect = "copy";
     }
+
+    this.cancelPendingDrop();
 
     event.preventDefault();
     return true;
@@ -153,20 +232,45 @@ export class EditorDropController {
     editor: Editor,
     info: MarkdownView | MarkdownFileInfo,
   ): Promise<void> {
+    this.cancelPendingDrop();
+    if (this.disposed) return;
     const file = this.app.vault.getAbstractFileByPath(payload.path);
     if (!(file instanceof TFile)) {
       new Notice(this.getUiStrings().view.dragInsertMenu.sourceFileMissing);
       return;
     }
 
-    const position = this.resolveDropEditorPosition(event, editor, info);
-    const action = this.getSettings().dragInsertAction;
+    const settings = this.getSettings();
+    const useHeadings = settings.enableHeadingDragInsert && resolveCardFileKind(file) === "markdown";
+    const cache = useHeadings ? this.app.metadataCache.getFileCache(file) : null;
+    const operation: DropOperation = {
+      editor, info, file, useHeadings,
+      targetFile: info.file ?? null,
+      targetPath: info.file?.path ?? null,
+      targetContent: editor.getValue(),
+      targetDocument: this.getEditorDocument(editor),
+      sourceEditorDocuments: this.app.workspace.getLeavesOfType("markdown").flatMap((leaf) => {
+        const view = leaf.view;
+        return view instanceof MarkdownView && view.file?.path === file.path
+          ? [{ editor: view.editor, document: this.getEditorDocument(view.editor) }] : [];
+      }),
+      sourcePath: file.path, mtime: file.stat.mtime, size: file.stat.size,
+      position: this.resolveDropEditorPosition(event, editor, info),
+      menuPosition: this.resolveDragMenuPosition(event),
+      headings: cache ? snapshotHeadings(cache.headings ?? []) : null,
+      menu: null, inserting: false,
+    };
+    this.pendingDrop = operation;
+    const action = settings.dragInsertAction;
     if (action === "ask") {
-      this.openDragInsertMenu({ event, editor, file, position });
+      this.openDragInsertMenu(operation);
       return;
     }
-
-    await this.insertCardDragContent({ editor, file, position, action });
+    if (useHeadings) {
+      this.openHeadingMenu(operation, action);
+      return;
+    }
+    await this.insertCardDragContent(operation, action, { kind: "whole" });
   }
 
   private resolveDropEditorPosition(
@@ -208,6 +312,11 @@ export class EditorDropController {
     return (editor as Editor & EditorWithCodeMirror).cm;
   }
 
+  private getEditorDocument(editor: Editor): unknown {
+    const cm = this.getEditorCodeMirror(editor);
+    return cm instanceof EditorView ? cm.state.doc : null;
+  }
+
   private hasCardWorkspaceDragTypes(event: DragEvent): boolean {
     const types = event.dataTransfer?.types;
     if (types == null) {
@@ -239,46 +348,99 @@ export class EditorDropController {
     return this.getSupportedDragInsertActions(file).includes(action);
   }
 
-  private openDragInsertMenu({
-    event,
-    editor,
-    file,
-    position,
-  }: {
-    event: DragEvent;
-    editor: Editor;
-    file: TFile;
-    position: EditorPosition;
-  }): void {
+  private openDragInsertMenu(operation: DropOperation): void {
     const strings = this.getUiStrings().view.dragInsertMenu;
     const menu = new Menu();
-    for (const action of this.getSupportedDragInsertActions(file)) {
-      const { icon, title } = this.getDragInsertMenuItemDetails(action, strings);
+    for (const action of this.getSupportedDragInsertActions(operation.file)) {
+      const { icon, title } = this.getDragInsertMenuItemDetails(action, strings, operation.useHeadings);
       menu.addItem((item) => {
-        item.setTitle(title).setIcon(icon).onClick(() => {
-          void this.insertCardDragContent({ editor, file, position, action });
-        });
+        item.setTitle(title).setIcon(icon);
+        if (operation.useHeadings) {
+          const submenu = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.();
+          if (submenu && typeof submenu.addItem === "function") {
+            this.appendHeadingItems(submenu, operation, action);
+          } else {
+            item.onClick(() => this.openHeadingMenu(operation, action));
+          }
+        } else {
+          item.onClick(() => { void this.insertCardDragContent(operation, action, { kind: "whole" }); });
+        }
       });
     }
+    this.showMenu(menu, operation);
+  }
 
-    menu.showAtPosition(this.resolveDragMenuPosition(event));
+  private openHeadingMenu(operation: DropOperation, action: SupportedDragInsertAction): void {
+    if (!this.isDropCurrent(operation)) return;
+    const menu = new Menu();
+    this.appendHeadingItems(menu, operation, action);
+    this.showMenu(menu, operation);
+  }
+
+  private appendHeadingItems(menu: Menu, operation: DropOperation, action: SupportedDragInsertAction): void {
+    const strings = this.getUiStrings().view.dragInsertMenu;
+    menu.addItem((item) => item.setTitle(strings.wholeNote).setIcon("file-text").onClick(() => {
+      void this.insertCardDragContent(operation, action, { kind: "whole" });
+    }));
+    menu.addSeparator();
+    if (!operation.headings?.length) {
+      menu.addItem((item) => item.setTitle(operation.headings === null
+        ? strings.headingsUnavailable : strings.noOtherSections).setDisabled(true));
+      return;
+    }
+    for (const heading of operation.headings) {
+      menu.addItem((item) => item.setTitle(`H${heading.level}  ${heading.heading}`).onClick(() => {
+        void this.insertCardDragContent(operation, action, { kind: "heading", heading });
+      }));
+    }
+  }
+
+  private showMenu(menu: Menu, operation: DropOperation): void {
+    operation.menu = menu;
+    menu.onHide(() => {
+      if (operation.menu === menu) {
+        operation.menu = null;
+        if (!operation.inserting && this.pendingDrop === operation) this.cancelPendingDrop();
+      }
+    });
+    menu.showAtPosition(operation.menuPosition);
     const menuDom = getMenuDom(menu);
     menuDom?.classList.add("fce-card-drag-insert-menu");
+  }
+
+  private isDropCurrent(operation: DropOperation): boolean {
+    return !this.disposed && this.pendingDrop === operation
+      && operation.file.path === operation.sourcePath
+      && this.app.vault.getAbstractFileByPath(operation.sourcePath) === operation.file
+      && operation.file.stat.mtime === operation.mtime && operation.file.stat.size === operation.size
+      && (operation.info.file ?? null) === operation.targetFile
+      && (operation.info.file?.path ?? null) === operation.targetPath
+      && (operation.info.editor == null || operation.info.editor === operation.editor)
+      && this.getEditorDocument(operation.editor) === operation.targetDocument
+      && operation.editor.getValue() === operation.targetContent
+      && operation.sourceEditorDocuments.every((entry) => this.getEditorDocument(entry.editor) === entry.document);
+  }
+
+  private isHeadingCurrent(operation: DropOperation): boolean {
+    const cache = this.app.metadataCache.getFileCache(operation.file);
+    return operation.headings !== null && cache !== null
+      && headingsEqual(operation.headings, snapshotHeadings(cache.headings ?? []));
   }
 
   private getDragInsertMenuItemDetails(
     action: SupportedDragInsertAction,
     strings: UiStrings["view"]["dragInsertMenu"],
+    useHeadings: boolean,
   ): { icon: string; title: string } {
     switch (action) {
       case "wiki":
-        return { icon: "link", title: strings.insertWikiLink };
+        return { icon: "link", title: useHeadings ? strings.insertSectionLink : strings.insertWikiLink };
       case "embed":
         return { icon: "file-input", title: strings.insertEmbedLink };
       case "content":
-        return { icon: "clipboard", title: strings.insertContent };
+        return { icon: "clipboard", title: useHeadings ? strings.insertSectionContent : strings.insertContent };
       case "title-content":
-        return { icon: "heading-1", title: strings.insertTitleAndContent };
+        return { icon: "heading-1", title: useHeadings ? strings.insertSectionTitleAndContent : strings.insertTitleAndContent };
     }
   }
 
@@ -299,25 +461,58 @@ export class EditorDropController {
     }
   }
 
-  private async insertCardDragContent({
-    editor,
-    file,
-    position,
-    action,
-  }: {
-    editor: Editor;
-    file: TFile;
-    position: EditorPosition;
-    action: SupportedDragInsertAction;
-  }): Promise<void> {
-    if (!this.isDragInsertActionSupported(file, action)) {
-      new Notice(this.getUiStrings().view.dragInsertMenu.unsupportedForFileType);
-      return;
+  private async insertCardDragContent(
+    operation: DropOperation,
+    action: SupportedDragInsertAction,
+    target: DragInsertTarget,
+  ): Promise<void> {
+    if (operation.inserting || !this.isDropCurrent(operation)) return;
+    const { editor, file, position } = operation;
+    operation.inserting = true;
+    const strings = this.getUiStrings().view.dragInsertMenu;
+    try {
+      if (!this.isDragInsertActionSupported(file, action)) {
+        new Notice(strings.unsupportedForFileType);
+        return;
+      }
+      let text: string | null;
+      if (target.kind === "whole") {
+        text = await this.buildDragInsertText(file, action);
+      } else {
+        if (!this.isHeadingCurrent(operation)) {
+          new Notice(strings.staleDrop);
+          return;
+        }
+        const headings = operation.headings!;
+        if (action === "wiki" || action === "embed") {
+          const anchor = resolveHeadingAnchor(headings, target.heading);
+          if (anchor === null) {
+            new Notice(strings.headingLinkUnavailable);
+            return;
+          }
+          const linktext = this.app.metadataCache.fileToLinktext(file, operation.targetPath ?? "", true);
+          text = `${action === "embed" ? "!" : ""}[[${linktext}${anchor}]]`;
+        } else {
+          const content = await this.app.vault.cachedRead(file);
+          text = extractHeadingSection(content, headings, target.heading, action === "title-content");
+        }
+      }
+      if (!this.isDropCurrent(operation)) return;
+      if (text === null || (target.kind === "heading" && !this.isHeadingCurrent(operation))) {
+        new Notice(strings.staleDrop);
+        return;
+      }
+      // Retire before replaceRange emits editor-change synchronously.
+      this.pendingDrop = null;
+      operation.menu?.hide();
+      if (text.length === 0) return;
+      editor.replaceRange(text, position, undefined, "card-workspace-drag");
+      const endPosition = editor.offsetToPos(editor.posToOffset(position) + text.length);
+      editor.setCursor(endPosition);
+    } catch {
+      if (this.isDropCurrent(operation)) new Notice(strings.readFailed);
+    } finally {
+      if (this.pendingDrop === operation) this.cancelPendingDrop();
     }
-
-    const text = (await this.buildDragInsertText(file, action)) ?? "";
-    editor.replaceRange(text, position, undefined, "card-workspace-drag");
-    const endPosition = editor.offsetToPos(editor.posToOffset(position) + text.length);
-    editor.setCursor(endPosition);
   }
 }

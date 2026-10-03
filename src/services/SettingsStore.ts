@@ -24,6 +24,7 @@ export interface PreferencesSettings {
   defaultCardOpenBehavior: PluginSettings["defaultCardOpenBehavior"];
   locateLinkCardOnOpen: boolean;
   dragInsertAction: PluginSettings["dragInsertAction"];
+  enableHeadingDragInsert: boolean;
   cardCornerRadius: PluginSettings["cardCornerRadius"];
   newNoteTemplate: PluginSettings["newNoteTemplate"];
   previewLines: number;
@@ -135,6 +136,7 @@ export function splitFlatPatch(patch: PartialPluginSettings): {
   }
   if (patch.locateLinkCardOnOpen !== undefined) preferences.locateLinkCardOnOpen = patch.locateLinkCardOnOpen;
   if (patch.dragInsertAction !== undefined) preferences.dragInsertAction = patch.dragInsertAction;
+  if (patch.enableHeadingDragInsert !== undefined) preferences.enableHeadingDragInsert = patch.enableHeadingDragInsert;
   if (patch.cardCornerRadius !== undefined) preferences.cardCornerRadius = patch.cardCornerRadius;
   if (patch.newNoteTemplate !== undefined) preferences.newNoteTemplate = patch.newNoteTemplate;
   if (patch.cardImageMode !== undefined) preferences.cardImageMode = patch.cardImageMode;
@@ -183,6 +185,7 @@ export function serializeSettings(settings: PluginSettings): PersistedSettingsV2
       defaultCardOpenBehavior: settings.defaultCardOpenBehavior,
       locateLinkCardOnOpen: settings.locateLinkCardOnOpen,
       dragInsertAction: settings.dragInsertAction,
+      enableHeadingDragInsert: settings.enableHeadingDragInsert,
       cardCornerRadius: settings.cardCornerRadius,
       newNoteTemplate: settings.newNoteTemplate,
       previewLines: settings.previewLines,

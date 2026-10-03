@@ -183,6 +183,20 @@ describe("normalizeSettings — includeSubfolders and view mode", () => {
     expect(normalizeSettings({ ...DEFAULT_SETTINGS, dragInsertAction: "title-content" } as unknown).dragInsertAction).toBe("title-content");
   });
 
+  it("defaults section drag insertion off and accepts only boolean values in old and v2 settings", () => {
+    expect(DEFAULT_SETTINGS.enableHeadingDragInsert).toBe(false);
+    for (const value of [undefined, null, "true", 1, {}, []]) {
+      expect(migrateSettings({ enableHeadingDragInsert: value }).enableHeadingDragInsert).toBe(false);
+      expect(migrateSettings({ schemaVersion: 2, preferences: { enableHeadingDragInsert: value } })
+        .enableHeadingDragInsert).toBe(false);
+    }
+    const settings = migrateSettings({ enableHeadingDragInsert: true });
+    const document = serializeSettings(settings);
+    expect(document.schemaVersion).toBe(2);
+    expect(document.preferences.enableHeadingDragInsert).toBe(true);
+    expect(migrateSettings(document).enableHeadingDragInsert).toBe(true);
+  });
+
   it("defaults cardCornerRadius to rounded when the raw value is missing or invalid", () => {
     expect(normalizeSettings({ ...DEFAULT_SETTINGS, cardCornerRadius: undefined } as unknown).cardCornerRadius).toBe("rounded");
     expect(normalizeSettings({ ...DEFAULT_SETTINGS, cardCornerRadius: "soft" } as unknown).cardCornerRadius).toBe("rounded");
@@ -1061,6 +1075,7 @@ describe("card grouping settings normalization", () => {
         cardImageMode: "right", cardImageFit: "cover",
         group: DEFAULT_GROUP_SPEC,
         locateLinkCardOnOpen: false,
+        enableHeadingDragInsert: false,
         navSectionOrder: ["properties", "boxes", "tags", "folders", "favorites", "links"],
         visiblePropertyKeys: [],
       },
@@ -1527,6 +1542,7 @@ describe("settings layer manifest (C4)", () => {
     defaultCardOpenBehavior: "preferences",
     locateLinkCardOnOpen: "preferences",
     dragInsertAction: "preferences",
+    enableHeadingDragInsert: "preferences",
     cardCornerRadius: "preferences",
     newNoteTemplate: "preferences",
     previewLines: "preferences",
@@ -1586,6 +1602,7 @@ describe("non-default v2 round trip per layer (C4)", () => {
     defaultView: "cards",
     defaultCardOpenBehavior: "new-tab",
     locateLinkCardOnOpen: true,
+    enableHeadingDragInsert: true,
     dragInsertAction: "wiki",
     cardCornerRadius: "compact",
     newNoteTemplate: "blank",
@@ -1619,6 +1636,7 @@ describe("non-default v2 round trip per layer (C4)", () => {
     ["defaultCardOpenBehavior", (d) => d.preferences.defaultCardOpenBehavior, "new-tab"],
     ["locateLinkCardOnOpen", (d) => d.preferences.locateLinkCardOnOpen, true],
     ["dragInsertAction", (d) => d.preferences.dragInsertAction, "wiki"],
+    ["enableHeadingDragInsert", (d) => d.preferences.enableHeadingDragInsert, true],
     ["cardCornerRadius", (d) => d.preferences.cardCornerRadius, "compact"],
     ["newNoteTemplate", (d) => d.preferences.newNoteTemplate, "blank"],
     ["cardImageMode", (d) => d.preferences.cardImageMode, "off"],

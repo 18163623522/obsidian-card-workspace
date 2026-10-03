@@ -56,6 +56,8 @@ function declarativeSettingPatch(key: string, value: unknown): PartialPluginSett
       return typeof value === "boolean" ? { showNavItemCounts: value } : null;
     case "locateLinkCardOnOpen":
       return typeof value === "boolean" ? { locateLinkCardOnOpen: value } : null;
+    case "enableHeadingDragInsert":
+      return typeof value === "boolean" ? { enableHeadingDragInsert: value } : null;
     default:
       return null;
   }
@@ -80,6 +82,8 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
         return settings.defaultCardOpenBehavior;
       case "dragInsertAction":
         return settings.dragInsertAction;
+      case "enableHeadingDragInsert":
+        return settings.enableHeadingDragInsert;
       case "newNoteTemplate":
         return settings.newNoteTemplate;
       case "cardCornerRadius":
@@ -137,6 +141,11 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
               key: "dragInsertAction",
               options: optionRecord(getDragInsertActionOptions(language)),
             },
+          },
+          {
+            name: strings.enableHeadingDragInsertName,
+            desc: strings.enableHeadingDragInsertDesc,
+            control: { type: "toggle", key: "enableHeadingDragInsert" },
           },
           {
             name: strings.newNoteTemplateName,

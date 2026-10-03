@@ -1,13 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+interface MenuEntry {
+  title: string;
+  icon: string;
+  onClick: (() => void) | null;
+  disabled: boolean;
+  submenu: MenuState | null;
+}
+
+interface MenuState {
+  items: MenuEntry[];
+  positions: Array<{ x: number; y: number }>;
+  dom: { classList: { add: ReturnType<typeof vi.fn> } };
+  hide: () => void;
+}
+
 const mockState = vi.hoisted(() => ({
   notices: [] as string[],
   leavesByType: {} as Record<string, unknown[]>,
-  menus: [] as Array<{
-    items: Array<{ title: string; icon: string; onClick: (() => void) | null }>;
-    positions: Array<{ x: number; y: number }>;
-    dom: { classList: { add: ReturnType<typeof vi.fn> } };
-  }>,
+  menus: [] as MenuState[],
+  submenuSupported: true,
 }));
 
 vi.mock("obsidian", () => {
@@ -18,9 +30,10 @@ vi.mock("obsidian", () => {
   }
 
   class MockMenu {
-    items: Array<{ title: string; icon: string; onClick: (() => void) | null }> = [];
+    items: MenuEntry[] = [];
     positions: Array<{ x: number; y: number }> = [];
     dom = { classList: { add: vi.fn() } };
+    hideCallback: (() => void) | null = null;
 
     constructor() {
       mockState.menus.push(this);
@@ -29,9 +42,11 @@ vi.mock("obsidian", () => {
     addItem(configure: (item: {
       setTitle: (title: string) => unknown;
       setIcon: (icon: string) => unknown;
+      setDisabled: (disabled: boolean) => unknown;
+      setSubmenu: () => MockMenu | undefined;
       onClick: (callback: () => void) => unknown;
     }) => void): this {
-      const entry = { title: "", icon: "", onClick: null as (() => void) | null };
+      const entry: MenuEntry = { title: "", icon: "", onClick: null, disabled: false, submenu: null };
       const item = {
         setTitle: (title: string) => {
           entry.title = title;
@@ -45,6 +60,16 @@ vi.mock("obsidian", () => {
           entry.onClick = callback;
           return item;
         },
+        setDisabled: (disabled: boolean) => {
+          entry.disabled = disabled;
+          return item;
+        },
+        setSubmenu: () => {
+          if (!mockState.submenuSupported) return undefined;
+          const submenu = new MockMenu();
+          entry.submenu = submenu;
+          return submenu;
+        },
       };
       configure(item);
       this.items.push(entry);
@@ -54,6 +79,14 @@ vi.mock("obsidian", () => {
     showAtPosition(position: { x: number; y: number }): void {
       this.positions.push(position);
     }
+
+    addSeparator(): this {
+      this.items.push({ title: "separator", icon: "", onClick: null, disabled: true, submenu: null });
+      return this;
+    }
+
+    onHide(callback: () => void): void { this.hideCallback = callback; }
+    hide(): void { this.hideCallback?.(); }
   }
 
   class MockTAbstractFile {
@@ -63,7 +96,7 @@ vi.mock("obsidian", () => {
   class MockTFile extends MockTAbstractFile {
     extension = "md";
     basename: string;
-    stat = { ctime: 1, mtime: 1 };
+    stat = { ctime: 1, mtime: 1, size: 1 };
 
     constructor(path = "") {
       super(path);
@@ -77,17 +110,42 @@ vi.mock("obsidian", () => {
     Menu: MockMenu,
     TAbstractFile: MockTAbstractFile,
     TFile: MockTFile,
+    stripHeadingForLink: (heading: string) => heading.replace(/([:#|^\\\r\n]|%%|\[\[|]])/g, " ").replace(/\s+/g, " ").trim(),
+    // Model native matching, including its first-match behavior for duplicate anchors.
+    resolveSubpath: (cache: { headings?: HeadingCache[] }, anchor: string) => {
+      const parts = anchor.split("#").filter(Boolean);
+      const normalize = (value: string) => value.replace(/[!"#$%&()*+,.:;<=>?@^`{|}~/[\]\\\r\n]/g, " ")
+        .replace(/\s+/g, " ").trim().toLowerCase();
+      let part = 0;
+      let level = 0;
+      for (const heading of cache.headings ?? []) {
+        if (heading.level > level && normalize(heading.heading) === normalize(parts[part])) {
+          level = heading.level;
+          if (++part === parts.length) return { type: "heading", current: heading };
+        }
+      }
+      return null;
+    },
     MarkdownView: class MockMarkdownView {
       constructor(public leaf: unknown) {}
     },
   };
 });
 
-import type { App } from "obsidian";
+vi.mock("@codemirror/view", () => ({
+  EditorView: class MockEditorView {
+    state = { doc: {} };
+    posAtCoords(): null { return null; }
+  },
+}));
+
+import type { App, HeadingCache } from "obsidian";
 import { MarkdownView, TFile } from "obsidian";
+import { EditorView } from "@codemirror/view";
 import { getUiStrings } from "../i18n";
 import { DEFAULT_SETTINGS, type PluginSettings } from "../settings";
 import { EditorDropController } from "./EditorDropController";
+import { extractHeadingSection } from "./heading-drag-insert";
 
 function createAppMock() {
   return {
@@ -97,6 +155,10 @@ function createAppMock() {
     vault: {
       getAbstractFileByPath: vi.fn(() => null),
       cachedRead: vi.fn(async () => ""),
+    },
+    metadataCache: {
+      getFileCache: vi.fn((): { headings?: HeadingCache[] } | null => null),
+      fileToLinktext: vi.fn((file: TFile, _sourcePath: string, _omitExtension: boolean) => file.basename),
     },
   };
 }
@@ -120,6 +182,7 @@ function createEditorMock(cursor = { line: 2, ch: 4 }) {
     replaceRange: vi.fn(),
     setCursor: vi.fn(),
     getCursor: vi.fn(() => cursor),
+    getValue: vi.fn(() => "Target body"),
   };
 }
 
@@ -141,7 +204,7 @@ function createDropEvent(payload: string | null) {
 }
 
 function bindMarkdownEditorContext(editor: ReturnType<typeof createEditorMock>): unknown {
-  const cmView = {};
+  const cmView = new EditorView();
   Object.assign(editor, { cm: cmView });
   const markdownView = new MarkdownView({} as never) as MarkdownView & { editor: typeof editor };
   markdownView.editor = editor as never;
@@ -149,11 +212,76 @@ function bindMarkdownEditorContext(editor: ReturnType<typeof createEditorMock>):
   return cmView;
 }
 
+function heading(content: string, raw: string, title: string, level: number, from = 0): HeadingCache {
+  const offset = content.indexOf(raw, from);
+  if (offset < 0) throw new Error(`Missing fixture heading: ${raw}`);
+  const line = content.slice(0, offset).split("\n").length - 1;
+  return {
+    heading: title, level,
+    position: {
+      start: { offset, line, col: 0 },
+      end: { offset: offset + raw.length, line: line + raw.split("\n").length - 1, col: raw.split("\n").at(-1)!.length },
+    },
+  };
+}
+
+function createFile(path: string): TFile {
+  const file = new TFile();
+  Object.assign(file, { path, basename: path.split("/").at(-1)!.replace(/\.md$/, "") });
+  return file;
+}
+
+const sectionSource = "Prelude\n\n# Intro\n\nIntro body\n\n## **Method** ##\n\n  body  \n\n### Example\n\n```md\n# Not a heading\n```\n\n## Conclusion\n\nLast body\n\n# Empty\n\n# Final\n\nEnd  \n\n";
+const sectionHeadings = [
+  heading(sectionSource, "# Intro", "Intro", 1),
+  heading(sectionSource, "## **Method** ##", "**Method**", 2),
+  heading(sectionSource, "### Example", "Example", 3),
+  heading(sectionSource, "## Conclusion", "Conclusion", 2),
+  heading(sectionSource, "# Empty", "Empty", 1),
+  heading(sectionSource, "# Final", "Final", 1),
+];
+
+async function startHeadingDrop(
+  action: PluginSettings["dragInsertAction"] = "ask",
+  content = sectionSource,
+  headings: HeadingCache[] | null = sectionHeadings,
+  overrides: Partial<PluginSettings> = {},
+) {
+  const app = createAppMock();
+  const file = createFile("notes/Source.md");
+  const target = createFile("target/Target.md");
+  app.vault.getAbstractFileByPath.mockReturnValue(file as never);
+  app.vault.cachedRead.mockResolvedValue(content);
+  app.metadataCache.getFileCache.mockReturnValue(headings === null ? null : { headings });
+  const controller = createController(app, { enableHeadingDragInsert: true, dragInsertAction: action, ...overrides });
+  const editor = createEditorMock();
+  const cm = bindMarkdownEditorContext(editor) as EditorView;
+  const sourceEditor = createEditorMock();
+  const sourceCm = new EditorView();
+  Object.assign(sourceEditor, { cm: sourceCm });
+  const sourceView = new MarkdownView({} as never);
+  Object.assign(sourceView, { editor: sourceEditor, file });
+  mockState.leavesByType.markdown.push({ view: sourceView });
+  const info = { editor, file: target };
+  const event = createDropEvent(JSON.stringify({ path: file.path, title: file.basename }));
+  await controller.handleCardEditorDrop(event as unknown as DragEvent, editor as never, info as never);
+  return { app, controller, file, target, editor, sourceEditor, cm, sourceCm, info, event, menu: mockState.menus[0] };
+}
+
+function choose(menu: MenuState, title: string): void {
+  const entry = menu.items.find((item) => item.title === title);
+  expect(entry?.disabled).toBe(false);
+  expect(entry?.onClick).toBeTypeOf("function");
+  entry!.onClick!();
+  menu.hide();
+}
+
 describe("EditorDropController", () => {
   beforeEach(() => {
     mockState.notices = [];
     mockState.menus = [];
     mockState.leavesByType = {};
+    mockState.submenuSupported = true;
   });
 
   it("accepts custom dragover/drop through the editor extension path and opens the markdown ask menu", async () => {
@@ -320,6 +448,239 @@ describe("EditorDropController", () => {
     expect(event.preventDefault).not.toHaveBeenCalled();
     expect(mockState.menus).toHaveLength(0);
     expect(mockState.notices).toEqual([]);
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing ask menu when section insertion is disabled", async () => {
+    const { app, menu } = await startHeadingDrop("ask", sectionSource, sectionHeadings, { enableHeadingDragInsert: false });
+    expect(menu.items.map((item) => item.title)).toEqual([
+      "Insert wiki link", "Insert embed link", "Insert card content", "Insert card title & content",
+    ]);
+    expect(menu.items.every((item) => item.submenu === null)).toBe(true);
+    expect(app.metadataCache.getFileCache).not.toHaveBeenCalled();
+  });
+
+  it("offers the same ordered sections and whole-note entry under all four ask actions without reading", async () => {
+    const { menu, app } = await startHeadingDrop();
+    expect(menu.items.map((item) => item.title)).toEqual([
+      "Insert section link", "Insert embed link", "Insert section content", "Insert section heading & content",
+    ]);
+    const titles = ["Whole note", "separator", "H1  Intro", "H2  **Method**", "H3  Example", "H2  Conclusion", "H1  Empty", "H1  Final"];
+    for (const action of menu.items) expect(action.submenu?.items.map((item) => item.title)).toEqual(titles);
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+    expect(app.metadataCache.fileToLinktext).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["wiki", "[[notes/Source#**Method**]]"],
+    ["embed", "![[notes/Source#**Method**]]"],
+    ["content", "  body  \n\n### Example\n\n```md\n# Not a heading\n```"],
+    ["title-content", "## **Method** ##\n\n  body  \n\n### Example\n\n```md\n# Not a heading\n```"],
+  ] as const)("opens the section picker for fixed %s and inserts the selected range", async (action, expected) => {
+    const { app, editor, menu } = await startHeadingDrop(action);
+    app.metadataCache.fileToLinktext.mockReturnValue("notes/Source");
+    expect(mockState.menus).toHaveLength(1);
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+    choose(menu, "H2  **Method**");
+    await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith(expected, { line: 2, ch: 4 }, undefined, "card-workspace-drag"));
+    if (action === "wiki" || action === "embed") {
+      expect(app.metadataCache.fileToLinktext).toHaveBeenCalledWith(expect.any(TFile), "target/Target.md", true);
+      expect(app.vault.cachedRead).not.toHaveBeenCalled();
+    } else {
+      expect(app.vault.cachedRead).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it.each([
+    ["wiki", "[[Source]]"], ["embed", "![[Source]]"],
+    ["content", "Body"], ["title-content", "# Source\n\nBody"],
+  ] as const)("preserves whole-note insertion for %s", async (action, expected) => {
+    const { editor, menu } = await startHeadingDrop(action, "---\ntags: [x]\n---\n\nBody", []);
+    choose(menu, "Whole note");
+    await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith(expected, expect.anything(), undefined, "card-workspace-drag"));
+  });
+
+  it("opens an independent section menu when runtime submenus are unavailable", async () => {
+    mockState.submenuSupported = false;
+    const { menu, editor } = await startHeadingDrop();
+    choose(menu, "Insert embed link");
+    const picker = mockState.menus[1];
+    expect(picker.positions).toEqual([{ x: 120, y: 180 }]);
+    choose(picker, "H1  Final");
+    expect(editor.replaceRange).toHaveBeenCalledWith("![[Source#Final]]", expect.anything(), undefined, "card-workspace-drag");
+  });
+
+  it.each([[], null] as const)("retains a whole-note entry and disabled hint when headings are %j", async (headings) => {
+    const { menu, app, editor } = await startHeadingDrop("wiki", "Body", headings as HeadingCache[] | null);
+    expect(menu.items.map((item) => item.title)).toEqual([
+      "Whole note", "separator", headings === null
+        ? "Heading metadata is unavailable. Try dropping the card again." : "No other sections to insert",
+    ]);
+    expect(menu.items[2]).toMatchObject({ disabled: true, onClick: null });
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+    choose(menu, "Whole note");
+    await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalled());
+  });
+
+  it("cancels on menu dismissal and ignores callbacks retained from the cancelled menu", async () => {
+    const { menu, editor, app } = await startHeadingDrop("content");
+    menu.hide();
+    menu.items[2].onClick?.();
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+  });
+
+  it("copies the last section and does not insert a whitespace-only section", async () => {
+    const { menu, editor, controller, event, info } = await startHeadingDrop("content");
+    choose(menu, "H1  Empty");
+    await Promise.resolve();
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+    await controller.handleCardEditorDrop(event as unknown as DragEvent, editor as never, info as never);
+    choose(mockState.menus[1], "H1  Final");
+    await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith("End  ", expect.anything(), undefined, "card-workspace-drag"));
+  });
+
+  it.each(["content", "title-content"] as const)("preserves Setext and CRLF for %s", async (action) => {
+    const content = "Title *original*\r\n================\r\n\r\n    indented  \r\n\r\nChild\r\n-----\r\n\r\nchild body\r\n\r\nNext\r\n====\r\nstop";
+    const headings = [
+      heading(content, "Title *original*\r\n================", "Title *original*", 1),
+      heading(content, "Child\r\n-----", "Child", 2),
+      heading(content, "Next\r\n====", "Next", 1),
+    ];
+    const { menu, editor } = await startHeadingDrop(action, content, headings);
+    choose(menu, "H1  Title *original*");
+    const expected = `${action === "title-content" ? "Title *original*\r\n================\r\n\r\n" : ""}    indented  \r\n\r\nChild\r\n-----\r\n\r\nchild body`;
+    await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith(expected, expect.anything(), undefined, "card-workspace-drag"));
+  });
+
+  it("handles a heading at EOF and all six heading levels", async () => {
+    const content = "# A\n## B\n### C\n#### D\n##### E\n###### F";
+    const headings = Array.from({ length: 6 }, (_, index) => heading(content, `${"#".repeat(index + 1)} ${"ABCDEF"[index]}`, "ABCDEF"[index], index + 1));
+    const { menu, editor } = await startHeadingDrop("title-content", content, headings);
+    expect(menu.items.slice(2).map((item) => item.title)).toEqual(["H1  A", "H2  B", "H3  C", "H4  D", "H5  E", "H6  F"]);
+    choose(menu, "H6  F");
+    await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith("###### F", expect.anything(), undefined, "card-workspace-drag"));
+    expect(extractHeadingSection(content, headings, headings[5], false)).toBe("");
+  });
+
+  it("disambiguates a duplicate heading using its parent heading path", async () => {
+    const content = "# A\n## Same\nfirst\n# B\n## Same\nsecond";
+    const headings = [heading(content, "# A", "A", 1), heading(content, "## Same", "Same", 2),
+      heading(content, "# B", "B", 1), heading(content, "## Same", "Same", 2, content.indexOf("# B"))];
+    const { menu, editor } = await startHeadingDrop("wiki", content, headings);
+    menu.items.at(-1)?.onClick?.();
+    expect(editor.replaceRange).toHaveBeenCalledWith("[[Source#B#Same]]", expect.anything(), undefined, "card-workspace-drag");
+  });
+
+  it("refuses an unaddressable repeated heading but still copies the selected original range", async () => {
+    const content = "# Same\nfirst\n# Same\nsecond";
+    const headings = [heading(content, "# Same", "Same", 1), heading(content, "# Same", "Same", 1, 1)];
+    const { menu, app, editor, controller, event, info } = await startHeadingDrop("ask", content, headings);
+    menu.items[0].submenu?.items.at(-1)?.onClick?.();
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+    expect(mockState.notices).toEqual(["Obsidian cannot link to this specific heading. Insert its content instead."]);
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+    await controller.handleCardEditorDrop(event as unknown as DragEvent, editor as never, info as never);
+    const root = [...mockState.menus].reverse().find((entry) => entry.items[0]?.title === "Insert section link")!;
+    root.items[2].submenu?.items.at(-1)?.onClick?.();
+    await vi.waitFor(() => expect(editor.replaceRange).toHaveBeenCalledWith("second", expect.anything(), undefined, "card-workspace-drag"));
+  });
+
+  it("uses native normalization for headings containing link delimiters", async () => {
+    const content = "# Heading: has # and | symbols\nbody";
+    const headings = [heading(content, content.split("\n")[0], "Heading: has # and | symbols", 1)];
+    const { menu, editor } = await startHeadingDrop("wiki", content, headings);
+    choose(menu, "H1  Heading: has # and | symbols");
+    expect(editor.replaceRange).toHaveBeenCalledWith("[[Source#Heading has and symbols]]", expect.anything(), undefined, "card-workspace-drag");
+  });
+
+  it.each(["base", "canvas", "excalidraw", "excalidraw.md"])("keeps existing behavior for %s cards when enabled", async (extension) => {
+    const app = createAppMock();
+    const file = createFile(`Source.${extension}`);
+    app.vault.getAbstractFileByPath.mockReturnValue(file as never);
+    const editor = createEditorMock();
+    const controller = createController(app, { enableHeadingDragInsert: true });
+    await controller.handleCardEditorDrop(createDropEvent(JSON.stringify({ path: file.path, title: file.basename })) as unknown as DragEvent, editor as never, { editor } as never);
+    const titles = mockState.menus[0].items.map((item) => item.title);
+    expect(titles).toEqual(extension.startsWith("excalidraw") ? ["Insert wiki link"] : ["Insert wiki link", "Insert embed link"]);
+    expect(app.metadataCache.getFileCache).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed content read without inserting", async () => {
+    const { app, menu, editor } = await startHeadingDrop("content");
+    app.vault.cachedRead.mockRejectedValue(new Error("Read failed"));
+    choose(menu, "H1  Intro");
+    await vi.waitFor(() => expect(mockState.notices).toEqual(["Could not read the card source note."]));
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+  });
+
+  it("cancels when heading metadata changes after opening the menu", async () => {
+    const { app, menu, editor } = await startHeadingDrop("content");
+    app.metadataCache.getFileCache.mockReturnValue({ headings: [] });
+    choose(menu, "H1  Intro");
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
+    expect(editor.replaceRange).not.toHaveBeenCalled();
+    expect(mockState.notices).toEqual(["The source note or target editor changed. Drop the card again."]);
+  });
+
+  it.each(["source-delete", "source-mtime", "source-rename", "target-switch", "target-editor", "target-content", "editor-event", "source-editor-event", "vault-event", "folder-rename", "active-leaf", "new-drop", "new-drag", "drag-start", "dispose"])(
+    "drops a pending read after %s", async (change) => {
+      const { app, menu, editor, file, controller, info, event } = await startHeadingDrop("content");
+      let finish!: (value: string) => void;
+      app.vault.cachedRead.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+      choose(menu, "H2  **Method**");
+      switch (change) {
+        case "source-delete": app.vault.getAbstractFileByPath.mockReturnValue(null); break;
+        case "source-mtime": file.stat.mtime++; break;
+        case "source-rename": file.path = "Moved.md"; break;
+        case "target-switch": info.file = createFile("Other.md"); break;
+        case "target-editor": info.editor = createEditorMock(); break;
+        case "target-content": editor.getValue.mockReturnValue("Changed body"); break;
+        case "editor-event":
+          editor.getValue.mockReturnValue("Changed body");
+          controller.handleEditorChange(editor as never, info as never);
+          editor.getValue.mockReturnValue("Target body");
+          break;
+        case "source-editor-event": controller.handleEditorChange(createEditorMock() as never, { file } as never); break;
+        case "vault-event": controller.handleVaultMutation({ eventType: "modify", path: file.path, oldPath: null, isFolder: false, fileKind: "markdown" }); break;
+        case "folder-rename": controller.handleVaultMutation({ eventType: "rename", path: "moved", oldPath: "notes", isFolder: true, fileKind: null }); break;
+        case "active-leaf": controller.handleActiveLeafChange(null); break;
+        case "new-drop": await controller.handleCardEditorDrop(event as unknown as DragEvent, editor as never, info as never); break;
+        case "new-drag": controller.handleDragOver(createDropEvent("payload") as unknown as DragEvent); break;
+        case "drag-start": controller.handleDragStart(createDropEvent("payload") as unknown as DragEvent); break;
+        case "dispose": controller.dispose(); break;
+      }
+      finish(sectionSource);
+      await Promise.resolve();
+      expect(editor.replaceRange).not.toHaveBeenCalled();
+      expect(mockState.notices).toEqual([]);
+    },
+  );
+
+  it("retires successful insertions before synchronous editor-change and ignores repeated selections", async () => {
+    const { controller, editor, menu, info } = await startHeadingDrop("wiki");
+    editor.replaceRange.mockImplementation(() => controller.handleEditorChange(editor as never, info as never));
+    const callback = menu.items[2].onClick;
+    callback?.();
+    callback?.();
+    expect(editor.replaceRange).toHaveBeenCalledTimes(1);
+    expect(editor.setCursor).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores a delayed editor-change event whose document still matches the drop snapshot", async () => {
+    const { controller, editor, sourceEditor, file, menu, info } = await startHeadingDrop("wiki");
+    controller.handleEditorChange(editor as never, info as never);
+    controller.handleEditorChange(sourceEditor as never, { file } as never);
+    choose(menu, "H1  Intro");
+    expect(editor.replaceRange).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["target", "source"])("rejects a changed %s CodeMirror document even if its text is unchanged and its event is delayed", async (which) => {
+    const { menu, editor, app, cm, sourceCm } = await startHeadingDrop("content");
+    Object.assign((which === "target" ? cm : sourceCm).state, { doc: {} });
+    choose(menu, "H1  Intro");
+    expect(app.vault.cachedRead).not.toHaveBeenCalled();
     expect(editor.replaceRange).not.toHaveBeenCalled();
   });
 });
