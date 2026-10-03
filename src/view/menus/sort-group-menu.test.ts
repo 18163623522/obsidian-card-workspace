@@ -238,7 +238,7 @@ describe("buildSortGroupMenu", () => {
       ["Filename", "file-text"],
       ["Order", "arrow-up-down"],
       ["Group by", "list-tree"],
-      ["None", "list"],
+      ["None", "ungroup"],
       ["Folder", "folder"],
       ["Tag", "tag"],
       ["Task status", "list-checks"],

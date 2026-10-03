@@ -111,7 +111,7 @@ export function buildSortGroupMenu(
 
   addHeadingItem(menu, strings.groupHeading, "list-tree");
   const dimensionOptions: Array<{ dimension: GroupDimension; title: string; icon: string }> = [
-    { dimension: "none", title: strings.dimensionNone, icon: "list" },
+    { dimension: "none", title: strings.dimensionNone, icon: "ungroup" },
     { dimension: "folder", title: strings.dimensionFolder, icon: "folder" },
     { dimension: "tag", title: strings.dimensionTag, icon: "tag" },
     { dimension: "task", title: strings.dimensionTask, icon: "list-checks" },
