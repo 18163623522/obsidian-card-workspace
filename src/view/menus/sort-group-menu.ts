@@ -139,14 +139,14 @@ export function buildSortGroupMenu(
       item.setTitle(properties.length === 0
         ? `${strings.dimensionProperty} · ${strings.enablePropertyHint}`
         : strings.dimensionProperty)
-        .setIcon("list-filter")
+        .setIcon("list")
         .setChecked(state.group.dimension === "property")
         .setDisabled(properties.length === 0);
       if (properties.length === 0) return;
       const submenu = (item as unknown as { setSubmenu?: () => Menu }).setSubmenu?.();
       if (submenu && typeof submenu.addItem === "function") {
         for (const property of properties) {
-          addOptionItem(submenu, { title: property.label, icon: "list-filter",
+          addOptionItem(submenu, { title: property.label, icon: "list",
             checked: state.group.dimension === "property" && state.group.propertyKey === property.key,
             disabled: false, onSelect: () => deps.onSelectProperty?.(property.key) });
         }
@@ -157,7 +157,7 @@ export function buildSortGroupMenu(
     });
     if (flatFallback) {
       for (const property of properties) {
-        addOptionItem(menu, { title: property.label, icon: "list-filter",
+        addOptionItem(menu, { title: property.label, icon: "list",
           checked: state.group.dimension === "property" && state.group.propertyKey === property.key,
           disabled: false, onSelect: () => deps.onSelectProperty?.(property.key) });
       }
