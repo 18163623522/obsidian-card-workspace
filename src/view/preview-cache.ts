@@ -1,5 +1,8 @@
 import { DEFAULT_PREVIEW_LINES, PREVIEW_LINES_MAX, PREVIEW_LINES_MIN } from "../settings";
 import type { LightPreviewResult } from "./markdown-utils";
+import type { SearchPreview } from "../search";
+
+export type CachedPreview = LightPreviewResult & { readonly searchPreview?: SearchPreview };
 
 export const PREVIEW_CACHE_CAPACITY = 512;
 
@@ -11,8 +14,10 @@ export interface PreviewFingerprint {
   readonly contextKey: string;
 }
 
-interface PreviewCacheEntry extends PreviewFingerprint {
-  readonly preview: LightPreviewResult;
+interface PreviewCacheValue { fingerprint: PreviewFingerprint; preview: CachedPreview }
+interface PreviewCacheEntry {
+  ordinary?: PreviewCacheValue;
+  contextual?: PreviewCacheValue;
 }
 
 export function normalizePreviewLines(value: number): number {
@@ -52,17 +57,31 @@ export class PreviewCache {
     return this.entries.has(path);
   }
 
-  get(fingerprint: PreviewFingerprint): LightPreviewResult | undefined {
+  get(fingerprint: PreviewFingerprint): CachedPreview | undefined {
     const entry = this.entries.get(fingerprint.path);
-    if (!entry || !fingerprintsEqual(entry, fingerprint)) return undefined;
+    const value = [entry?.ordinary, entry?.contextual].find((candidate) =>
+      candidate && fingerprintsEqual(candidate.fingerprint, fingerprint));
+    if (!entry || !value) return undefined;
     this.entries.delete(fingerprint.path);
     this.entries.set(fingerprint.path, entry);
-    return entry.preview;
+    return value.preview;
   }
 
-  set(fingerprint: PreviewFingerprint, preview: LightPreviewResult): void {
+  set(fingerprint: PreviewFingerprint, preview: CachedPreview): void {
+    const previous = this.entries.get(fingerprint.path);
+    // Both slots belong to the same file/settings version; only the contextual
+    // slot is replaced when the query changes.
+    const value = previous?.ordinary ?? previous?.contextual;
+    const base = value?.fingerprint;
+    const compatible = base && fingerprintsEqual(
+      { ...base, contextKey: base.contextKey.match(/\|(?:file|live):.*$/)?.[0] ?? "" },
+      { ...fingerprint, contextKey: fingerprint.contextKey.match(/\|(?:file|live):.*$/)?.[0] ?? "" });
+    const entry: PreviewCacheEntry = compatible ? { ...previous } : {};
+    const slot = fingerprint.contextKey.startsWith("search:") || fingerprint.contextKey.startsWith("link:")
+      ? "contextual" : "ordinary";
+    entry[slot] = { fingerprint, preview };
     this.entries.delete(fingerprint.path);
-    this.entries.set(fingerprint.path, { ...fingerprint, preview });
+    this.entries.set(fingerprint.path, entry);
     if (this.entries.size > PREVIEW_CACHE_CAPACITY) {
       const oldest = this.entries.keys().next();
       if (!oldest.done) this.entries.delete(oldest.value);

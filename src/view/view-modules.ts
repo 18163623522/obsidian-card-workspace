@@ -136,6 +136,9 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
     context,
     isLoading: gate.guard("scopeController.isLoading", () => scopeController.isLoading()),
     getCommittedQuery: gate.guard("search.getCommittedQuery", () => search.getCommittedQuery()),
+    getSearchContentRevision: gate.guard("search.getContentRevision", () => search.getContentRevision()),
+    isCommittedQueryCurrent: gate.guard("search.isCommittedQueryCurrent", () => search.isCommittedQueryCurrent()),
+    getMatchFields: gate.guard("search.getMatchFields", (path) => search.getMatchFields(path)),
   });
   const images = new CardImageController({ context, getService: () => host.getThumbnailService?.() ?? null,
     isLoading: gate.guard("scopeController.isLoading", () => scopeController.isLoading()) });

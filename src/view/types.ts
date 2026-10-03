@@ -119,6 +119,8 @@ export interface NoteCardRecord {
   previewMode: "text" | "code" | "empty" | "placeholder";
   hydrated: boolean;
   taskSummary: CardTaskSummary | null;
+  /** Query-local preview; never stored in the index or settings. */
+  searchPreview?: import("../search").SearchPreview;
 }
 
 export interface CardHoverLinkPayload {
@@ -127,7 +129,7 @@ export interface CardHoverLinkPayload {
   mouseEvent: MouseEvent;
 }
 
-export type FolderSelectionSource = "programmatic" | "panel-picker";
+export type FolderSelectionSource = "programmatic" | "panel-picker" | "links-follow";
 
 export interface FolderSelectionRequest {
   requestId: number;

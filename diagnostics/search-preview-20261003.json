@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "fixture": "36 deterministic notes; 320 ordinary lines and five hit lines",
+  "baselineCommit": "8e4ceb5be4822bd0118d93bfb09b40c0aec3307f",
+  "environment": {
+    "node": "v24.14.1",
+    "platform": "linux",
+    "arch": "x64",
+    "cpu": "Intel(R) Core(TM) Ultra 7 155H"
+  },
+  "before": {
+    "queryMsPerRun": 0.8217789000000001,
+    "longestEventLoopGapMs": 5.077206000000018,
+    "firstScreenMs": 3.0843849999999975,
+    "cacheHitMs": 0.07479100000000471,
+    "scrollSupplementMs": 1.4271290000000079,
+    "reads": 12,
+    "peakReads": 5,
+    "clickResolverMs": 0.13054500000004055
+  },
+  "after": {
+    "queryMsPerRun": 0.6656759666666658,
+    "longestEventLoopGapMs": 12.146093999999977,
+    "firstScreenMs": 101.11886099999998,
+    "cacheHitMs": 0.0923469999999611,
+    "scrollSupplementMs": 66.89756499999999,
+    "reads": 12,
+    "peakReads": 5,
+    "clickResolverMs": 0.539400999999998
+  },
+  "extraction": [
+    {
+      "name": "normal",
+      "sourceChars": 10841,
+      "snippets": 1,
+      "elapsedMs": 9.213340000000017,
+      "maxSliceMs": 7.5343560000000025,
+      "yields": 1,
+      "phases": {
+        "mappingMs": 6.600381000000027,
+        "budgetedMatchingMs": 2.5766689999999812,
+        "collectionMs": 0.016513000000031752
+      }
+    },
+    {
+      "name": "long-line",
+      "sourceChars": 480007,
+      "snippets": 1,
+      "elapsedMs": 94.022782,
+      "maxSliceMs": 11.035767000000021,
+      "yields": 9,
+      "phases": {
+        "mappingMs": 80.68771200000003,
+        "budgetedMatchingMs": 13.302061999999978,
+        "collectionMs": 0.005959999999959109
+      }
+    },
+    {
+      "name": "malformed-wiki-line",
+      "sourceChars": 480016,
+      "snippets": 1,
+      "elapsedMs": 95.09458200000006,
+      "maxSliceMs": 10.629227000000014,
+      "yields": 9,
+      "phases": {
+        "mappingMs": 87.13929400000006,
+        "budgetedMatchingMs": 7.909407999999985,
+        "collectionMs": 0.007218999999963671
+      }
+    },
+    {
+      "name": "term-budget",
+      "sourceChars": 249996,
+      "snippets": 1,
+      "elapsedMs": 184.70743900000002,
+      "maxSliceMs": 8.729678000000035,
+      "yields": 20,
+      "phases": {
+        "mappingMs": 163.13588400000003,
+        "budgetedMatchingMs": 21.532360999999923,
+        "collectionMs": 0.007748999999989792
+      }
+    },
+    {
+      "name": "han-run",
+      "sourceChars": 100002,
+      "snippets": 1,
+      "elapsedMs": 36.95038899999997,
+      "maxSliceMs": 8.79395599999998,
+      "yields": 4,
+      "phases": {
+        "mappingMs": 7.532383999999979,
+        "budgetedMatchingMs": 28.092593999999963,
+        "collectionMs": 1.2944060000000945
+      }
+    },
+    {
+      "name": "fenced-separators",
+      "sourceChars": 490016,
+      "snippets": 0,
+      "elapsedMs": 462.4618750000001,
+      "maxSliceMs": 17.593227999999954,
+      "yields": 44,
+      "phases": {
+        "mappingMs": 431.42171699999994,
+        "budgetedMatchingMs": 31.010388000000148,
+        "collectionMs": 0.00041999999984909664
+      }
+    }
+  ],
+  "correctness": {
+    "indexTextCompatible": true,
+    "rankingCompatible": true,
+    "matchCountsCompatible": true,
+    "peakReadsWithinFive": true
+  },
+  "scope": "Node diagnostics using production queue/cache and resolver; excludes Obsidian DOM, disk IO, and editor opening"
+}

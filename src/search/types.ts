@@ -159,6 +159,8 @@ export interface SearchQueryRequest {
  * - Score metadata stays runtime-internal and must not leak into render-facing card types.
  * - `matchCountsByPath` is runtime metadata for indexed-ready badge/count decoration, separate from ranking scores.
  */
+export type SearchMatchField = "title" | "content";
+
 export interface SearchQueryResult {
   mode: SearchExecutionMode;
   status: SearchServiceStatus;
@@ -166,6 +168,8 @@ export interface SearchQueryResult {
   orderedPaths?: string[];
   scoresByPath?: Record<string, number>;
   matchCountsByPath?: Record<string, number>;
+  /** MiniSearch field matches for this query only; never persisted. */
+  matchFieldsByPath?: Record<string, SearchMatchField[]>;
 }
 
 /**

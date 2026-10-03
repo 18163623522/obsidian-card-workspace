@@ -159,3 +159,57 @@ export function getSearchDisplayTerms(query: string): string[] {
 export function shouldUsePrefixSearch(term: string): boolean {
   return term.length === 0 || !HAN_TERM_PATTERN.test(term);
 }
+
+export interface SearchIndexTermPosition {
+  text: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Position-preserving equivalent of tokenizeSearchIndexText. Undefined entries
+ * are cooperative checkpoints (including long Han runs). Empty split terms
+ * consume the same budget as MiniSearch's default tokenizer.
+ */
+export function* iterateSearchIndexTerms(text: string): Generator<SearchIndexTermPosition | undefined> {
+  let remaining = SEARCH_INDEX_MAX_TERMS_PER_FIELD;
+  function* nonHan(start: number, end: number): Generator<SearchIndexTermPosition> {
+    let cursor = start;
+    // MiniSearch 7's default tokenize separator; parity is covered by contract tests.
+    for (const match of text.slice(start, end).matchAll(/[\n\r\p{Z}\p{P}]+/gu)) {
+      if (remaining-- <= 0) return;
+      const boundary = start + match.index;
+      yield { text: text.slice(cursor, boundary), start: cursor, end: boundary };
+      cursor = boundary + match[0].length;
+    }
+    if (remaining-- > 0) yield { text: text.slice(cursor, end), start: cursor, end };
+  }
+  let cursor = 0;
+  for (const match of text.matchAll(HAN_RUN_PATTERN)) {
+    if (match.index > cursor) yield* nonHan(cursor, match.index);
+    if (remaining <= 0) return;
+    const points: SearchIndexTermPosition[] = [];
+    let offset = match.index;
+    for (const point of match[0]) {
+      points.push({ text: point, start: offset, end: offset + point.length });
+      offset += point.length;
+      if (points.length % 1024 === 0) yield;
+    }
+    let take = Math.min(points.length, Math.floor((remaining + 1) / 2));
+    if (take < 2 && points.length >= 2) take = 0;
+    for (let index = 0; index < take; index += 1) {
+      remaining -= 1;
+      yield points[index];
+    }
+    for (let index = 0; index + 1 < take; index += 1) {
+      remaining -= 1;
+      yield {
+        text: points[index].text + points[index + 1].text,
+        start: points[index].start, end: points[index + 1].end,
+      };
+    }
+    cursor = match.index + match[0].length;
+    if (remaining <= 0) return;
+  }
+  if (cursor < text.length || cursor === 0) yield* nonHan(cursor, text.length);
+}

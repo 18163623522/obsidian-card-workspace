@@ -26,6 +26,7 @@ import type {
 
 export interface OpenNotePayload {
   path: string;
+  snippetId?: string;
 }
 
 export interface BoxSummary {

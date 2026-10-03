@@ -48,6 +48,17 @@ function createHost(): {
 }
 
 describe("buildPanelProps arrangement routing", () => {
+  it("routes only current snippet identifiers and rejects stale or malformed identifiers", () => {
+    const { host } = createHost();
+    const location = { kind: "search-snippet" as const, snippet: {} as never };
+    host.resolveSearchSnippetLocation = vi.fn((_path, id) => id === "current" ? location : null);
+    const props = buildPanelProps(host) as unknown as { onOpenNote: (detail: { path: string; snippetId?: unknown }) => void };
+    props.onOpenNote({ path: "a.md", snippetId: "current" });
+    props.onOpenNote({ path: "a.md", snippetId: "old" });
+    props.onOpenNote({ path: "a.md", snippetId: 42 });
+    expect(host.plugin.openNoteFromCard).toHaveBeenCalledTimes(1);
+    expect(host.plugin.openNoteFromCard).toHaveBeenCalledWith("a.md", undefined, location);
+  });
   it("passes the same link location for ordinary card and keyboard activation", () => {
     const { host } = createHost();
     const location = { line: 7, ch: 3, identity: "back:7" };

@@ -14,6 +14,22 @@ describe("PreviewCache", () => {
     expect(cache.get(createPreviewFingerprint("a.md", 2, 5, 200, "link:line-2"))).toBeUndefined();
   });
 
+  it("retains ordinary previews and only the current query inside a single LRU entry", () => {
+    const cache = new PreviewCache();
+    const ordinary = createPreviewFingerprint("a.md", 2, 5, 200, "|live:2");
+    const oldQuery = {...ordinary, contextKey: "search:1:needle|live:2"};
+    const currentQuery = {...ordinary, contextKey: "search:2:other|live:2"};
+    cache.set(ordinary, {html: "opening", mode: "text"});
+    cache.set(oldQuery, {html: "old", mode: "text"});
+    cache.set(currentQuery, {html: "current", mode: "text"});
+    expect(cache.size).toBe(1);
+    expect(cache.get(ordinary)?.html).toBe("opening");
+    expect(cache.get(oldQuery)).toBeUndefined();
+    expect(cache.get(currentQuery)?.html).toBe("current");
+    cache.set({...currentQuery, contextKey: "search:2:other|live:3"}, {html: "changed", mode: "text"});
+    expect(cache.get(ordinary)).toBeUndefined();
+  });
+
   it("evicts exactly the least-recently-used entry above 512", () => {
     const cache = new PreviewCache();
     for (let index = 0; index < PREVIEW_CACHE_CAPACITY; index += 1) {

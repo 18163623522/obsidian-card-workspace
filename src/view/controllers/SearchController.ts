@@ -1,6 +1,7 @@
 import type {
   SearchQueryExecutionState,
   SearchQueryResult,
+  SearchMatchField,
   SearchService,
   SearchServiceSnapshot,
 } from "../../search";
@@ -46,6 +47,8 @@ export class SearchController implements DisposableController {
   private execution: SearchQueryExecutionState = "indexed-unavailable";
   private orderedPaths: string[] | undefined;
   private matchCountsByPath: Record<string, number> = {};
+  private matchFieldsByPath: Record<string, SearchMatchField[]> = {};
+  private contentRevision = 0;
   private status: SearchStatus = "idle";
   private focusToken = 0;
   private snapshot: SearchServiceSnapshot | null = null;
@@ -72,10 +75,26 @@ export class SearchController implements DisposableController {
     return this.committedQuery;
   }
 
+  getContentRevision(): number { return this.contentRevision; }
+  isCommittedQueryCurrent(): boolean { return this.query.trim() === this.committedQuery.trim(); }
+  getMatchFields(path: string): readonly SearchMatchField[] | undefined { return this.matchFieldsByPath[path]; }
+
+  private invalidateSearchPreviews(): void {
+    this.contentRevision += 1;
+    this.context.store.advanceHydrationRevision();
+    this.context.store.patchCardPreviews(this.context.store.getBaseCards()
+      .filter((card) => card.searchPreview !== undefined).map((card) => ({
+        path: card.path, patch: {
+          searchPreview: undefined,
+          hydrated: card.previewHtml.length > 0 || card.previewMode === "placeholder",
+        },
+      })));
+  }
+
   private setCommittedQuery(query: string): void {
     if (this.committedQuery !== query) {
       this.committedQuery = query;
-      this.context.store.advanceHydrationRevision();
+      this.invalidateSearchPreviews();
     }
   }
 
@@ -125,6 +144,7 @@ export class SearchController implements DisposableController {
   }
 
   private applySnapshot(snapshot: SearchServiceSnapshot | null, publish: boolean): void {
+    if (this.query.trim() || this.committedQuery.trim()) this.invalidateSearchPreviews();
     this.snapshot = snapshot;
     this.snapshotEpoch.bump();
     this.requestEpoch.bump();
@@ -155,10 +175,11 @@ export class SearchController implements DisposableController {
     }
 
     this.query = nextQuery;
+    this.invalidateSearchPreviews();
     this.requestEpoch.bump();
     this.status = this.deriveStatus();
     if (!this.scopeSettled()) {
-      this.context.publishGroups("search");
+      this.context.publishGroups("cards", "search");
       return;
     }
 
@@ -167,7 +188,7 @@ export class SearchController implements DisposableController {
         // Keep the last committed cards and highlights mounted while the next
         // ready-index query is inside the debounce window. Only the toolbar's
         // draft text changes now; the projection swaps atomically on success.
-        this.context.publishGroups("search");
+        this.context.publishGroups("cards", "search");
       } else {
         // A genuinely non-ready index must retain the indexed-only invariant:
         // non-empty queries block immediately rather than exposing browse data.
@@ -184,6 +205,7 @@ export class SearchController implements DisposableController {
   }
 
   resetQuery(): void {
+    if (this.query.trim() || this.committedQuery.trim()) this.invalidateSearchPreviews();
     this.clearDebounce();
     this.requestEpoch.bump();
     this.query = "";
@@ -251,6 +273,7 @@ export class SearchController implements DisposableController {
       if (result.execution === "indexed-ready") {
         this.orderedPaths = result.orderedPaths ?? [];
         this.matchCountsByPath = { ...result.matchCountsByPath };
+        this.matchFieldsByPath = { ...result.matchFieldsByPath };
       } else {
         this.orderedPaths = undefined;
         this.clearMatchCounts();
@@ -364,6 +387,7 @@ export class SearchController implements DisposableController {
 
   clearMatchCounts(): void {
     this.matchCountsByPath = {};
+    this.matchFieldsByPath = {};
   }
 
   clearDebounce(): boolean {

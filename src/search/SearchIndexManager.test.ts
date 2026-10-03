@@ -1073,6 +1073,32 @@ describe("SearchIndexManager", () => {
     });
   });
 
+  it("returns query-local field matches even before restored documents are read", async () => {
+    const docs = [
+      createSearchableDocument("title.md", "needle", "other body"),
+      createSearchableDocument("body.md", "Other", "needle"),
+      createSearchableDocument("both.md", "needle", "needle"),
+    ];
+    const serialized = await createSerializedIndex(docs);
+    const store = createStoreMock({
+      outcome: "restored", metadata: createMetadata({ documentCount: 3 }),
+      payload: { serializedIndex: serialized, documentCount: 3, lastIndexedAt: 111 },
+    });
+    const { source, readAllDocuments } = createDocumentSource(docs);
+    const manager = new SearchIndexManager({ store, documentSource: source });
+    await manager.restore(createMetadata());
+    const result = await manager.search("need", docs.map((doc) => doc.path));
+    expect(result.matchFieldsByPath?.["title.md"]).toEqual(["title"]);
+    expect(result.matchFieldsByPath?.["body.md"]).toEqual(["content"]);
+    expect([...(result.matchFieldsByPath?.["both.md"] ?? [])].sort()).toEqual(["content", "title"]);
+    expect(readAllDocuments).not.toHaveBeenCalled();
+    expect(store.write).not.toHaveBeenCalled();
+    await manager.syncDocumentStateFromSource();
+    const reconciled = await manager.search("need", docs.map((doc) => doc.path));
+    expect(reconciled.orderedPaths).toEqual(result.orderedPaths);
+    expect(reconciled.matchFieldsByPath).toEqual(result.matchFieldsByPath);
+  });
+
   it("restores Han postings and keeps them current across incremental mutations and candidate bounds", async () => {
     const original = createSearchableDocument("notes/original.md", "中国资料", "中华人民共和国");
     const serialized = await createSerializedIndex([original]);
@@ -1146,7 +1172,7 @@ describe("SearchIndexManager", () => {
 
     expect(readAllDocuments).toHaveBeenCalledTimes(1);
     expect(store.write).toHaveBeenCalledTimes(1);
-    expect(await manager.search("launch dossier vaultneedle420", docs.map((document) => document.path))).toEqual({
+    expect(await manager.search("launch dossier vaultneedle420", docs.map((document) => document.path))).toMatchObject({
       orderedPaths: [targetPath],
       matchCountsByPath: {
         [targetPath]: 3,
@@ -1274,7 +1300,7 @@ describe("SearchIndexManager", () => {
 
     expect(readAllDocuments).toHaveBeenCalledTimes(2);
     expect(store.write).toHaveBeenCalledTimes(2);
-    expect(await manager.search("launch dossier vaultneedle420", [oldTargetPath, newTargetPath])).toEqual({
+    expect(await manager.search("launch dossier vaultneedle420", [oldTargetPath, newTargetPath])).toMatchObject({
       orderedPaths: [newTargetPath],
       matchCountsByPath: {
         [newTargetPath]: 3,
@@ -1447,14 +1473,14 @@ describe("SearchIndexManager", () => {
     await manager.restore(createMetadata());
     await manager.rebuildFromSource("Initial build");
 
-    expect(await manager.search("alpha beta alpha", ["notes/alpha.md"])).toEqual({
+    expect(await manager.search("alpha beta alpha", ["notes/alpha.md"])).toMatchObject({
       orderedPaths: ["notes/alpha.md"],
       matchCountsByPath: {
         "notes/alpha.md": 4,
       },
     });
 
-    expect(await manager.search("alpha", ["notes/alpha.md"])).toEqual({
+    expect(await manager.search("alpha", ["notes/alpha.md"])).toMatchObject({
       orderedPaths: ["notes/alpha.md"],
       matchCountsByPath: {
         "notes/alpha.md": 3,
@@ -1473,7 +1499,7 @@ describe("SearchIndexManager", () => {
     await manager.restore(createMetadata());
     await manager.rebuildFromSource("Initial build");
 
-    expect(await manager.search("aa", ["notes/aa.md"])).toEqual({
+    expect(await manager.search("aa", ["notes/aa.md"])).toMatchObject({
       orderedPaths: ["notes/aa.md"],
       matchCountsByPath: {
         "notes/aa.md": 1,
@@ -1497,19 +1523,19 @@ describe("SearchIndexManager", () => {
     await manager.restore(createMetadata());
     await manager.rebuildFromSource("Han count build");
 
-    expect(await manager.search("中文搜索", [docs[0].path])).toEqual({
+    expect(await manager.search("中文搜索", [docs[0].path])).toMatchObject({
       orderedPaths: [docs[0].path],
       matchCountsByPath: { [docs[0].path]: 3 },
     });
-    expect(await manager.search("华", [docs[0].path])).toEqual({
+    expect(await manager.search("华", [docs[0].path])).toMatchObject({
       orderedPaths: [docs[0].path],
       matchCountsByPath: { [docs[0].path]: 2 },
     });
-    expect(await manager.search(supplementaryHan, [docs[0].path])).toEqual({
+    expect(await manager.search(supplementaryHan, [docs[0].path])).toMatchObject({
       orderedPaths: [docs[0].path],
       matchCountsByPath: { [docs[0].path]: 2 },
     });
-    expect(await manager.search("中文-search", [docs[0].path])).toEqual({
+    expect(await manager.search("中文-search", [docs[0].path])).toMatchObject({
       orderedPaths: [docs[0].path],
       matchCountsByPath: { [docs[0].path]: 5 },
     });
@@ -1535,7 +1561,7 @@ describe("SearchIndexManager", () => {
     await manager.restore(createMetadata());
     await manager.rebuildFromSource("Initial build");
 
-    expect(await manager.search("  ALPHA beta alpha  ", ["notes/alpha.md"])).toEqual({
+    expect(await manager.search("  ALPHA beta alpha  ", ["notes/alpha.md"])).toMatchObject({
       orderedPaths: ["notes/alpha.md"],
       matchCountsByPath: {
         "notes/alpha.md": 4,
@@ -2292,7 +2318,7 @@ describe("SearchIndexManager", () => {
     await reconciliation;
 
     expect(store.write).not.toHaveBeenCalled();
-    expect(await manager.search("newterm", ["notes/a.md", "notes/b.md"])).toEqual({
+    expect(await manager.search("newterm", ["notes/a.md", "notes/b.md"])).toMatchObject({
       orderedPaths: ["notes/a.md"],
       matchCountsByPath: { "notes/a.md": 1 },
     });

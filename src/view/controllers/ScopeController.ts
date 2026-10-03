@@ -63,6 +63,8 @@ export interface ScopeControllerDeps {
 
 /** Owns runtime scope selection, the single-flight load queue, and vault refresh decisions. */
 export class ScopeController implements DisposableController {
+  private activeSelectionVersion = 0;
+  getActiveSelectionVersion(): number { return this.activeSelectionVersion; }
   private loading = false;
   private loadKey: string | null = null;
   private lastLoadedIncludeSubfolders: boolean | null = null;
@@ -124,11 +126,12 @@ export class ScopeController implements DisposableController {
   createProgrammaticSelectionRequest(
     scope: CardScope,
     forceRefresh: boolean,
+    source: FolderSelectionRequest["source"] = "programmatic",
   ): FolderSelectionRequest {
     return {
       requestId: this.selectionEpoch.bump().value,
       scope,
-      source: "programmatic",
+      source,
       requestedAtMs: Date.now(),
       forceRefresh,
     };
@@ -151,6 +154,7 @@ export class ScopeController implements DisposableController {
       };
     }
 
+    if (request.source !== "links-follow") this.activeSelectionVersion += 1;
     const forceRefresh = request.forceRefresh ?? false;
     const nextLoadScope = this.buildLoadKey(request.scope);
     const nextKey = this.serializeLoadKey(nextLoadScope);

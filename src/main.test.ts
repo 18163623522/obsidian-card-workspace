@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createSearchPreviewMatcher, extractSearchPreviewSnippets } from "./search/search-preview";
 
 interface MockSearchSnapshot {
   initialized: boolean;
@@ -178,7 +179,8 @@ vi.mock("@codemirror/view", () => ({
   dropCursor: () => ({ kind: "drop-cursor" }),
 }));
 
-vi.mock("./search", () => {
+vi.mock("./search", async () => {
+  const preview = await import("./search/search-preview");
   class MockIndexStore {
     vaultNamespace: string;
 
@@ -300,6 +302,7 @@ vi.mock("./search", () => {
   }
 
   return {
+    resolveSearchSnippetLocation: preview.resolveSearchSnippetLocation,
     IndexStore: MockIndexStore,
     SearchIndexManager: MockSearchIndexManager,
     IndexedSearchService: MockIndexedSearchService,
@@ -1744,7 +1747,7 @@ describe("CardWorkspacePlugin open destination routing", () => {
       getMode: vi.fn(() => mode),
       getViewData: vi.fn(() => "intro\nlinked [[target]] here\nmore"),
       setEphemeralState: vi.fn(),
-      editor: { setCursor: vi.fn(), scrollIntoView: vi.fn() },
+      editor: { setCursor: vi.fn(), setSelection: vi.fn(), scrollIntoView: vi.fn() },
     });
     const leaf = { view, openFile: vi.fn(async () => undefined) };
     app.workspace.getLeaf.mockReturnValue(leaf);
@@ -1787,6 +1790,97 @@ describe("CardWorkspacePlugin open destination routing", () => {
       const { plugin, target, view } = linkOpenHarness();
       await plugin.openNoteFromCard(target.path, "new-tab", { query: "more" });
       expect(view.editor.setCursor).toHaveBeenCalledWith({ line: 2, ch: 0 });
+    } finally { vi.useRealTimers(); }
+  });
+
+  async function snippetLocation(source = "intro\nlinked [[target]] here\nmore") {
+    const [snippet] = (await extractSearchPreviewSnippets(source, {
+      limit: 5, idPrefix: "open", matcher: createSearchPreviewMatcher("linked"),
+    }))!;
+    return { kind: "search-snippet" as const, snippet: snippet.location };
+  }
+
+  it("always locates a search snippet, selects its source text, and preserves reading mode", async () => {
+    vi.useFakeTimers();
+    try {
+      const location = await snippetLocation();
+      const editing = linkOpenHarness("source");
+      mutateStoreMemory(editing.plugin, { locateLinkCardOnOpen: false });
+      await editing.plugin.openNoteFromCard(editing.target.path, "new-tab", location);
+      expect(editing.view.editor.setSelection).toHaveBeenCalledWith({ line: 1, ch: 0 }, { line: 1, ch: 6 });
+      expect(editing.view.editor.scrollIntoView).toHaveBeenCalledWith({ from: { line: 1, ch: 0 }, to: { line: 1, ch: 6 } }, true);
+      await vi.advanceTimersByTimeAsync(400);
+      expect(editing.view.editor.setSelection).toHaveBeenCalledTimes(2);
+
+      const reading = linkOpenHarness("preview");
+      mutateStoreMemory(reading.plugin, { locateLinkCardOnOpen: false });
+      await reading.plugin.openNoteFromCard(reading.target.path, "new-tab", location);
+      expect(reading.view.setEphemeralState).toHaveBeenCalledWith({ line: 1 });
+      expect(reading.view.editor.setSelection).not.toHaveBeenCalled();
+      expect(reading.view.getMode()).toBe("preview");
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("relocates a uniquely moved snippet and opens normally when deleted, ambiguous, or stale", async () => {
+    const { plugin, target, view } = linkOpenHarness();
+    const source = view.getViewData();
+    const location = await snippetLocation(source);
+    view.getViewData.mockReturnValue("inserted\n" + source);
+    await plugin.openNoteFromCard(target.path, "new-tab", location);
+    expect(view.editor.setSelection).toHaveBeenCalledWith({ line: 2, ch: 0 }, { line: 2, ch: 6 });
+    view.editor.setSelection.mockClear();
+    for (const changed of [source.replace("linked", "removed"), "inserted\n" + source + "\n" + source]) {
+      view.getViewData.mockReturnValue(changed);
+      await plugin.openNoteFromCard(target.path, "new-tab", location);
+      expect(view.editor.setSelection).not.toHaveBeenCalled();
+    }
+    view.getViewData.mockReturnValue(source);
+    await plugin.openNoteFromCard(target.path, "new-tab", { ...location, isCurrent: () => false });
+    expect(view.editor.setSelection).not.toHaveBeenCalled();
+  });
+
+  it.each(["pointerdown", "keydown", "wheel", "touchstart", "input"])("cancels first positioning on %s while openFile is pending", async (event) => {
+    const { plugin, target, view, leaf } = linkOpenHarness();
+    const location = await snippetLocation();
+    let finish!: () => void;
+    const barrier = new Promise<void>(resolve => {finish = resolve;});
+    leaf.openFile.mockImplementation(async () => { await barrier; return undefined; });
+    const opened = plugin.openNoteFromCard(target.path, "new-tab", location);
+    await Promise.resolve();
+    view.containerEl.dispatchEvent(new Event(event));
+    finish();
+    await opened;
+    expect(view.editor.setSelection).not.toHaveBeenCalled();
+  });
+
+  it("cancels snippet correction on input, pane switching, a newer open, and query invalidation", async () => {
+    vi.useFakeTimers();
+    try {
+      const location = await snippetLocation();
+      const { plugin, target, view } = linkOpenHarness();
+      for (const event of ["pointerdown", "keydown", "wheel", "touchstart", "input"]) {
+        view.editor.setSelection.mockClear();
+        await plugin.openNoteFromCard(target.path, "new-tab", location);
+        view.containerEl.dispatchEvent(new Event(event));
+        await vi.advanceTimersByTimeAsync(400);
+        expect(view.editor.setSelection).toHaveBeenCalledTimes(1);
+      }
+      for (const cancel of [
+        () => obsidianMockState.workspaceCallbacks["active-leaf-change"]?.({}),
+        () => plugin.openNoteFromCard(target.path, "new-tab"),
+      ]) {
+        view.editor.setSelection.mockClear();
+        await plugin.openNoteFromCard(target.path, "new-tab", location);
+        await cancel();
+        await vi.advanceTimersByTimeAsync(400);
+        expect(view.editor.setSelection).toHaveBeenCalledTimes(1);
+      }
+      let current = true;
+      view.editor.setSelection.mockClear();
+      await plugin.openNoteFromCard(target.path, "new-tab", { ...location, isCurrent: () => current });
+      current = false;
+      await vi.advanceTimersByTimeAsync(400);
+      expect(view.editor.setSelection).toHaveBeenCalledTimes(1);
     } finally { vi.useRealTimers(); }
   });
 

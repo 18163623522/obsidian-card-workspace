@@ -1,6 +1,7 @@
 import { resolveSubpath, TFile, type App, type ReferenceCache } from "obsidian";
 
 import type { LinksScope } from "./scope";
+import type { SearchSnippetLocation } from "../search";
 
 /** A zero-based source line for a backlink or target line for an anchored outgoing link. */
 export interface LinkCardLocation {
@@ -13,7 +14,14 @@ export interface LinkCardLocation {
   identity: string;
 }
 
-export type CardOpenLocation = LinkCardLocation | { readonly query: string };
+export interface SearchSnippetCardLocation {
+  readonly kind: "search-snippet";
+  readonly snippet: SearchSnippetLocation;
+  /** Rechecked after opening and during delayed correction. */
+  readonly isCurrent?: () => boolean;
+}
+
+export type CardOpenLocation = LinkCardLocation | { readonly query: string } | SearchSnippetCardLocation;
 
 function validLine(line: unknown): line is number {
   return typeof line === "number" && Number.isSafeInteger(line) && line >= 0;

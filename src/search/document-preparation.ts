@@ -8,7 +8,7 @@ const EXCERPT_MAX_LENGTH = 260;
  * an unbounded note blocks the main thread and inflates the index for negligible
  * retrieval value, and one oversized file is enough to stall a whole build.
  */
-const SEARCH_MARKDOWN_MAX_LENGTH = 512 * 1024;
+export const SEARCH_MARKDOWN_MAX_LENGTH = 512 * 1024;
 
 export interface SearchableDocumentInput {
   path: string;

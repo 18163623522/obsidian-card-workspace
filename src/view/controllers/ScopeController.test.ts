@@ -160,6 +160,21 @@ function installLinksVault(
 }
 
 describe("ScopeController", () => {
+  it("versions valid active selections but excludes automatic links following", async () => {
+    const {controller, context} = createHarness();
+    const file = Object.assign(new TFile(), {path: "A.md", extension: "md", basename: "A", stat: {ctime: 1, mtime: 1}});
+    const app = context.getApp() as any;
+    app.vault.getAbstractFileByPath = (path: string) => path === file.path ? file : null;
+    expect(controller.getActiveSelectionVersion()).toBe(0);
+    await controller.handleScopeSelection(controller.createProgrammaticSelectionRequest(createLinksScope("missing.md", "outgoing"), false));
+    expect(controller.getActiveSelectionVersion()).toBe(0);
+    await controller.handleScopeSelection(controller.createProgrammaticSelectionRequest(createLinksScope(file.path, "outgoing"), false, "links-follow"));
+    expect(controller.getActiveSelectionVersion()).toBe(0);
+    await controller.handleScopeSelection(controller.createProgrammaticSelectionRequest(createLinksScope(file.path, "outgoing"), false));
+    expect(controller.getActiveSelectionVersion()).toBe(1);
+    controller.dispose();
+  });
+
   afterEach(() => vi.useRealTimers());
 
   it("applies a scope rename and recomputes its load key exactly once without persistence", () => {

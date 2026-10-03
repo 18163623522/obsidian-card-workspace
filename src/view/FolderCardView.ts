@@ -167,6 +167,39 @@ export class FolderCardView extends ItemView {
     if (query) return { query };
     return resolveLinkCardLocation(this.app, scope, path);
   }
+  resolveSearchSnippetLocation(path: string, snippetId: string): CardOpenLocation | null {
+    const card = this.store.getBaseCard(path);
+    const preview = card?.searchPreview;
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!card || !preview || file !== card.file || !this.component
+      || !this.modules.search.isCommittedQueryCurrent()
+      || this.modules.search.getCommittedQuery().trim() !== preview.query
+      || this.modules.search.getContentRevision() !== preview.revision
+      || this.plugin.getSettings().previewLines !== preview.previewLines
+      || (card.file.stat?.mtime ?? card.mtime) !== preview.mtime) return null;
+    const snippet = preview.snippets.find((entry) => entry.id === snippetId);
+    if (!snippet) return null;
+    const { query, revision, previewLines, mtime } = preview;
+    const selectionVersion = this.modules.scopeController.getActiveSelectionVersion();
+    const fileVersion = this.modules.hydration.getFileRevision(card.file);
+    const size = card.file.stat?.size;
+    const pathAtClick = card.file.path;
+    const isCurrent = (): boolean => this.component !== null
+      && this.modules.search.isCommittedQueryCurrent()
+      && this.modules.search.getCommittedQuery().trim() === query
+      && this.modules.search.getContentRevision() === revision
+      && this.modules.hydration.getFileRevision(card.file) === fileVersion
+      && this.modules.scopeController.getActiveSelectionVersion() === selectionVersion
+      && this.plugin.getSettings().previewLines === previewLines
+      && this.app.vault.getAbstractFileByPath(pathAtClick) === file
+      && card.file.path === pathAtClick
+      && card.file.stat?.size === size
+      && (card.file.stat?.mtime ?? card.mtime) === mtime;
+    return { kind: "search-snippet", snippet: {
+      ...snippet.location, from: { ...snippet.location.from }, to: { ...snippet.location.to },
+    }, isCurrent };
+  }
+
   async onOpen(): Promise<void> {
     const FolderCardPanel = (await import("./FolderCardPanel.svelte")).default;
     this.modules.search.initializeSnapshotState();
@@ -317,7 +350,7 @@ export class FolderCardView extends ItemView {
         this.modules.hydration.resetForLoad();
         this.store.advanceHydrationRevision();
         this.baseCards = this.baseCards.map((card) => ({
-          ...card, hydrated: false, previewHtml: "", previewMode: "empty",
+          ...card, hydrated: false, previewHtml: "", previewMode: "empty", searchPreview: undefined,
         }));
         this.projectVisibleCards();
         this.publishForIntent(intent);
@@ -421,7 +454,7 @@ export class FolderCardView extends ItemView {
     const next = resolveLinksFollowScope(this.cardScope, path, this.store.getLinksPinned());
     if (next) {
       void this.modules.scopeController.handleScopeSelection(
-        this.modules.scopeController.createProgrammaticSelectionRequest(next, false),
+        this.modules.scopeController.createProgrammaticSelectionRequest(next, false, "links-follow"),
       );
     }
     this.publishGroups("cards", "bulk", "nav");

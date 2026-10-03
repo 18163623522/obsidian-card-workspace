@@ -9,9 +9,11 @@ import {
   sanitizePreviewHtml,
 } from "./preview-html";
 import { buildLightPreview } from "./markdown-utils";
+import { createSearchPreviewMatcher, extractSearchPreviewSnippets } from "../search";
 
 interface OpenNotePayload {
   path: string;
+  snippetId?: string;
 }
 
 interface PinTogglePayload {
@@ -93,6 +95,15 @@ function getExcerptHtml(target: HTMLDivElement): string {
   return target.querySelector<HTMLElement>(".fce-excerpt")?.innerHTML ?? "";
 }
 
+async function searchCard(query: string, text: string, options: CreateCardOptions = {}, lines = 5): Promise<NoteCardRecord> {
+  const card = createCard("notes/search.md", options);
+  const snippets = (await extractSearchPreviewSnippets(text, {
+    limit: Math.floor(lines / 2), idPrefix: "fixture", matcher: createSearchPreviewMatcher(query),
+  }))!;
+  card.searchPreview = { query, revision: 1, mtime: card.mtime, previewLines: lines, status: snippets.length ? "hits" : "unavailable", snippets };
+  return card;
+}
+
 function createCapturedCallbacks(): CapturedCallbacks {
   const openEvents: OpenNotePayload[] = [];
   const pinEvents: PinTogglePayload[] = [];
@@ -141,7 +152,7 @@ function mountCardItem(
       strings: values.strings
         ? { ...defaultStrings, cardItem: values.strings }
         : defaultStrings,
-      appearance: {
+      appearance: values.appearance ?? {
         cardCornerRadius: values.cardCornerRadius ?? "compact",
         previewLines: values.previewLines ?? 5,
         cardImageMode: values.cardImageMode ?? "off",
@@ -530,100 +541,95 @@ describe("CardItem.svelte", () => {
     expect(captured.pinEvents[1]).toEqual({ path: "notes/model.base", pinned: false });
   });
 
-  it("highlights title and excerpt matches from the current query", () => {
-    const { target } = mountCardItem({
-      searchQuery: "note preview",
-      card: createCard("notes/highlight.md"),
-    });
-
-    const title = target.querySelector("h4");
-    const excerpt = target.querySelector(".fce-excerpt");
-
-    expect(title?.innerHTML).toContain('<mark class="fce-search-hit">note</mark>');
+  it("highlights the title and structured body snippets from the current query", async () => {
+    const { target } = mountCardItem({ searchQuery: "note preview", card: await searchCard("note preview", "Preview text") });
+    expect(target.querySelector("h4")?.innerHTML).toContain('<mark class="fce-search-hit">note</mark>');
     expect(getExcerptHtml(target)).toContain('<mark class="fce-search-hit">Preview</mark>');
-    expect(excerpt?.textContent).toContain("Preview text");
+    expect(target.querySelector(".fce-search-snippet")?.textContent).toContain("Preview text");
   });
 
-  it("highlights a full Chinese phrase in the title and preview", () => {
-    const { target } = mountCardItem({
-      searchQuery: "中文搜索",
-      card: createCard("notes/chinese-phrase.md", {
-        title: "开始中文搜索结束",
-        previewHtml: "<p>预览中文搜索内容</p>",
-      }),
-    });
-
-    expect(target.querySelector("h4")?.innerHTML).toContain(
-      '<mark class="fce-search-hit">中文搜索</mark>',
-    );
-    expect(getExcerptHtml(target)).toContain(
-      '<mark class="fce-search-hit">中文搜索</mark>',
-    );
-    expect(target.querySelectorAll("mark.fce-search-hit")).toHaveLength(2);
+  it("merges overlapping Chinese hits and preserves supplementary Han characters", async () => {
+    const { target } = mountCardItem({ searchQuery: "中文搜索", card: await searchCard("中文搜索", "预览中文搜索内容", { title: "开始中文搜索结束" }) });
+    expect(target.querySelector("h4")?.innerHTML).toContain('<mark class="fce-search-hit">中文搜索</mark>');
+    expect(getExcerptHtml(target)).toContain('<mark class="fce-search-hit">中文搜索</mark>');
+    const supplementary = mountCardItem({ searchQuery: "𠀀", card: await searchCard("𠀀", "预览𠀀内容", { title: "甲𠀀乙" }) });
+    expect(getExcerptHtml(supplementary.target)).toContain('<mark class="fce-search-hit">𠀀</mark>');
   });
 
-  it("highlights interior single and supplementary Han code points", () => {
-    const interior = mountCardItem({
-      searchQuery: "文",
-      card: createCard("notes/interior-han.md", {
-        title: "中文搜索",
-        previewHtml: "<p>正文内容</p>",
-      }),
-    });
-    const supplementary = mountCardItem({
-      searchQuery: "𠀀",
-      card: createCard("notes/supplementary-han.md", {
-        title: "甲𠀀乙",
-        previewHtml: "<p>预览𠀀内容</p>",
-      }),
-    });
-
-    expect(interior.target.querySelector("h4")?.innerHTML).toContain(
-      '<mark class="fce-search-hit">文</mark>',
-    );
-    expect(supplementary.target.querySelector("h4")?.innerHTML).toContain(
-      '<mark class="fce-search-hit">𠀀</mark>',
-    );
-    expect(getExcerptHtml(supplementary.target)).toContain(
-      '<mark class="fce-search-hit">𠀀</mark>',
-    );
+  it("highlights mixed query terms in source order", async () => {
+    const { target } = mountCardItem({ searchQuery: "OpenAI中文-search", card: await searchCard("OpenAI中文-search", "search 中文 OpenAI", { title: "OpenAI 中文 search" }) });
+    expect(Array.from(target.querySelectorAll("h4 mark"), (mark) => mark.textContent)).toEqual(["OpenAI", "中文", "search"]);
+    expect(Array.from(target.querySelectorAll(".fce-excerpt mark"), (mark) => mark.textContent)).toEqual(["search", "中文", "OpenAI"]);
   });
 
-  it("highlights shared display terms from a mixed Han and non-Han query", () => {
-    const { target } = mountCardItem({
-      searchQuery: "OpenAI中文-search",
-      card: createCard("notes/mixed-query.md", {
-        title: "OpenAI 中文 search",
-        previewHtml: "<p>search 中文 OpenAI</p>",
-      }),
-    });
-
-    const titleMarks = Array.from(target.querySelectorAll("h4 mark.fce-search-hit"), (mark) =>
-      mark.textContent,
-    );
-    const previewMarks = Array.from(
-      target.querySelectorAll(".fce-excerpt mark.fce-search-hit"),
-      (mark) => mark.textContent,
-    );
-    expect(titleMarks).toEqual(["OpenAI", "中文", "search"]);
-    expect(previewMarks).toEqual(["search", "中文", "OpenAI"]);
+  it("keeps title metacharacters literal while snippets follow index token boundaries", async () => {
+    const { target } = mountCardItem({ searchQuery: "[draft] a+b", card: await searchCard("[draft] a+b", "[draft] and a+b, not aaab", { title: "Plan [draft] a+b" }) });
+    expect(Array.from(target.querySelectorAll("mark"), (mark) => mark.textContent)).toEqual(["[draft]", "a+b", "draft", "a+b"]);
   });
 
-  it("escapes regex metacharacters and highlights them literally", () => {
-    const { target } = mountCardItem({
-      searchQuery: "[draft] a+b",
-      card: createCard("notes/literal-query.md", {
-        title: "Plan [draft] a+b",
-        previewHtml: "<p>[draft] and a+b, not aaab</p>",
-      }),
-    });
+  it.each([3, 4, 5, 6, 7, 8])("renders complete two-line snippets within a %i-line budget", async (lines) => {
+    const card = await searchCard("needle", Array.from({ length: 10 }, (_, i) => `line ${i} needle`).join("\n\n"), {}, lines);
+    const { target } = mountCardItem({ searchQuery: "needle", card, appearance: { cardCornerRadius: "compact", previewLines: lines } });
+    expect(target.querySelectorAll(".fce-search-snippet")).toHaveLength(Math.floor(lines / 2));
+    expect(target.querySelector(".fce-excerpt")?.getAttribute("style")).toContain(`--fce-preview-line-clamp: ${lines}`);
+  });
 
-    expect(Array.from(target.querySelectorAll("mark.fce-search-hit"), (mark) => mark.textContent)).toEqual([
-      "[draft]",
-      "a+b",
-      "[draft]",
-      "a+b",
+  it("opens each snippet once by mouse, Enter, and Space; the title opens normally", async () => {
+    const captured = createCapturedCallbacks();
+    const card = await searchCard("needle", "first needle\n\nsecond needle");
+    const { target } = mountCardItem({ searchQuery: "needle", card }, captured.callbacks);
+    const buttons = target.querySelectorAll(".fce-search-snippet");
+    buttons[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    buttons[1].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    buttons[1].dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    target.querySelector("h4")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(captured.openEvents).toEqual([
+      { path: card.path, snippetId: card.searchPreview!.snippets[0].id },
+      { path: card.path, snippetId: card.searchPreview!.snippets[1].id },
+      { path: card.path, snippetId: card.searchPreview!.snippets[1].id },
+      { path: card.path },
     ]);
+  });
+
+  it("uses card selection for snippet activation in bulk mode", async () => {
+    const captured = createCapturedCallbacks();
+    const card = await searchCard("needle", "needle");
+    const { target } = mountCardItem({ searchQuery: "needle", card, bulkMode: true }, captured.callbacks);
+    const button = target.querySelector(".fce-search-snippet")!;
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, shiftKey: true }));
+    button.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(captured.openEvents).toEqual([]);
+    expect(captured.bulkEvents).toEqual([{ path: card.path, shiftKey: true }, { path: card.path, shiftKey: false }]);
+  });
+
+  it("escapes snippet text structurally without parsing HTML", async () => {
+    const sanitizer = vi.fn(sanitizePreviewHtml);
+    const card = await searchCard("needle", '<script>needle</script> <img onerror="bad()">');
+    const { target } = mountCardItem({ searchQuery: "needle", card, previewHtmlSanitizer: sanitizer });
+    expect(target.querySelector(".fce-excerpt")?.textContent).toContain("<script needle</script");
+    expect(target.querySelector(".fce-excerpt script, .fce-excerpt img")).toBeNull();
+    expect(sanitizer).not.toHaveBeenCalled();
+  });
+
+  it("hides previews belonging to an old query or preview-line setting", async () => {
+    const card = await searchCard("needle", "needle");
+    for (const props of [{ searchQuery: "other" }, { searchQuery: "needle", appearance: { previewLines: 8, cardCornerRadius: "compact" } }]) {
+      const { target } = mountCardItem({ card, ...props });
+      expect(target.querySelectorAll(".fce-search-snippet")).toHaveLength(0);
+      expect(target.querySelector(".fce-excerpt")?.textContent).toContain("Loading preview");
+    }
+    const cleared = mountCardItem({ card, searchQuery: "" });
+    expect(getExcerptHtml(cleared.target)).toContain("<p>Preview text</p>");
+  });
+
+  it.each(["en", "zh"] as const)("renders title-only and unavailable status in %s", async (language) => {
+    const card = await searchCard("needle", "no body hit");
+    for (const status of ["title-only", "unavailable"] as const) {
+      card.searchPreview = { ...card.searchPreview!, status };
+      const strings = getUiStrings(language);
+      const { target } = mountCardItem({ card, searchQuery: "needle", strings: strings.cardItem });
+      expect(target.querySelector(".fce-excerpt")?.textContent).toContain(status === "title-only" ? "Preview text" : strings.cardItem.searchBodyUnavailable);
+    }
   });
 
   it("does not add highlighting when the query is empty", () => {
@@ -651,7 +657,7 @@ describe("CardItem.svelte", () => {
     expect(title?.querySelector("b")).toBeNull();
   });
 
-  it("leaves non-matching content unchanged", () => {
+  it("shows loading while the committed search preview is being hydrated", () => {
     const { target } = mountCardItem({
       searchQuery: "missing token",
       card: createCard("notes/non-match.md"),
@@ -659,12 +665,11 @@ describe("CardItem.svelte", () => {
 
     expect(target.querySelectorAll("mark.fce-search-hit")).toHaveLength(0);
     expect(target.querySelector("h4")?.textContent).toBe("A note");
-    expect(getExcerptHtml(target)).toContain("<p>Preview text</p>");
+    expect(getExcerptHtml(target)).toContain("Loading preview...");
   });
 
-  it("sanitizes preview HTML before rendering search highlights", () => {
+  it("sanitizes the ordinary preview HTML", () => {
     const { target } = mountCardItem({
-      searchQuery: "safe bold",
       card: createCard("notes/sanitized-preview.md", {
         previewHtml: '<p class="fce-preview-heading" onclick="alert(1)">Safe <strong>bold</strong><script>window.__cardItemInjected = true;</script></p>',
       }),
@@ -679,21 +684,19 @@ describe("CardItem.svelte", () => {
     expect(paragraph?.getAttribute("onclick")).toBeNull();
     expect(paragraph?.querySelector("strong")).toBeNull();
     expect(excerpt?.textContent).toContain("Safe bold");
-    expect(getExcerptHtml(target)).toContain('<mark class="fce-search-hit">Safe</mark>');
-    expect(getExcerptHtml(target)).toContain('<mark class="fce-search-hit">bold</mark>');
+
   });
 
-  it("highlights styled link text while hover and click still target the card", () => {
+  it("keeps ordinary styled link hover and click targeting the card", () => {
     const captured = createCapturedCallbacks();
     const { target } = mountCardItem({
       card: createCard("notes/current.md", {
         previewHtml: '<p>See <span class="fce-preview-link">Alias</span></p>',
       }),
-      searchQuery: "alias",
     }, captured.callbacks);
     const link = target.querySelector<HTMLElement>(".fce-preview-link");
 
-    expect(link?.innerHTML).toBe('<mark class="fce-search-hit">Alias</mark>');
+    expect(link?.innerHTML).toBe("Alias");
     expect(link?.getAttribute("href")).toBeNull();
     link?.dispatchEvent(new MouseEvent("mouseenter", { bubbles: true }));
     link?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -712,10 +715,9 @@ describe("CardItem.svelte", () => {
       .toContain('<span class="fce-preview-link"><mark class="fce-search-hit">Safe</mark></span>');
   });
 
-  it("keeps a read-only task marker and highlights list body text", () => {
+  it("keeps a read-only task marker in the ordinary preview", () => {
     const previewHtml = buildLightPreview("- [x] targeted task").html;
     const { target } = mountCardItem({
-      searchQuery: "targeted",
       card: createCard("notes/task.md", { previewHtml }),
     });
     const excerpt = target.querySelector<HTMLElement>(".fce-excerpt");
@@ -723,7 +725,7 @@ describe("CardItem.svelte", () => {
     expect(excerpt?.querySelector(".fce-preview-task-done")).not.toBeNull();
     expect(excerpt?.querySelector(".fce-preview-list-marker")).toBeNull();
     expect(excerpt?.querySelector(".fce-preview-list-content")?.innerHTML)
-      .toBe('<mark class="fce-search-hit">targeted</mark> task');
+      .toBe('targeted task');
     expect(excerpt?.querySelector("input, button, [role='checkbox'], [contenteditable]")).toBeNull();
   });
 
@@ -744,7 +746,7 @@ describe("CardItem.svelte", () => {
       .toContain('<span class="fce-preview-list-content"><mark class="fce-search-hit">Safe</mark></span>');
   });
 
-  it.each(["", "safe bold"])("uses the same sanitizer allow-list for query %j", (searchQuery) => {
+  it.each([""])("uses the sanitizer allow-list for query %j", (searchQuery) => {
     const { target } = mountCardItem({
       searchQuery,
       card: createCard("notes/hostile-preview.md", {
@@ -760,16 +762,15 @@ describe("CardItem.svelte", () => {
     expect(excerpt?.textContent).toContain("Safe boldalert(2)code");
   });
 
-  it("sanitizes the base once before applying query-only highlight stages", () => {
+  it("sanitizes the ordinary base once", () => {
     const sanitizer = vi.fn(sanitizePreviewHtml);
     const { target } = mountCardItem({
       card: createCard("notes/query-update.md", { previewHtml: "<p>alpha beta</p>" }),
-      searchQuery: "alpha",
       previewHtmlSanitizer: sanitizer,
     });
 
     expect(sanitizer).toHaveBeenCalledTimes(1);
-    expect(getExcerptHtml(target)).toContain('<mark class="fce-search-hit">alpha</mark>');
+    expect(getExcerptHtml(target)).toContain("<p>alpha beta</p>");
 
     const sanitizedBase = sanitizer.mock.results[0]?.value ?? "";
     const betaHtml = highlightSanitizedPreviewHtml(sanitizedBase, "beta", document);

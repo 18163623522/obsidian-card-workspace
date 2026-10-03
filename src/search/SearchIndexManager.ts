@@ -30,6 +30,7 @@ import {
 } from "./SearchReconciliationRunner";
 import {
   type SearchIndexHealthSnapshot,
+  type SearchQueryResult,
   type SearchServiceSnapshot,
   type SearchVaultMutation,
   type SearchableDocument,
@@ -49,6 +50,7 @@ export interface SearchIndexManagerMutationResult {
 export interface SearchIndexManagerSearchResult {
   orderedPaths: string[];
   matchCountsByPath?: Record<string, number>;
+  matchFieldsByPath?: SearchQueryResult["matchFieldsByPath"];
 }
 
 export interface SearchIndexDocumentSource {
@@ -66,6 +68,7 @@ interface SearchIndexManagerOptions {
 type SearchIndexMiniSearchResult = {
   path?: string;
   score?: number;
+  match?: Record<string, string[]>;
 };
 
 interface MiniSearchStoredFields {
@@ -449,6 +452,7 @@ export class SearchIndexManager {
     const allowed = new Set(candidatePaths);
     const results = this.index.search(trimmed, MINISEARCH_SEARCH_OPTIONS) as SearchIndexMiniSearchResult[];
     const ordered: string[] = [];
+    const matchFieldsByPath: NonNullable<SearchQueryResult["matchFieldsByPath"]> = {};
     for (const result of results) {
       if (typeof result.path !== "string") {
         continue;
@@ -457,11 +461,14 @@ export class SearchIndexManager {
         continue;
       }
       ordered.push(result.path);
+      matchFieldsByPath[result.path] = [...new Set(Object.values(result.match ?? {}).flat())]
+        .filter((field): field is "title" | "content" => field === "title" || field === "content");
     }
 
     return {
       orderedPaths: ordered,
       matchCountsByPath: buildMatchCountsByPath(trimmed, ordered, this.documentsByPath),
+      matchFieldsByPath,
     };
   }
 

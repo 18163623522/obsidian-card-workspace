@@ -91,7 +91,7 @@ describe("SearchController", () => {
     controller.initializeSnapshotState();
     controller.onQueryChange({ query: "alpha" });
     expect(publishSearchProjection).not.toHaveBeenCalled();
-    expect(context.publishGroups).toHaveBeenCalledWith("search");
+    expect(context.publishGroups).toHaveBeenCalledWith("cards", "search");
     expect(controller.getCommittedQuery()).toBe("");
     const hydrationRevision = context.store.getHydrationRevision();
     expect(controller.buildPipelineSearchInput()).toEqual({

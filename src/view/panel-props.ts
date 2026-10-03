@@ -13,6 +13,7 @@ export interface PanelHost {
     openNoteFromCard: (path: string, destination?: never, location?: CardOpenLocation) => Promise<void>;
   };
   resolveCardLocation?: (path: string) => CardOpenLocation | null;
+  resolveSearchSnippetLocation?: (path: string, snippetId: string) => CardOpenLocation | null;
     handleToolbarAction: (detail: { action?: unknown }) => void;
     onIncludeSubfoldersChange: (detail: { value?: unknown }) => Promise<void>;
   onCardHoverLink: (detail: CardHoverLinkPayload) => void;
@@ -28,11 +29,15 @@ type PanelCallbackProps = { panelModel: PanelModel } & Record<string, unknown>;
 export function buildPanelProps(view: PanelHost): PanelCallbackProps {
   return {
     panelModel: view.panelModel,
-    onOpenNote: (detail: { path?: unknown }) => {
+    onOpenNote: (detail: { path?: unknown; snippetId?: unknown }) => {
       if (view.modules.bulk.isBulkMode() || typeof detail.path !== "string") {
         return;
       }
-      const location = view.resolveCardLocation?.(detail.path);
+      if (detail.snippetId !== undefined && typeof detail.snippetId !== "string") return;
+      const location = typeof detail.snippetId === "string"
+        ? view.resolveSearchSnippetLocation?.(detail.path, detail.snippetId)
+        : view.resolveCardLocation?.(detail.path);
+      if (detail.snippetId !== undefined && !location) return;
       if (location) void view.plugin.openNoteFromCard(detail.path, undefined, location);
       else void view.plugin.openNoteFromCard(detail.path);
     },

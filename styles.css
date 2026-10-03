@@ -1569,6 +1569,43 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   color: var(--fce-text-muted);
 }
 
+.folder-card-view .fce-excerpt.is-search {
+  display: block;
+}
+
+.folder-card-view .fce-search-snippet {
+  display: block;
+  width: 100%;
+  height: calc(2em * var(--fce-preview-line-height));
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.folder-card-view .fce-search-snippet:hover,
+.folder-card-view .fce-search-snippet:focus-visible {
+  background: var(--background-modifier-hover);
+}
+
+.folder-card-view .fce-search-snippet-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .folder-card-view .fce-excerpt.is-empty,
 .folder-card-view .fce-excerpt.is-loading {
   display: flex;

@@ -10,6 +10,7 @@
  */
 
 import type { App } from "obsidian";
+import type { SearchPreview } from "../../search";
 
 import type { FileKindStrings } from "../../i18n";
 import { getCardPlaceholderText } from "../file-kind";
@@ -20,6 +21,7 @@ import type { CardPreviewFields } from "../view-state-store";
 export interface HydrationPreview {
   readonly html: string;
   readonly mode: "text" | "code" | "empty";
+  readonly searchPreview?: SearchPreview;
 }
 
 /** A completed Markdown read: rendered preview plus the current task summary. */
@@ -33,6 +35,7 @@ export function buildPreviewPatch(
     previewMode: preview.mode,
     hydrated: true,
     taskSummary: deriveCardTaskSummary(app, card.file, card.fileKind),
+    searchPreview: preview.searchPreview,
   };
 }
 
@@ -47,6 +50,7 @@ export function buildEmptyPreviewPatch(
     previewMode: "empty",
     hydrated: true,
     taskSummary: deriveCardTaskSummary(app, card.file, card.fileKind),
+    searchPreview: undefined,
   };
 }
 
@@ -62,5 +66,6 @@ export function buildPlaceholderPatch(
     previewMode: "placeholder",
     hydrated: true,
     taskSummary: null,
+    searchPreview: undefined,
   };
 }

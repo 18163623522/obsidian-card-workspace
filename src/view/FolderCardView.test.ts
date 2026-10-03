@@ -209,6 +209,9 @@ const testState = vi.hoisted(() => {
 
 vi.mock("obsidian", () => {
   return {
+    Plugin: class {},
+    PluginSettingTab: class {},
+    MarkdownView: class {},
     ConfirmationModal: testState.TestModal,
     ItemView: testState.TestItemView,
     Menu: testState.TestMenu,
@@ -1401,7 +1404,7 @@ describe("FolderCardView host contract", () => {
     )).toBe(false);
   });
 
-  it("threads indexed-ready match counts through panel state without mutating cards", async () => {
+  it("keeps indexed-ready count metadata separate while invalidating old previews", async () => {
     vi.useFakeTimers();
     try {
       const { view, plugin } = createHarness();
@@ -1434,6 +1437,7 @@ describe("FolderCardView host contract", () => {
 
       const panelState = getPanelState(view);
       expect(panelState.cards.searchMatchCountsByPath).toEqual({ "notes/alpha.md": 3 });
+      expect(card.previewHtml).toBe("<p>Preview text</p>");
       expect((view as any).baseCards[0]).toBe(card);
       expect(panelState.cards.records[0]).not.toHaveProperty("matchCount");
       expect(panelState.cards.records[0]).not.toHaveProperty("searchMatchCount");
@@ -1443,16 +1447,18 @@ describe("FolderCardView host contract", () => {
     }
   });
 
-  it("renders a search badge from indexed-ready count metadata even when the visible preview omits the query text", async () => {
+  it("renders body snippets and unchanged indexed count badges, then rejects stale locations", async () => {
     vi.useFakeTimers();
     try {
       const { view, plugin, panelContainer } = createHarness();
+      (view.app.vault.cachedRead as ReturnType<typeof vi.fn>).mockResolvedValue("opening without query\nfirst alpha hit\n\nsecond alpha hit");
       const query = vi.fn(async () => ({
         mode: "indexed",
         status: "ready",
         execution: "indexed-ready",
         orderedPaths: ["notes/deep-hit.md"],
         matchCountsByPath: { "notes/deep-hit.md": 4 },
+        matchFieldsByPath: { "notes/deep-hit.md": ["content"] },
       }));
       plugin.getSearchService = vi.fn(() => ({ query }));
       plugin.getSearchSnapshot = vi.fn(() => ({
@@ -1475,17 +1481,124 @@ describe("FolderCardView host contract", () => {
       vi.advanceTimersByTime(120);
       await Promise.resolve();
       await Promise.resolve();
+      await (view as any).modules.hydration.hydrateViewport({
+        generation: (view as any).epochs.load.value,
+        hydrationRevision: (view as any).store.getHydrationRevision(),
+        start: 0, end: 1, paths: [deepHitCard.path],
+      });
       await tick();
 
       const cardEl = panelContainer.querySelector(".fce-card");
       const badge = panelContainer.querySelector(".fce-card-search-count");
-      expect(cardEl?.textContent).toContain("Visible preview only");
-      expect(cardEl?.textContent).not.toContain("alpha");
+      expect(cardEl?.textContent).toContain("first alpha hit");
+      expect(cardEl?.querySelectorAll(".fce-search-snippet")).toHaveLength(2);
       expect(badge?.textContent?.trim()).toBe("4 matches");
       expect(badge?.getAttribute("aria-label")).toBe("4 matches in this note");
+      (view.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>).mockReturnValue(deepHitCard.file);
+      const preview = (view as any).store.getBaseCard(deepHitCard.path).searchPreview;
+      const id = preview.snippets[1].id;
+      const location = view.resolveSearchSnippetLocation(deepHitCard.path, id);
+      expect(location && "kind" in location && location.kind).toBe("search-snippet");
+      cardEl?.querySelectorAll(".fce-search-snippet")[1].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      expect(plugin.openNoteFromCard).toHaveBeenCalledWith(deepHitCard.path, undefined, expect.objectContaining({ kind: "search-snippet" }));
+      getSearchController(view).onQueryChange({ query: "other" });
+      expect(view.resolveSearchSnippetLocation(deepHitCard.path, id)).toBeNull();
+      await tick();
+      expect(panelContainer.querySelectorAll(".fce-search-snippet")).toHaveLength(0);
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it.each([
+    {mode: "source", cancel: "none"}, {mode: "preview", cancel: "none"},
+    {mode: "source", cancel: "source"}, {mode: "source", cancel: "query"},
+    {mode: "source", cancel: "input"}, {mode: "source", cancel: "new-open"},
+    {mode: "source", cancel: "close"}, {mode: "source", cancel: "settings"},
+    {mode: "source", cancel: "file"},
+  ] as const)("positions through file-open and links replacement: $mode, cancellation=$cancel", async ({mode, cancel}) => {
+    const { default: CardWorkspacePlugin } = await import("../main");
+    const { MarkdownView } = await import("obsidian");
+    const { view, plugin } = createHarness();
+    const a = new testState.TestTFile("notes/A.md");
+    const b = new testState.TestTFile("notes/B.md");
+    const c = new testState.TestTFile("notes/C.md");
+    const files = new Map([a, b, c].map(file => [file.path, file]));
+    const app = view.app as any;
+    app.vault.getAbstractFileByPath.mockImplementation((path: string) => files.get(path) ?? null);
+    app.metadataCache.resolvedLinks = { [a.path]: { [b.path]: 1 }, [b.path]: { [c.path]: 1 } };
+    app.vault.cachedRead.mockResolvedValue("intro\nneedle context\nmore detail");
+    plugin.getSearchSnapshot.mockReturnValue({ initialized: true, disposed: false, mode: "indexed", status: "ready", lastError: null, health: createSearchHealth() });
+    plugin.getSearchService.mockReturnValue({ query: vi.fn(async ({candidatePaths}: {candidatePaths: string[]}) => ({
+      execution: "indexed-ready", orderedPaths: candidatePaths, matchCountsByPath: {},
+      matchFieldsByPath: Object.fromEntries(candidatePaths.map(path => [path, ["content"]])),
+    })) });
+    const store = (view as any).store;
+    const scope = (view as any).modules.scopeController;
+    const search = getSearchController(view);
+    store.setScope(createLinksScope(a.path, "outgoing"));
+    const record = { ...createCard(b.path, "B"), file: b, mtime: b.stat.mtime, hydrated: false };
+    store.replaceBaseCards([record]);
+    store.replaceVisibleCards([record]);
+    await view.onOpen();
+    search.onQueryChange({ query: "needle" });
+    search.clearDebounce();
+    await search.refreshProjection();
+    await (view as any).modules.hydration.hydrateViewport({generation: (view as any).epochs.load.value, hydrationRevision: store.getHydrationRevision(), start: 0, end: 1, paths: [b.path]});
+    const id = store.getBaseCard(b.path).searchPreview.snippets[0].id;
+    const location = view.resolveSearchSnippetLocation(b.path, id)!;
+    const listeners = new Map<string, Set<(...args: any[]) => void>>();
+    app.workspace.on = (event: string, fn: (...args: any[]) => void) => {
+      if (!listeners.has(event)) listeners.set(event, new Set());
+      listeners.get(event)!.add(fn);
+      return {event, fn};
+    };
+    app.workspace.offref = ({event, fn}: any) => listeners.get(event)?.delete(fn);
+    const editing = Object.assign(new MarkdownView({} as never), {
+      file: b, containerEl: document.createElement("div"), getMode: () => mode,
+      getViewData: () => "intro\nneedle context\nmore detail", setEphemeralState: vi.fn(),
+      editor: { setSelection: vi.fn(), scrollIntoView: vi.fn() },
+    });
+    const host = Object.assign(Object.create(CardWorkspacePlugin.prototype), {
+      app, cardOpenSeq: 0, disposed: false, getSettings: plugin.getSettings,
+    });
+    const leaf = { view: editing, openFile: vi.fn(async () => {
+      for (const fn of listeners.get("file-open") ?? []) fn(b);
+      await vi.waitFor(() => expect(scope.isScopeSettled()).toBe(true));
+      expect(store.getBaseCard(b.path)).toBeUndefined();
+      expect(store.getBaseCards().map((entry: NoteCardRecord) => entry.path)).toEqual([c.path]);
+    }) };
+    app.workspace.activeLeaf = leaf;
+    app.workspace.getLeavesOfType = () => [{view}];
+    host.resolveOpenDestinationLeaf = async () => leaf;
+    // Same file-open subscriber as the plugin shell, using its real selection fanout.
+    app.workspace.on("file-open", (file: any) => host.syncSelection(file.path));
+    const version = scope.getActiveSelectionVersion();
+    try {
+      await host.openNoteFromCard(b.path, undefined, location);
+      expect(scope.getActiveSelectionVersion()).toBe(version);
+      expect("isCurrent" in location && location.isCurrent?.()).toBe(true);
+      const positioned = mode === "source" ? editing.editor.setSelection : editing.setEphemeralState;
+      expect(positioned).toHaveBeenCalledOnce();
+      if (mode === "source") expect(positioned).toHaveBeenCalledWith({line: 1, ch: 0}, {line: 1, ch: 6});
+      if (cancel === "none") {
+        await vi.waitFor(() => expect(positioned).toHaveBeenCalledTimes(2), { timeout: 1200 });
+      } else {
+        if (cancel === "source") await scope.handleScopeSelection(scope.createProgrammaticSelectionRequest(store.getScope(), false));
+        if (cancel === "query") search.onQueryChange({query: "other"});
+        if (cancel === "input") editing.containerEl.dispatchEvent(new Event("wheel"));
+        if (cancel === "new-open") await host.openNoteFromCard(b.path);
+        if (cancel === "close") await view.onClose();
+        if (cancel === "settings") (plugin.getSettings as unknown as () => PluginSettings)().previewLines = 8;
+        if (cancel === "file") view.handleVaultMutation({eventType: "modify", path: b.path, oldPath: null, isFolder: false, fileKind: "markdown"});
+        await new Promise(resolve => setTimeout(resolve, 460));
+        expect(positioned).toHaveBeenCalledOnce();
+      }
+      expect(editing.getMode()).toBe(mode);
+      // Active selection invalidates an accepted snapshot, even for a no-op source.
+      if (cancel !== "close") await scope.handleScopeSelection(scope.createProgrammaticSelectionRequest(store.getScope(), false));
+      expect("isCurrent" in location && location.isCurrent?.()).toBe(false);
+    } finally { host.cancelLinkCorrection?.(); await view.onClose(); }
   });
 
   it("clears search counts immediately on empty query and ignores stale results", async () => {
@@ -3022,7 +3135,7 @@ describe("FolderCardView navigation scope activation", () => {
     const request = vi.spyOn((view as any).modules.scopeController, "createProgrammaticSelectionRequest");
 
     view.setSelectedFile("notes/B.md");
-    expect(request).toHaveBeenCalledWith(createLinksScope("notes/B.md", "backlinks"), false);
+    expect(request).toHaveBeenCalledWith(createLinksScope("notes/B.md", "backlinks"), false, "links-follow");
     expect(select).toHaveBeenCalledTimes(1);
 
     select.mockClear();

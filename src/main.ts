@@ -37,7 +37,8 @@ import type { OpenDestination, PartialPluginSettings, PluginSettings } from "./s
 import type { FolderSelectionRequest, FolderSelectionSource, SelectionResult } from "./view/types";
 import { resolveCardFileKind } from "./view/file-kind";
 import { createFolderScope, type CardScope } from "./view/scope";
-import { locationExistsInText, type CardOpenLocation, type LinkCardLocation } from "./view/link-card-location";
+import { locationExistsInText, type CardOpenLocation, type LinkCardLocation, type SearchSnippetCardLocation } from "./view/link-card-location";
+import { resolveSearchSnippetLocation } from "./search";
 import { findSearchContextLocation } from "./view/context-preview";
 import { resolveSettingsUpdateIntent } from "./view/update-intent";
 import { activateDeferredView } from "./view/deferred-view-activation";
@@ -310,19 +311,44 @@ export default class CardWorkspacePlugin extends Plugin {
       return;
     }
 
-    const requestedJump = this.getSettings().locateLinkCardOnOpen ? location : undefined;
-    await leaf.openFile(target, { active: true });
-    if (openSeq !== this.cardOpenSeq || this.disposed) return;
-    const jump = requestedJump && "query" in requestedJump
-      ? leaf.view instanceof MarkdownView
-        ? findSearchContextLocation(leaf.view.getViewData(), requestedJump.query)
-        : null
-      : requestedJump;
-    const activeLeaf = this.app.workspace.activeLeaf;
-    if (jump && (!activeLeaf || activeLeaf === leaf) && this.positionLinkCard(leaf, target, jump)) {
-      this.scheduleLinkCorrection(leaf, target, jump, openSeq);
+    let requestedJump = location && "kind" in location && location.kind === "search-snippet"
+      ? location : this.getSettings().locateLinkCardOnOpen ? location : undefined;
+    // Observe input across openFile too: file-open can synchronously re-point
+    // the originating links view and replace its cards before opening settles.
+    let inputDuringOpen = false;
+    const markInput = (): void => { inputDuringOpen = true; };
+    const inputEvents = ["pointerdown", "keydown", "wheel", "touchstart", "input"] as const;
+    const inputTarget = leaf.view?.containerEl?.ownerDocument ?? leaf.view?.containerEl;
+    const snippetJump = requestedJump && "kind" in requestedJump ? requestedJump : null;
+    const leafChange = snippetJump ? this.app.workspace.on("active-leaf-change", (active) => {
+      if (active !== leaf) inputDuringOpen = true;
+    }) : null;
+    if (snippetJump) {
+      for (const event of inputEvents) inputTarget?.addEventListener(event, markInput, { capture: true, passive: true });
+      requestedJump = { ...snippetJump, isCurrent: () => !inputDuringOpen && snippetJump.isCurrent?.() !== false };
     }
-    this.syncSelection(target.path);
+    try {
+      await leaf.openFile(target, { active: true });
+      if (openSeq !== this.cardOpenSeq || this.disposed) return;
+      const jump = requestedJump && "query" in requestedJump
+        ? leaf.view instanceof MarkdownView
+          ? findSearchContextLocation(leaf.view.getViewData(), requestedJump.query)
+          : null
+        : requestedJump;
+      const activeLeaf = this.app.workspace.activeLeaf;
+      if (jump && (!activeLeaf || activeLeaf === leaf)) {
+        const positioned = "kind" in jump && jump.kind === "search-snippet"
+          ? await this.positionSearchSnippet(leaf, target, jump, openSeq)
+          : this.positionLinkCard(leaf, target, jump as LinkCardLocation);
+        if (positioned && openSeq === this.cardOpenSeq && !this.disposed) {
+          this.scheduleLinkCorrection(leaf, target, jump, openSeq);
+        }
+      }
+      if (openSeq === this.cardOpenSeq && !this.disposed) this.syncSelection(target.path);
+    } finally {
+      if (snippetJump) for (const event of inputEvents) inputTarget?.removeEventListener(event, markInput, { capture: true });
+      if (leafChange) this.app.workspace.offref?.(leafChange);
+    }
   }
 
   private positionLinkCard(leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation): boolean {
@@ -339,13 +365,46 @@ export default class CardWorkspacePlugin extends Plugin {
     return true;
   }
 
+  private async positionSearchSnippet(
+    leaf: WorkspaceLeaf, file: TFile, location: SearchSnippetCardLocation, openSeq: number,
+  ): Promise<boolean> {
+    const view = leaf.view;
+    if (!(view instanceof MarkdownView) || view.file?.path !== file.path
+      || this.app.vault.getAbstractFileByPath(file.path) !== file || location.isCurrent?.() === false) return false;
+    const source = view.getViewData();
+    let userInput = false;
+    const markInput = (): void => { userInput = true; };
+    const events = ["pointerdown", "keydown", "wheel", "touchstart", "input"] as const;
+    for (const event of events) view.containerEl?.addEventListener(event, markInput, { capture: true, passive: true });
+    const leafChange = this.app.workspace.on("active-leaf-change", (active) => { if (active !== leaf) userInput = true; });
+    const isCurrent = (): boolean => !this.disposed && !userInput && openSeq === this.cardOpenSeq
+      && location.isCurrent?.() !== false && view.file?.path === file.path && leaf.view === view
+      && this.app.vault.getAbstractFileByPath(file.path) === file
+      && (!this.app.workspace.activeLeaf || this.app.workspace.activeLeaf === leaf)
+      && view.getViewData() === source;
+    try {
+      const resolved = await resolveSearchSnippetLocation(source, location.snippet, isCurrent);
+      if (!resolved || !isCurrent()) return false;
+      if (view.getMode() === "source") {
+        view.editor.setSelection(resolved.from, resolved.to);
+        view.editor.scrollIntoView(resolved, true);
+      } else {
+        view.setEphemeralState({ line: resolved.from.line });
+      }
+      return true;
+    } finally {
+      for (const event of events) view.containerEl?.removeEventListener(event, markInput, { capture: true });
+      this.app.workspace.offref?.(leafChange);
+    }
+  }
+
   private scheduleLinkCorrection(
-    leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation, openSeq: number,
+    leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation | SearchSnippetCardLocation, openSeq: number,
   ): void {
     let userInput = false;
     const target = leaf.view.containerEl;
     const markInput = (): void => { userInput = true; };
-    const inputEvents = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    const inputEvents = ["pointerdown", "keydown", "wheel", "touchstart", "input"] as const;
     for (const event of inputEvents) target?.addEventListener(event, markInput, { capture: true, passive: true });
     const leafChange = this.app.workspace.on("active-leaf-change", (active) => {
       if (active !== leaf) userInput = true;
@@ -354,13 +413,14 @@ export default class CardWorkspacePlugin extends Plugin {
       cleanup();
       const activeLeaf = this.app.workspace.activeLeaf;
       if (this.disposed || userInput || openSeq !== this.cardOpenSeq
-        || !this.getSettings().locateLinkCardOnOpen
+        || (!("kind" in location) && !this.getSettings().locateLinkCardOnOpen)
         || (activeLeaf && activeLeaf !== leaf)) return;
-      this.positionLinkCard(leaf, file, location);
+      if ("kind" in location) void this.positionSearchSnippet(leaf, file, location, openSeq);
+      else this.positionLinkCard(leaf, file, location);
     }, 400);
     const cleanup = (): void => {
       window.clearTimeout(timer);
-      for (const event of inputEvents) target?.removeEventListener(event, markInput, true);
+      for (const event of inputEvents) target?.removeEventListener(event, markInput, { capture: true });
       this.app.workspace.offref?.(leafChange);
       if (this.cancelLinkCorrection === cleanup) this.cancelLinkCorrection = null;
     };

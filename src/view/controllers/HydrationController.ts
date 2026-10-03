@@ -1,8 +1,9 @@
 import type { EpochToken } from "../async-epoch";
+import { createSearchPreviewMatcher, extractSearchPreviewSnippets, searchPreviewSnippetLimit, type SearchPreview, type SearchMatchField } from "../../search";
 import { isMarkdownCardKind } from "../file-kind";
 import type { HydrateViewportRequest } from "../hydration-request";
 import { buildLightPreview, DEFAULT_PREVIEW_MAX_VISIBLE_CHARS } from "../markdown-utils";
-import { buildLocationPreview, buildSearchContextPreview } from "../context-preview";
+import { buildLocationPreview } from "../context-preview";
 import { resolveLinkCardLocation } from "../link-card-location";
 import type { CardScope } from "../scope";
 import { createPreviewFingerprint, fingerprintsEqual, PreviewCache, PREVIEW_CACHE_CAPACITY,
@@ -45,6 +46,9 @@ export interface HydrationControllerDeps {
   context: ViewContext;
   isLoading: () => boolean;
   getCommittedQuery?: () => string;
+  getSearchContentRevision?: () => number;
+  isCommittedQueryCurrent?: () => boolean;
+  getMatchFields?: (path: string) => readonly SearchMatchField[] | undefined;
 }
 /** Owns the per-view preview cache, demand queue, and incremental publication. */
 export class HydrationController implements DisposableController {
@@ -59,6 +63,11 @@ export class HydrationController implements DisposableController {
   private patchFlushQueued = false;
   private startupWaitTimer: ReturnType<Window["setTimeout"]> | null = null;
   private disposed = false;
+  private matcherQuery = "";
+  private matcher = createSearchPreviewMatcher("");
+  private mutationRevision = 0;
+  private readonly fileRevisions = new WeakMap<object, number>();
+  getFileRevision(file: NoteCardRecord["file"]): number { return this.fileRevisions.get(file) ?? 0; }
   constructor(private readonly deps: HydrationControllerDeps) {}
   private get context(): ViewContext {
     return this.deps.context;
@@ -98,6 +107,23 @@ export class HydrationController implements DisposableController {
   }
   invalidateForVaultMutation(event: VaultMutationEvent): void {
     if (event.eventType === "create" || (event.isFolder && event.eventType === "modify")) return;
+    this.mutationRevision += 1;
+    const affected = this.context.store.getBaseCards().filter((card) =>
+      card.path === event.path || (event.isFolder && card.path.startsWith(`${event.path}/`))
+      || (event.oldPath && (card.path === event.oldPath || (event.isFolder && card.path.startsWith(`${event.oldPath}/`)))));
+    for (const card of affected) this.fileRevisions.set(card.file, this.mutationRevision);
+    const liveFile = this.context.getApp().vault.getAbstractFileByPath?.(event.path);
+    if (liveFile) this.fileRevisions.set(liveFile, this.mutationRevision);
+    this.context.store.patchCardPreviews(affected.map((card) => ({
+      path: card.path, patch: { searchPreview: undefined, hydrated: false, previewHtml: "", previewMode: "empty" },
+    })));
+    if (affected.length) this.context.publishGroups("cards");
+    for (const job of this.jobs.values()) {
+      if (job.path === event.path || (event.isFolder && job.path.startsWith(`${event.path}/`))
+        || (event.oldPath && (job.path === event.oldPath || (event.isFolder && job.path.startsWith(`${event.oldPath}/`))))) {
+        job.replacementRequested = true;
+      }
+    }
     const invalidate = (path: string): void => {
       if (event.isFolder) {
         this.cache.invalidatePrefix(path);
@@ -201,10 +227,11 @@ export class HydrationController implements DisposableController {
   private requestPath(path: string, priority: number,
     owner: { viewport?: boolean; startup?: boolean; forced?: boolean; foreground?: boolean }): Promise<void> {
     if (this.disposed) return Promise.resolve();
+    if (this.deps.isCommittedQueryCurrent?.() === false) return Promise.resolve();
     const card = this.context.store.getBaseCard(path);
     if (!card) return Promise.resolve();
     if (!isMarkdownCardKind(card.fileKind)) {
-      if (card.hydrated) return Promise.resolve();
+      if (card.hydrated && !this.deps.getCommittedQuery?.().trim()) return Promise.resolve();
       return this.enqueuePatch(
         path, this.placeholderPatch(card), this.fingerprintFor(card),
         owner.viewport === true || owner.foreground === true || owner.startup === true,
@@ -272,27 +299,63 @@ export class HydrationController implements DisposableController {
     }
   }
   private async runJob(job: HydrationJob): Promise<void> {
+    if (!this.currentFingerprint(job)) return;
     const card = this.context.store.getBaseCard(job.path);
     if (!card) return;
+    const query = this.deps.getCommittedQuery?.().trim() ?? "";
+    const fields = this.deps.getMatchFields?.(card.path);
+    const titleOnly = !!query && fields?.includes("title") && !fields.includes("content");
+    const ordinaryFingerprint = createPreviewFingerprint(card.path, card.mtime,
+      job.fingerprint.previewLines, job.fingerprint.maxVisibleChars, `|file:${this.getFileRevision(card.file)}|live:${card.file.stat?.mtime ?? card.mtime}`);
+    const ordinary = this.cache.get(ordinaryFingerprint);
+    if (titleOnly && ordinary) {
+      const preview = { ...ordinary, searchPreview: this.searchPreviewFor(card, "title-only") };
+      this.cache.set(job.fingerprint, preview);
+      if (this.shouldPatch(job)) await this.enqueuePatch(job.path, this.previewPatch(card, preview), job.fingerprint,
+        job.viewport || job.foreground || job.startup || job.startupLate);
+      return;
+    }
     let patch: Partial<CardPreviewFields>;
     try {
       const markdown = await this.context.getApp().vault.cachedRead(card.file);
       if (!this.currentFingerprint(job)) return;
       const scope = this.context.store.getScope();
-      const query = this.deps.getCommittedQuery?.().trim() ?? "";
-      const location = scope.kind === "links"
+      const location = !query && scope.kind === "links"
         ? resolveLinkCardLocation(this.context.getApp(), scope, card.path) : null;
-      const preview = (query
-        ? buildSearchContextPreview(markdown, query, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines)
-        : location
+      let preview: HydrationPreview;
+      const leading = ordinary ?? buildLightPreview(markdown, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines);
+      if (query && titleOnly) {
+        preview = { ...leading, searchPreview: this.searchPreviewFor(card, "title-only") };
+      } else if (query) {
+        if (this.matcherQuery !== query) {
+          this.matcherQuery = query;
+          this.matcher = createSearchPreviewMatcher(query);
+        }
+        const snippets = await extractSearchPreviewSnippets(markdown, {
+          limit: searchPreviewSnippetLimit(job.fingerprint.previewLines),
+          maxChars: 200,
+          idPrefix: `${job.generation}:${job.hydrationRevision}:${job.fingerprint.contextKey}`,
+          matcher: this.matcher,
+          isCurrent: () => this.currentFingerprint(job),
+        });
+        if (!snippets || !this.currentFingerprint(job)) return;
+        preview = { ...leading, searchPreview: this.searchPreviewFor(card, snippets.length ? "hits" : "unavailable", snippets) };
+      } else {
+        preview = (location
           ? buildLocationPreview(markdown, location, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines)
           : null)
-        ?? buildLightPreview(markdown, job.fingerprint.maxVisibleChars, job.fingerprint.previewLines);
+        ?? leading;
+      }
+      if (!this.currentFingerprint(job)) return;
+      this.cache.set(ordinaryFingerprint, leading);
       this.cache.set(job.fingerprint, preview);
       patch = this.previewPatch(card, preview);
     } catch {
       if (!this.currentFingerprint(job)) return;
       patch = buildEmptyPreviewPatch(this.context.getApp(), card);
+      if (this.deps.getCommittedQuery?.().trim()) {
+        patch.searchPreview = this.searchPreviewFor(card, "unavailable");
+      }
     }
     if (this.shouldPatch(job)) {
       await this.enqueuePatch(job.path, patch, job.fingerprint,
@@ -321,6 +384,7 @@ export class HydrationController implements DisposableController {
   private currentFingerprint(job: HydrationJob): boolean {
     const card = this.context.store.getBaseCard(job.path);
     return !this.disposed
+      && this.deps.isCommittedQueryCurrent?.() !== false
       && job.generation === this.context.epochs.load.value
       && job.hydrationRevision === this.context.store.getHydrationRevision()
       && card !== undefined
@@ -356,6 +420,7 @@ export class HydrationController implements DisposableController {
     const valid = pending.filter((item) => {
       const card = this.context.store.getBaseCard(item.update.path);
       return !this.disposed
+        && this.deps.isCommittedQueryCurrent?.() !== false
         && item.generation === this.context.epochs.load.value
         && item.hydrationRevision === this.context.store.getHydrationRevision()
         && card !== undefined
@@ -371,14 +436,14 @@ export class HydrationController implements DisposableController {
   private fingerprintFor(card: NoteCardRecord, scopeOverride?: CardScope): PreviewFingerprint {
     const query = this.deps.getCommittedQuery?.().trim() ?? "";
     const scope = scopeOverride ?? this.context.store.getScope();
-    const location = scope.kind === "links"
+    const location = !query && scope.kind === "links"
       ? resolveLinkCardLocation(this.context.getApp(), scope, card.path) : null;
     return createPreviewFingerprint(
       card.path,
       card.mtime,
       this.context.getSettings().previewLines,
       DEFAULT_PREVIEW_MAX_VISIBLE_CHARS,
-      query ? `search:${query}` : location ? `link:${location.identity}` : "",
+      `${query ? `search:${this.deps.getSearchContentRevision?.() ?? 0}:${query}` : location ? `link:${location.identity}` : ""}|file:${this.getFileRevision(card.file)}|live:${card.file.stat?.mtime ?? card.mtime}`,
     );
   }
   private rememberAppliedFingerprint(path: string, fingerprint: PreviewFingerprint): void {
@@ -390,10 +455,31 @@ export class HydrationController implements DisposableController {
     }
   }
   private previewPatch(card: NoteCardRecord, preview: HydrationPreview): Partial<CardPreviewFields> {
-    return buildPreviewPatch(this.context.getApp(), card, preview);
+    const patch = buildPreviewPatch(this.context.getApp(), card, preview);
+    if (preview.searchPreview) {
+      patch.searchPreview = {
+        ...preview.searchPreview,
+        snippets: preview.searchPreview.snippets.map((snippet) => ({
+          ...snippet,
+          id: `${this.context.epochs.load.value}:${this.context.store.getHydrationRevision()}:${card.path}:${snippet.location.offset}`,
+        })),
+      };
+    }
+    return patch;
   }
   private placeholderPatch(card: NoteCardRecord): Partial<CardPreviewFields> {
-    return buildPlaceholderPatch(card, this.context.getUiStrings().fileKind);
+    const patch = buildPlaceholderPatch(card, this.context.getUiStrings().fileKind);
+    if (this.deps.getCommittedQuery?.().trim()) patch.searchPreview = this.searchPreviewFor(card, "title-only");
+    return patch;
+  }
+  private searchPreviewFor(card: NoteCardRecord, status: SearchPreview["status"], snippets: SearchPreview["snippets"] = []): SearchPreview {
+    return {
+      query: this.deps.getCommittedQuery?.().trim() ?? "",
+      revision: this.deps.getSearchContentRevision?.() ?? 0,
+      mtime: card.file.stat?.mtime ?? card.mtime,
+      previewLines: this.context.getSettings().previewLines,
+      status, snippets,
+    };
   }
   private sortQueue(): void {
     this.queue.sort((left, right) => left.priority - right.priority || left.sequence - right.sequence);

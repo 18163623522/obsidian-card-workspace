@@ -1,0 +1,648 @@
+{
+  "chromium": "153.0.8010.12",
+  "layouts": [
+    {
+      "mode": "off",
+      "lines": 3,
+      "values": [
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "off",
+      "lines": 4,
+      "values": [
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "off",
+      "lines": 5,
+      "values": [
+        {
+          "height": 39.000003814697266,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "off",
+      "lines": 6,
+      "values": [
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "off",
+      "lines": 7,
+      "values": [
+        {
+          "height": 38.999996185302734,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 38.99999237060547,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39.00001525878906,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "off",
+      "lines": 8,
+      "values": [
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39.00000762939453,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 38.99998474121094,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 256,
+          "lineHeight": 19.5,
+          "prefixWidth": 68.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 196,
+          "lineHeight": 19.5,
+          "prefixWidth": 55.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "right",
+      "lines": 3,
+      "values": [
+        {
+          "height": 38.999996185302734,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "right",
+      "lines": 4,
+      "values": [
+        {
+          "height": 39.000003814697266,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 38.99999237060547,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "right",
+      "lines": 5,
+      "values": [
+        {
+          "height": 39.000003814697266,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 38.99999237060547,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "right",
+      "lines": 6,
+      "values": [
+        {
+          "height": 39,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39.00000762939453,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 38.99998474121094,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "right",
+      "lines": 7,
+      "values": [
+        {
+          "height": 39,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 38.99999237060547,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39.00001525878906,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        }
+      ]
+    },
+    {
+      "mode": "right",
+      "lines": 8,
+      "values": [
+        {
+          "height": 39,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 38.99999237060547,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39.00001525878906,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 158,
+          "lineHeight": 19.5,
+          "prefixWidth": 42.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context …"
+        }
+      ],
+      "narrow": [
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context 0 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context 1 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context 2 readable context …"
+        },
+        {
+          "height": 39,
+          "width": 98,
+          "lineHeight": 19.5,
+          "prefixWidth": 16.625,
+          "firstHitVisible": true,
+          "clamp": "2",
+          "location": "…宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽宽 needle readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context 3 readable context …"
+        }
+      ]
+    }
+  ],
+  "bulkSelections": 3,
+  "scroll": {
+    "before": 1200,
+    "after": 1200,
+    "resized": 1200
+  },
+  "errors": []
+}

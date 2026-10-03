@@ -64,6 +64,146 @@ async function ticks(count = 4): Promise<void> {
 }
 
 describe("HydrationController", () => {
+  it("caches search snippets in the shared preview entry and rebinds IDs after a load", async () => {
+    const record = card("search.md");
+    const { controller, context, read } = harness([record], vi.fn(async () => "needle\nsecond needle"), {}, () => "needle");
+    await controller.hydrateViewport(request(context, [record]));
+    const originalId = context.store.getBaseCard(record.path)!.searchPreview!.snippets[0].id;
+    context.epochs.load.bump();
+    controller.resetForLoad();
+    const replacement = card(record.path);
+    context.store.replaceBaseCards([replacement]);
+    context.store.replaceVisibleCards([replacement]);
+    controller.prepareRecordsFromCache([replacement]);
+    await controller.hydrateViewport(request(context, [replacement]));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(replacement.searchPreview!.snippets[0].id).not.toBe(originalId);
+  });
+
+  it.each(["folder", "box", "links"] as const)("hydrates body snippets in %s scope", async (kind) => {
+    const record = card("search.md");
+    const { controller, context } = harness([record], vi.fn(async () => "needle"), {}, () => "needle");
+    if (kind === "box") context.store.setScope({ kind, boxId: "box" });
+    if (kind === "links") context.store.setScope({ kind, notePath: "source.md", direction: "backlinks" });
+    await controller.hydrateViewport(request(context, [record]));
+    expect(context.store.getBaseCard(record.path)?.searchPreview?.status).toBe("hits");
+    controller.dispose();
+  });
+
+  it("settles failed body reads as unavailable and non-Markdown hits as title-only", async () => {
+    const records = [card("failed.md"), card("diagram.canvas", "canvas")];
+    const { controller, context, read } = harness(records, vi.fn(async () => { throw new Error("read failed"); }), {}, () => "needle");
+    await controller.hydrateViewport(request(context, records));
+    expect(context.store.getBaseCard("failed.md")?.searchPreview?.status).toBe("unavailable");
+    expect(context.store.getBaseCard("diagram.canvas")?.searchPreview?.status).toBe("title-only");
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads missing title-only previews and reuses the ordinary entry after search changes", async () => {
+    const record = card("title.md");
+    let query = "";
+    const { context, read } = harness([record], vi.fn(async () => "ordinary opening"));
+    const controller = new HydrationController({
+      context, isLoading: () => false, getCommittedQuery: () => query, getMatchFields: () => ["title"],
+    });
+    query = "needle";
+    await controller.hydrateViewport(request(context, [record]));
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(context.store.getBaseCard(record.path)).toMatchObject({searchPreview: {status: "title-only"}, previewHtml: expect.stringContaining("ordinary opening")});
+    for (const next of ["other", ""]) {
+      query = next;
+      context.store.advanceHydrationRevision();
+      await controller.hydrateViewport(request(context, [record]));
+      expect(read).toHaveBeenCalledTimes(1);
+      expect(context.store.getBaseCard(record.path)?.previewHtml).toContain("ordinary opening");
+    }
+    expect(context.store.getBaseCard(record.path)?.searchPreview).toBeUndefined();
+    controller.dispose();
+  });
+
+  it("shows unavailable when a missing title-only body cannot be read", async () => {
+    const record = card("title.md");
+    const { context, read } = harness([record], vi.fn(async () => { throw new Error("inaccessible"); }));
+    const controller = new HydrationController({
+      context, isLoading: () => false, getCommittedQuery: () => "needle", getMatchFields: () => ["title"],
+    });
+    await controller.hydrateViewport(request(context, [record]));
+    expect(read).toHaveBeenCalledOnce();
+    expect(context.store.getBaseCard(record.path)?.searchPreview?.status).toBe("unavailable");
+    controller.dispose();
+  });
+
+  it("keeps the ordinary preview from the same body-hit read when search is cleared", async () => {
+    const record = card("body.md");
+    let query = "needle";
+    const { controller, context, read } = harness([record], vi.fn(async () => "ordinary opening\n\nneedle"), {}, () => query);
+    await controller.hydrateViewport(request(context, [record]));
+    query = "";
+    context.store.advanceHydrationRevision();
+    await controller.hydrateViewport(request(context, [record]));
+    expect(read).toHaveBeenCalledOnce();
+    expect(context.store.getBaseCard(record.path)?.searchPreview).toBeUndefined();
+    expect(context.store.getBaseCard(record.path)?.previewHtml).toContain("ordinary opening");
+    controller.dispose();
+  });
+
+  it("invalidates snippets immediately on modify and rename, even with unchanged mtime", async () => {
+    const record = card("search.md");
+    const { controller, context } = harness([record], vi.fn(async () => "needle"), {}, () => "needle");
+    for (const eventType of ["modify", "rename"] as const) {
+      await controller.hydrateViewport(request(context, [record]));
+      expect(context.store.getBaseCard(record.path)?.searchPreview?.status).toBe("hits");
+      controller.invalidateForVaultMutation({ eventType, path: eventType === "rename" ? "renamed.md" : record.path,
+        oldPath: eventType === "rename" ? record.path : null, isFolder: false, fileKind: "markdown" });
+      expect(context.store.getBaseCard(record.path)?.searchPreview).toBeUndefined();
+    }
+  });
+
+  it.each(["", "needle"])("rejects a body read after a same-mtime file mutation for query %s", async (query) => {
+    const record = card("changed.md");
+    const old = deferred<string>();
+    const read = vi.fn(async () => "new needle body").mockImplementationOnce(() => old.promise);
+    const {context, controller} = harness([record], read, {}, () => query);
+    const hydration = controller.hydrateViewport(request(context, [record]));
+    controller.invalidateForVaultMutation({eventType: "modify", path: record.path, oldPath: null, isFolder: false, fileKind: "markdown"});
+    old.resolve("old needle body");
+    await hydration;
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(context.store.getBaseCard(record.path)?.previewHtml).toContain("new needle body");
+    const replacement = {...card(record.path), file: record.file};
+    controller.prepareRecordsFromCache([replacement]);
+    expect(replacement.previewHtml).toContain("new needle body");
+    expect(replacement.previewHtml).not.toContain("old needle body");
+    controller.dispose();
+  });
+
+  it("does not discard an active read when a different file changes", async () => {
+    const record = card("current.md");
+    const pending = deferred<string>();
+    const {context, controller, read} = harness([record], vi.fn(() => pending.promise), {}, () => "needle");
+    const hydration = controller.hydrateViewport(request(context, [record]));
+    controller.invalidateForVaultMutation({eventType: "modify", path: "other.md", oldPath: null, isFolder: false, fileKind: "markdown"});
+    pending.resolve("current needle body");
+    await hydration;
+    expect(read).toHaveBeenCalledOnce();
+    expect(context.store.getBaseCard(record.path)?.searchPreview?.status).toBe("hits");
+    controller.dispose();
+  });
+
+  it("never publishes or caches a search extraction invalidated while yielding", async () => {
+    const record = card("long.md");
+    let query = "old";
+    const read = vi.fn(async () => "word ".repeat(40_000) + "old\nnew");
+    const { controller, context } = harness([record], read, {}, () => query);
+    const hydration = controller.hydrateViewport(request(context, [record]));
+    setTimeout(() => { query = "new"; context.store.advanceHydrationRevision(); }, 0);
+    await hydration;
+    expect(context.store.getBaseCard(record.path)?.searchPreview).toBeUndefined();
+    await controller.hydrateViewport(request(context, [record]));
+    expect(context.store.getBaseCard(record.path)?.searchPreview?.query).toBe("new");
+    expect(read).toHaveBeenCalledTimes(2);
+    controller.dispose();
+  });
   it("hydrates search context only for viewport cards and refreshes after a committed query change", async () => {
     const records = Array.from({ length: 30 }, (_, index) => card(`${index}.md`));
     const read = vi.fn(async () => "opening\nfirst needle here\nsecond target here");
@@ -72,14 +212,14 @@ describe("HydrationController", () => {
 
     await controller.hydrateViewport(request(context, records.slice(0, 1)));
     expect(read).toHaveBeenCalledTimes(1);
-    expect(context.store.getBaseCard("0.md")?.previewHtml).toContain("needle");
+    expect(context.store.getBaseCard("0.md")?.searchPreview?.snippets[0].text).toContain("needle");
     expect(context.store.getBaseCard("1.md")?.hydrated).toBe(false);
 
     query = "target";
     context.store.advanceHydrationRevision();
     await controller.hydrateViewport(request(context, records.slice(0, 1)));
     expect(read).toHaveBeenCalledTimes(2);
-    expect(context.store.getBaseCard("0.md")?.previewHtml).toContain("target");
+    expect(context.store.getBaseCard("0.md")?.searchPreview?.snippets[0].text).toContain("target");
   });
 
   it("prepares non-Markdown placeholders synchronously without reads", () => {

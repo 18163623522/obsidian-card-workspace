@@ -136,6 +136,9 @@ export class IndexedSearchService implements SearchService {
       execution: "indexed-ready",
       orderedPaths,
       matchCountsByPath: this.filterMatchCountsByPath(orderedPaths, searchResult),
+      matchFieldsByPath: searchResult.matchFieldsByPath
+        ? Object.fromEntries(orderedPaths.map((path) => [path, [...(searchResult.matchFieldsByPath?.[path] ?? [])]]))
+        : undefined,
     };
   }
 

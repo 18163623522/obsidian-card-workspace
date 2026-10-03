@@ -10,7 +10,6 @@
   import { getCardFileIcon, getCardPlaceholderText } from "./file-kind";
   import type { OpenNotePayload, PanelAppearanceState } from "./panel-model";
   import {
-    highlightSanitizedPreviewHtml,
     sanitizePreviewHtml,
     type PreviewHtmlSanitizer,
   } from "./preview-html";
@@ -88,16 +87,28 @@
   const isPinned = $derived(pinnedPaths.includes(card.path));
   const highlightedTitleSegments = $derived(getHighlightedTitleSegments(card.title, searchQuery));
   const normalizedSearchQuery = $derived(searchQuery.trim());
+  const searchPreview = $derived(card.searchPreview?.query === normalizedSearchQuery
+    && card.searchPreview.previewLines === previewLines ? card.searchPreview : undefined);
   const sanitizedPreviewHtml = $derived(
     typeof document === "undefined"
       ? card.previewHtml
       : previewHtmlSanitizer(card.previewHtml, document),
   );
-  const highlightedPreviewHtml = $derived(
-    typeof document === "undefined"
-      ? sanitizedPreviewHtml
-      : highlightSanitizedPreviewHtml(sanitizedPreviewHtml, normalizedSearchQuery, document),
-  );
+  // Only display cropping depends on width; source locations stay host-owned.
+  let snippetWidth = $state(0);
+  let snippetFont = $state("");
+  let textMeasure: CanvasRenderingContext2D | null = null;
+  function measureSnippet(node: HTMLButtonElement) {
+    const measure = (): void => {
+      snippetWidth = node.clientWidth;
+      snippetFont = node.ownerDocument.defaultView?.getComputedStyle(node).font ?? "";
+      if (!textMeasure && snippetWidth > 0) textMeasure = node.ownerDocument.createElement("canvas").getContext("2d");
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(node);
+    return { destroy() { observer?.disconnect(); } };
+  }
   let activeDragGhost: HTMLElement | null = null;
 
   function revealImage(node: HTMLImageElement, url: string): { destroy: () => void } {
@@ -245,6 +256,42 @@
     onOpenNote?.({
       path: card.path,
     });
+  }
+
+  function snippetSegments(snippet: NonNullable<NoteCardRecord["searchPreview"]>["snippets"][number]): HighlightSegment[] {
+    const segments: HighlightSegment[] = [];
+    let cursor = 0;
+    const first = snippet.highlights[0];
+    if (first && snippetWidth > 0 && textMeasure) {
+      textMeasure.font = snippetFont;
+      const budget = snippetWidth * 0.3;
+      while (cursor < first.start && textMeasure.measureText((cursor ? "…" : "") + snippet.text.slice(cursor, first.start)).width > budget) {
+        cursor += (snippet.text.codePointAt(cursor) ?? 0) > 0xffff ? 2 : 1;
+      }
+      if (cursor) segments.push({ text: "…", highlighted: false });
+    }
+    for (const range of snippet.highlights) {
+      if (range.start > cursor) segments.push({ text: snippet.text.slice(cursor, range.start), highlighted: false });
+      segments.push({ text: snippet.text.slice(range.start, range.end), highlighted: true });
+      cursor = range.end;
+    }
+    if (cursor < snippet.text.length) segments.push({ text: snippet.text.slice(cursor), highlighted: false });
+    return segments;
+  }
+
+  function onSnippetClick(event: MouseEvent, snippetId: string): void {
+    event.stopPropagation();
+    if (bulkMode) emitBulkSelect(event.shiftKey);
+    else onOpenNote?.({ path: card.path, snippetId });
+  }
+
+  function onSnippetKeydown(event: KeyboardEvent, snippetId: string): void {
+    event.stopPropagation();
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    if (event.repeat) return;
+    if (bulkMode) emitBulkSelect(event.shiftKey);
+    else onOpenNote?.({ path: card.path, snippetId });
   }
 
   function emitBulkSelect(shiftKey: boolean): void {
@@ -458,18 +505,49 @@
       </div>
     {/if}
     <div
-      class="fce-excerpt {card.previewMode === 'code' ? 'is-code' : ''} {card.hydrated ? '' : 'is-loading'} {(card.previewMode === 'empty' || (card.previewMode !== 'placeholder' && !card.previewHtml)) && card.hydrated ? 'is-empty' : ''}"
+      class="fce-excerpt {searchPreview?.status === 'hits' ? 'is-search' : ''} {card.previewMode === 'code' && (!normalizedSearchQuery || searchPreview?.status === 'title-only') ? 'is-code' : ''} {card.hydrated && (!normalizedSearchQuery || searchPreview) ? '' : 'is-loading'} {(card.previewMode === 'empty' || (card.previewMode !== 'placeholder' && !card.previewHtml)) && card.hydrated && !normalizedSearchQuery ? 'is-empty' : ''}"
       role="presentation"
       style={getPreviewStyle()}
       onmouseenter={emitCardHoverLink}
     >
-      {#if card.hydrated}
+      {#if normalizedSearchQuery}
+        {#if searchPreview?.status === "hits"}
+          {#each searchPreview.snippets as snippet (snippet.id)}
+            <button
+              type="button"
+              class="fce-search-snippet"
+              use:measureSnippet
+              aria-label={snippet.text}
+              onclick={(event) => onSnippetClick(event, snippet.id)}
+              onkeydown={(event) => onSnippetKeydown(event, snippet.id)}
+            >
+              <span class="fce-search-snippet-text">
+              {#each snippetSegments(snippet) as segment, index (index)}
+                {#if segment.highlighted}<mark class="fce-search-hit">{segment.text}</mark>{:else}<span class="fce-search-snippet-context">{segment.text}</span>{/if}
+              {/each}
+              </span>
+            </button>
+          {/each}
+        {:else if searchPreview?.status === "title-only"}
+          {#if card.previewMode === "placeholder"}
+            <p class="fce-preview-placeholder">{getCardPlaceholderText(card.fileKind, fileKindStrings)}</p>
+          {:else if card.previewMode === "empty" || !card.previewHtml}
+            <p class="fce-preview-empty">{cardStrings.placeholderEmpty}</p>
+          {:else}
+            {@html sanitizedPreviewHtml}
+          {/if}
+        {:else if searchPreview}
+          <p class="fce-preview-empty">{cardStrings.searchBodyUnavailable}</p>
+        {:else}
+          <p class="fce-preview-empty">{cardStrings.placeholderLoading}</p>
+        {/if}
+      {:else if card.hydrated}
         {#if card.previewMode === "placeholder"}
           <p class="fce-preview-placeholder">{getCardPlaceholderText(card.fileKind, fileKindStrings)}</p>
         {:else if card.previewMode === "empty" || !card.previewHtml}
           <p class="fce-preview-empty">{cardStrings.placeholderEmpty}</p>
         {:else}
-          {@html highlightedPreviewHtml}
+          {@html sanitizedPreviewHtml}
         {/if}
       {:else}
         <p class="fce-preview-empty">{cardStrings.placeholderLoading}</p>
