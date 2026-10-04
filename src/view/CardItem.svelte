@@ -500,7 +500,8 @@
 
   function getPreviewStyle(): string {
     const lines = searchPreview?.status === "hits" ? searchPreviewSnippetCount * 2 : previewLines;
-    return `--fce-preview-line-clamp: ${lines};`;
+    const dividers = Math.max(0, displayedSnippets.length - 1);
+    return `--fce-preview-line-clamp: ${lines}; --fce-preview-divider-count: ${dividers};`;
   }
 </script>
 
@@ -591,9 +592,10 @@
     >
       {#if normalizedSearchQuery}
         {#if searchPreview?.status === "hits"}
-          {#each displayedSnippets as snippet (snippet.id)}
+          {#each displayedSnippets as snippet, index (snippet.id)}
             {@const segments = snippetSegments(snippet)}
             {@const html = snippet.presentation ? buildSearchSnippetHtml(segments) : ""}
+            {#if index > 0}<div class="fce-preview-context-divider" aria-hidden="true"></div>{/if}
             <button
               type="button"
               class="fce-search-snippet"
@@ -655,7 +657,8 @@
     {#if showReferenceList}
       <div class="fce-excerpt fce-reference-list" aria-label={strings.links.showReferences}>
         {#if linkPreview?.status === "ready"}
-          {#each linkPreview.snippets as snippet (snippet.id)}
+          {#each linkPreview.snippets as snippet, index (snippet.id)}
+            {#if index > 0}<div class="fce-preview-context-divider" aria-hidden="true"></div>{/if}
             <div class="fce-reference-entry">
               <button type="button" class="fce-search-snippet fce-reference-snippet" class:is-opening={snippet.openingPreview === true} aria-label={snippet.text || card.title} onclick={(event) => onReferenceClick(event, snippet.id, snippet.displayTarget === true)} onkeydown={(event) => onReferenceClick(event, snippet.id, snippet.displayTarget === true)}>
                 <div class={snippet.openingPreview ? "fce-excerpt" : "fce-reference-content"} class:is-code={snippet.mode === "code"} style={snippet.openingPreview ? `--fce-preview-line-clamp: ${previewLines};` : undefined} role="presentation" onmouseenter={emitCardHoverLink}>

@@ -41,6 +41,7 @@
   --fce-preview-font-size: var(--font-ui-small, 13px);
   --fce-preview-line-height: 1.5;
   --fce-preview-line-clamp: 5;
+  --fce-preview-context-spacing: 4px;
   --fce-nav-row-height: 30px;
   --fce-nav-section-height: 30px;
   --fce-nav-row-radius: var(--radius-s, 4px);
@@ -1565,7 +1566,7 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 .folder-card-view .fce-reference-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
   font-size: var(--fce-preview-font-size);
   line-height: var(--fce-preview-line-height);
@@ -1634,6 +1635,15 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 
 .folder-card-view .fce-excerpt.is-search {
   display: block;
+  max-block-size: calc(var(--fce-preview-line-clamp) * 1em * var(--fce-preview-line-height) + var(--fce-preview-divider-count, 0) * (2 * var(--fce-preview-context-spacing) + 1px));
+}
+
+.folder-card-view .fce-preview-context-divider {
+  flex: 0 0 auto;
+  height: 1px;
+  margin-block: var(--fce-preview-context-spacing);
+  background: var(--fce-border);
+  pointer-events: none;
 }
 
 .folder-card-view .fce-search-snippet {

@@ -89,7 +89,7 @@ window.searchPreviewBrowser = {perf, render, events: () => events, resize: async
       alias: {obsidian: path.join(root, "scripts/image-benchmark/obsidian.ts")}, plugins: [sveltePlugin({compilerOptions: {dev: false, css: "injected"}})] });
     const css = await readFile(path.join(sourceRoot, "styles.css"), "utf8");
     assets.set("/" + name + "/browser.js", {type: "text/javascript", body: await readFile(bundle)});
-    assets.set("/" + name, {type: "text/html", body: `<!doctype html><meta charset="utf-8"><style>:root { --background-primary:#fff; --background-secondary:#eee; --text-normal:#222; --text-muted:#666; --text-faint:#999; --interactive-accent:#668cee; --text-highlight-bg:#fff0a5; --font-interface:Arial; --font-text:Arial; --font-monospace:monospace; } body {margin:20px; font:14px Arial;} button,input,select {font:inherit;} #mount {display:flex;} ${css} .folder-card-view { --fce-card-min-width:220px; --fce-wall-gap:12px; }</style><div id="mount" class="folder-card-view"></div><script src="/${name}/browser.js"></script>`});
+    assets.set("/" + name, {type: "text/html", body: `<!doctype html><meta charset="utf-8"><style>:root { --background-primary:#fff; --background-secondary:#eee; --background-modifier-border:#d5d5d5; --text-normal:#222; --text-muted:#666; --text-faint:#999; --interactive-accent:#668cee; --text-highlight-bg:#fff0a5; --font-interface:Arial; --font-text:Arial; --font-monospace:monospace; } body {margin:20px; font:14px Arial;} button,input,select {font:inherit;} #mount {display:flex;} ${css} .folder-card-view { --fce-card-min-width:220px; --fce-wall-gap:12px; }</style><div id="mount" class="folder-card-view"></div><script src="/${name}/browser.js"></script>`});
   }
   server = createServer((request, response) => {
     const asset = assets.get(request.url);
@@ -122,8 +122,10 @@ window.searchPreviewBrowser = {perf, render, events: () => events, resize: async
     }
     for (const value of values) { assert(Math.abs(value.height - value.lineHeight * 2) < 1); assert.equal(value.clamp, "2"); assert(value.firstHitVisible, JSON.stringify({kind,mode,lines,snippetLimit,...value})); assert(value.prefixWidth <= value.width * 0.3 + 1); }
     const positions = await page.locator(".fce-search-snippet").evaluateAll(buttons => buttons.map(button => { const rect = button.getBoundingClientRect(); return {top: rect.top, bottom: rect.bottom}; }));
-    positions.slice(1).forEach((rect, i) => assert(Math.abs(rect.top - positions[i].bottom) < 1, "Gap between snippets"));
-    const excerpt = await page.locator(".fce-excerpt").boundingBox(); assert(excerpt.height >= values.reduce((sum, item) => sum + item.height, 0) - 1, "Half-snippet clipping");
+    const dividerGap = selfCheck ? 0 : 9;
+    assert.equal(await page.locator(".fce-preview-context-divider").count(), selfCheck ? 0 : snippetLimit - 1);
+    positions.slice(1).forEach((rect, i) => assert(Math.abs(rect.top - positions[i].bottom - dividerGap) < 1, "Context divider spacing"));
+    const excerpt = await page.locator(".fce-excerpt").boundingBox(); assert(excerpt.height >= values.reduce((sum, item) => sum + item.height, 0) + dividerGap * (snippetLimit - 1) - 1, "Half-snippet clipping");
     await page.locator(".fce-search-snippet").first().click();
     await page.locator(".fce-search-snippet").first().press("Enter");
     await page.locator(".fce-search-snippet").first().press("Space");
