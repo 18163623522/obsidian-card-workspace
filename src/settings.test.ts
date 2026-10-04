@@ -1100,6 +1100,7 @@ describe("card grouping settings normalization", () => {
       ...persisted,
       preferences: {
         ...persisted.preferences,
+        linksSort: DEFAULT_SETTINGS.linksSort, backlinkSnippetCount: 3,
         cardImageMode: "right", cardImageFit: "cover",
         group: DEFAULT_GROUP_SPEC,
         locateLinkCardOnOpen: false,
@@ -1565,6 +1566,8 @@ describe("property settings normalization", () => {
 describe("settings layer manifest (C4)", () => {
   const expectedManifest: Record<string, string> = {
     sort: "preferences",
+    linksSort: "preferences",
+    backlinkSnippetCount: "preferences",
     group: "preferences",
     includeSubfolders: "preferences",
     defaultView: "preferences",
@@ -1609,6 +1612,27 @@ describe("settings layer manifest (C4)", () => {
   });
 });
 
+describe("links preferences", () => {
+  it("adds independent reference-count defaults to old documents without changing folder sort", () => {
+    const settings = migrateSettings({ schemaVersion: 2, preferences: { sort: { field: "name", direction: "asc" } } });
+    expect(settings.sort).toEqual({ field: "name", direction: "asc" });
+    expect(settings.linksSort).toEqual(DEFAULT_SETTINGS.linksSort);
+    expect(settings.backlinkSnippetCount).toBe(3);
+  });
+  it.each([1, 2, 3, "all"] as const)("round-trips the reference display option %s", (count) => {
+    const settings = mergeSettings(DEFAULT_SETTINGS, { backlinkSnippetCount: count,
+      linksSort: { backlinks: { field: "name", direction: "asc" }, outgoing: { field: "reference-count", direction: "desc" } } });
+    const document = serializeSettings(settings);
+    expect(document.schemaVersion).toBe(2);
+    expect(migrateSettings(document)).toEqual(settings);
+  });
+  it("rejects invalid link sort fields and display counts", () => {
+    const settings = migrateSettings({ backlinkSnippetCount: 4, linksSort: { backlinks: { field: "bad", direction: "bad" } } });
+    expect(settings.backlinkSnippetCount).toBe(3);
+    expect(settings.linksSort).toEqual(DEFAULT_SETTINGS.linksSort);
+  });
+});
+
 describe("non-default v2 round trip per layer (C4)", () => {
   const statusClause = { key: "status", values: [{ kind: "text" as const, value: "open" }] };
   const inboxBox: PluginSettings["boxes"][number] = {
@@ -1623,6 +1647,8 @@ describe("non-default v2 round trip per layer (C4)", () => {
   };
 
   const nonDefault: PluginSettings = mergeSettings(DEFAULT_SETTINGS, {
+    backlinkSnippetCount: "all",
+    linksSort: { backlinks: { field: "name", direction: "asc" }, outgoing: { field: "ctime", direction: "desc" } },
     sort: { field: "name", direction: "asc" },
     group: { dimension: "tag", orderBy: "count", orderDirection: "desc" },
     filter: { tags: ["work"], properties: [statusClause] },
@@ -1660,6 +1686,8 @@ describe("non-default v2 round trip per layer (C4)", () => {
   // Every manifest key, where its non-default value must appear in the v2
   // document. `filter` maps to its two serialized workspace arms.
   const expectations: Array<[label: string, getter: (doc: PersistedSettingsV2) => unknown, expected: unknown]> = [
+    ["linksSort", (d) => d.preferences.linksSort, nonDefault.linksSort],
+    ["backlinkSnippetCount", (d) => d.preferences.backlinkSnippetCount, "all"],
     ["sort", (d) => d.preferences.sort, { field: "name", direction: "asc" }],
     ["group", (d) => d.preferences.group, { dimension: "tag", orderBy: "count", orderDirection: "desc" }],
     ["includeSubfolders", (d) => d.preferences.includeSubfolders, false],

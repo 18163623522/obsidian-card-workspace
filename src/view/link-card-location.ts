@@ -1,5 +1,6 @@
 import { resolveSubpath, TFile, type App, type ReferenceCache } from "obsidian";
 
+import { resolveCardFileKind } from "./file-kind";
 import type { LinksScope } from "./scope";
 import type { SearchSnippetLocation } from "../search";
 
@@ -21,7 +22,54 @@ export interface SearchSnippetCardLocation {
   readonly isCurrent?: () => boolean;
 }
 
-export type CardOpenLocation = LinkCardLocation | { readonly query: string } | SearchSnippetCardLocation;
+export interface LinkReferenceCardLocation {
+  readonly kind: "link-reference";
+  readonly location: LinkCardLocation;
+  readonly isCurrent: () => boolean;
+}
+
+export type CardOpenLocation = LinkCardLocation | { readonly query: string } | SearchSnippetCardLocation | LinkReferenceCardLocation;
+
+export interface LinkReferenceLocation {
+  readonly offset: number;
+  readonly original: string;
+  readonly source: LinkCardLocation;
+  readonly target?: LinkCardLocation;
+  readonly subpath?: string;
+}
+
+/** All locatable references, including plain outgoing links with no target anchor. */
+export function collectLinkReferenceLocations(app: App, scope: LinksScope, cardPath: string): LinkReferenceLocation[] {
+  const sourcePath = scope.direction === "backlinks" ? cardPath : scope.notePath;
+  const destinationPath = scope.direction === "backlinks" ? scope.notePath : cardPath;
+  const source = app.vault.getAbstractFileByPath(sourcePath);
+  if (!(source instanceof TFile) || resolveCardFileKind(source) !== "markdown"
+    || !(destinationPath in (app.metadataCache.resolvedLinks?.[sourcePath] ?? {}))) return [];
+  const result: LinkReferenceLocation[] = [];
+  for (const reference of references(app, source)) {
+    const hash = reference.link.indexOf("#");
+    const linkpath = hash < 0 ? reference.link : reference.link.slice(0, hash);
+    const subpath = hash < 0 ? "" : reference.link.slice(hash);
+    const destination = linkpath ? app.metadataCache.getFirstLinkpathDest?.(linkpath, sourcePath) : source;
+    if (destination?.path !== destinationPath) continue;
+    const { line, col, offset } = reference.position.start;
+    if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(col) || col < 0) continue;
+    const location: LinkCardLocation = { line, ch: col, expectedText: reference.original || undefined,
+      identity: `reference:${sourcePath}:${offset}:${reference.original}` };
+    let target: LinkCardLocation | undefined;
+    if (scope.direction === "outgoing" && subpath && destination instanceof TFile && resolveCardFileKind(destination) === "markdown") {
+      const cache = app.metadataCache.getFileCache?.(destination);
+      const resolved = cache && typeof resolveSubpath === "function" ? resolveSubpath(cache, subpath) : null;
+      if (resolved?.type === "heading") target = { line: resolved.current.position.start.line,
+        expectedText: resolved.current.heading, identity: `target:${reference.link}` };
+      else if (resolved?.type === "block") target = { line: resolved.block.position.start.line,
+        endLine: resolved.block.position.end.line, expectedBlockId: resolved.block.id, identity: `target:${reference.link}` };
+      if (target && !validLine(target.line)) target = undefined;
+    }
+    result.push({ offset, original: reference.original, source: location, target, ...(subpath ? { subpath } : {}) });
+  }
+  return result;
+}
 
 function validLine(line: unknown): line is number {
   return typeof line === "number" && Number.isSafeInteger(line) && line >= 0;

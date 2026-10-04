@@ -4,7 +4,7 @@
   import { DEFAULT_GROUP_SPEC, type GroupSpec } from "../card-grouping-settings";
   import { getUiStrings, type ToolbarStrings, type UiStrings } from "../i18n";
   import { BULK_ADD_TO_BOX_ICON, BULK_REMOVE_FROM_BOX_ICON } from "../icons";
-  import type { SortDirection, SortField } from "../settings";
+  import type { SortDirection, LinksSortField } from "../settings";
   import type {
     BoxSummary,
     PanelProjectionState,
@@ -318,7 +318,7 @@
     const menu = new Menu();
     buildSortGroupMenu(
       menu,
-      { sortField, sortDirection, group, availableGroupDimensions, visibleGroupProperties, hasSegments },
+      { sortField, sortDirection, group, availableGroupDimensions, visibleGroupProperties, hasSegments, supportsReferenceCount: isLinksMode },
       {
         strings: sortGroupStrings,
         onSelectSort: (field) => applySort(field, sortDirection),
@@ -355,7 +355,7 @@
     onToolbarAction?.({ action: actionId });
   }
 
-  function applySort(field: SortField, direction: SortDirection): void {
+  function applySort(field: LinksSortField, direction: SortDirection): void {
     if (field === sortField && direction === sortDirection) {
       return;
     }

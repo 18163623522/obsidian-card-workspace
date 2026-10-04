@@ -17,6 +17,8 @@ import type { PropertyFilterClause } from "../property-filter-settings";
 import { resolveSettingsUpdateIntent, type ViewUpdateIntent } from "../view/update-intent";
 
 export interface PreferencesSettings {
+  linksSort: PluginSettings["linksSort"];
+  backlinkSnippetCount: PluginSettings["backlinkSnippetCount"];
   sort: PluginSettings["sort"];
   group: PluginSettings["group"];
   includeSubfolders: boolean;
@@ -128,6 +130,8 @@ export function splitFlatPatch(patch: PartialPluginSettings): {
   const userData: Partial<UserDataSettings> = {};
   const sectionCollapsed: Partial<WorkspaceSectionCollapsed> = {};
 
+  if (patch.linksSort !== undefined) preferences.linksSort = patch.linksSort;
+  if (patch.backlinkSnippetCount !== undefined) preferences.backlinkSnippetCount = patch.backlinkSnippetCount;
   if (patch.sort !== undefined) preferences.sort = patch.sort as PreferencesSettings["sort"];
   if (patch.group !== undefined) preferences.group = patch.group;
   if (patch.includeSubfolders !== undefined) preferences.includeSubfolders = patch.includeSubfolders;
@@ -181,6 +185,8 @@ export function serializeSettings(settings: PluginSettings): PersistedSettingsV2
     schemaVersion: SETTINGS_SCHEMA_VERSION,
     preferences: {
       sort: { ...settings.sort },
+      linksSort: { backlinks: { ...settings.linksSort.backlinks }, outgoing: { ...settings.linksSort.outgoing } },
+      backlinkSnippetCount: settings.backlinkSnippetCount,
       group: { ...settings.group },
       includeSubfolders: settings.includeSubfolders,
       defaultView: settings.defaultView,

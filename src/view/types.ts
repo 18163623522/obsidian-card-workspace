@@ -2,7 +2,7 @@ import type { TFile } from "obsidian";
 import type { GroupSpec } from "../card-grouping-settings";
 import type { PropertyFilterClause, PropertyScalarRef } from "../property-filter-settings";
 import type { SearchQueryExecutionState } from "../search";
-import type { SortDirection, SortField } from "../settings";
+import type { LinksSortSpec, SortDirection, SortField } from "../settings";
 import type { CardFileKind } from "./file-kind";
 import type { CardScope } from "./scope";
 import type { CardTaskSummary } from "./task-summary";
@@ -121,6 +121,8 @@ export interface NoteCardRecord {
   taskSummary: CardTaskSummary | null;
   /** Query-local preview; never stored in the index or settings. */
   searchPreview?: import("../search").SearchPreview;
+  referenceCount?: number;
+  linkPreview?: import("./link-reference-preview").LinkReferencePreview;
 }
 
 export interface CardHoverLinkPayload {
@@ -141,7 +143,7 @@ export interface FolderSelectionRequest {
 
 export interface CardLoadKey {
   scope: CardScope;
-  sort: CardBoxSortSpec;
+  sort: LinksSortSpec;
 }
 
 export interface BulkRuntimeState {

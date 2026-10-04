@@ -2,7 +2,7 @@ import { DEFAULT_PREVIEW_LINES, PREVIEW_LINES_MAX, PREVIEW_LINES_MIN } from "../
 import type { LightPreviewResult } from "./markdown-utils";
 import type { SearchPreview } from "../search";
 
-export type CachedPreview = LightPreviewResult & { readonly searchPreview?: SearchPreview };
+export type CachedPreview = LightPreviewResult & { readonly searchPreview?: SearchPreview; readonly linkPreview?: import("./link-reference-preview").LinkReferencePreview };
 
 export const PREVIEW_CACHE_CAPACITY = 512;
 
@@ -77,7 +77,7 @@ export class PreviewCache {
       { ...base, contextKey: base.contextKey.match(/\|(?:file|live):.*$/)?.[0] ?? "" },
       { ...fingerprint, contextKey: fingerprint.contextKey.match(/\|(?:file|live):.*$/)?.[0] ?? "" });
     const entry: PreviewCacheEntry = compatible ? { ...previous } : {};
-    const slot = fingerprint.contextKey.startsWith("search:") || fingerprint.contextKey.startsWith("link:")
+    const slot = fingerprint.contextKey.startsWith("search:") || fingerprint.contextKey.startsWith("link:") || fingerprint.contextKey.includes("|links:")
       ? "contextual" : "ordinary";
     entry[slot] = { fingerprint, preview };
     this.entries.delete(fingerprint.path);

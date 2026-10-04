@@ -39,6 +39,7 @@ interface CardItemCallbacks {
   onCardContextMenu?: (payload: CardContextMenuPayload) => void;
   onBulkSelectCard?: (payload: BulkSelectCardPayload) => void;
   onCardHoverLink?: (payload: CardHoverLinkPayload) => void;
+  onToggleReferences?: (payload: { path: string }) => void;
 }
 
 interface CapturedCallbacks {
@@ -191,6 +192,135 @@ describe("CardItem.svelte", () => {
     vi.restoreAllMocks();
     mountedComponents = [];
     document.body.innerHTML = "";
+  });
+
+  function referenceCard(direction: "backlinks" | "outgoing" = "backlinks", expanded = false): NoteCardRecord {
+    return { ...createCard(), referenceCount: 5, linkPreview: {
+      direction, expanded, status: "ready", sourcePath: "source.md", sourceMtime: 1, sourceRevision: 0, contextKey: "context",
+      totalSnippets: 5, snippets: Array.from({ length: expanded ? 5 : 3 }, (_, index) => ({
+        id: `reference-${index}`, text: `Context ${index} <img src=x>`, ...buildLightPreview(`Context ${index} <img src=x>`), referenceCount: index === 0 ? 2 : 1,
+        location: { line: index * 2, identity: `location-${index}` },
+        targetLocation: direction === "outgoing" ? { line: index, identity: `target-${index}` } : undefined,
+      })),
+    } };
+  }
+
+  it("renders the occurrence badge, merged contexts and the remaining-context control safely", async () => {
+    const onOpenNote = vi.fn(), onToggleReferences = vi.fn();
+    const card = referenceCard();
+    const { target } = mountCardItem({ card }, { onOpenNote, onToggleReferences });
+    await tick();
+    expect(target.querySelector(".fce-card-reference-count")?.textContent).toBe("5 references");
+    expect(target.querySelectorAll(".fce-reference-snippet")).toHaveLength(3);
+    expect(target.querySelector(".fce-excerpt")?.classList.contains("fce-reference-list")).toBe(true);
+    expect(target.textContent).not.toContain("Preview text");
+    expect(target.querySelector(".fce-reference-paragraph-count")?.textContent).toContain("2 references");
+    expect(target.querySelector(".fce-reference-list img")).toBeNull();
+    target.querySelector<HTMLButtonElement>(".fce-reference-snippet")!.click();
+    expect(onOpenNote).toHaveBeenCalledExactlyOnceWith({ path: card.path, referenceId: "reference-0", referenceTarget: false });
+    const toggle = target.querySelector<HTMLButtonElement>(".fce-references-toggle")!;
+    expect(toggle.textContent).toContain("Show 2 more contexts");
+    toggle.click();
+    expect(onToggleReferences).toHaveBeenCalledExactlyOnceWith({ path: card.path });
+    expect(onOpenNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows outgoing reference content directly and emits distinct source and target clicks", async () => {
+    const onOpenNote = vi.fn();
+    const card = referenceCard("outgoing", true);
+    const { target } = mountCardItem({ card }, { onOpenNote });
+    await tick();
+    expect(target.querySelector(".fce-excerpt")?.textContent).toContain("Context 0");
+    expect(target.textContent).not.toContain("Preview text");
+    const snippet = target.querySelector<HTMLButtonElement>(".fce-reference-snippet")!;
+    snippet.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    target.querySelector<HTMLButtonElement>(".fce-reference-target")!.click();
+    expect(onOpenNote.mock.calls).toEqual([
+      [{ path: card.path, referenceId: "reference-0", referenceTarget: false }],
+      [{ path: card.path, referenceId: "reference-0", referenceTarget: true }],
+    ]);
+    expect(target.querySelector(".fce-references-toggle")?.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("renders destination content with the regular preview classes and opens the shown target on click", async () => {
+    const onOpenNote = vi.fn();
+    const card = referenceCard("outgoing");
+    const preview = buildLightPreview("# Target\nReferenced `code`\n- [ ] readonly task");
+    card.linkPreview = { ...card.linkPreview!, totalSnippets: 1, snippets: [{
+      ...card.linkPreview!.snippets[0], ...preview, text: "Target referenced code", displayTarget: true,
+    }] };
+    const { target } = mountCardItem({ card }, { onOpenNote });
+    await tick();
+    expect(target.querySelector(".fce-excerpt .fce-preview-heading")?.textContent).toBe("Target");
+    expect(target.querySelector(".fce-excerpt code")?.textContent).toBe("code");
+    expect(target.querySelector(".fce-excerpt .fce-preview-task")).not.toBeNull();
+    expect(target.querySelector("blockquote")).toBeNull();
+    expect(target.textContent).not.toContain("Preview text");
+    expect(target.querySelector(".fce-reference-target")).toBeNull();
+    target.querySelector<HTMLButtonElement>(".fce-reference-snippet")!.click();
+    expect(onOpenNote).toHaveBeenCalledExactlyOnceWith({ path: card.path, referenceId: "reference-0", referenceTarget: true });
+  });
+
+  it("keeps title-only link search previews on the referenced content", async () => {
+    const card = referenceCard();
+    card.searchPreview = { query: "title", revision: 1, mtime: card.mtime, previewLines: 5, snippetLimit: 2, status: "title-only", snippets: [] };
+    const { target } = mountCardItem({ card, searchQuery: "title" });
+    await tick();
+    expect(target.querySelectorAll(".fce-reference-snippet")).toHaveLength(3);
+    expect(target.textContent).not.toContain("Preview text");
+  });
+
+  it("renders plain outgoing links with the ordinary opening preview and its configured line budget", async () => {
+    const onOpenNote = vi.fn();
+    const card = referenceCard("outgoing");
+    const preview = buildLightPreview("Opening text\nSecond line\nThird line\nFourth line\nFifth line", undefined, 5);
+    card.linkPreview = { ...card.linkPreview!, totalSnippets: 1, snippets: [{
+      ...card.linkPreview!.snippets[0], ...preview, text: "Opening text", displayTarget: true, openingPreview: true,
+    }] };
+    const { target } = mountCardItem({ card, previewLines: 5 }, { onOpenNote });
+    await tick();
+    const opening = target.querySelector<HTMLButtonElement>(".fce-reference-snippet.is-opening")!;
+    expect(opening.querySelector(".fce-reference-content")).toBeNull();
+    expect(opening.querySelector<HTMLElement>(".fce-excerpt")?.style.getPropertyValue("--fce-preview-line-clamp")).toBe("5");
+    expect(opening.textContent).toContain("Fifth line");
+    opening.click();
+    expect(onOpenNote).toHaveBeenCalledExactlyOnceWith({ path: card.path, referenceId: "reference-0", referenceTarget: true });
+  });
+
+  it("keeps search as the primary preview and preserves expansion after a component remount", async () => {
+    const card = referenceCard();
+    const first = mountCardItem({ card, searchQuery: "query" });
+    await tick();
+    expect(first.target.querySelector(".fce-excerpt")).not.toBeNull();
+    expect(first.target.querySelector(".fce-reference-list")).toBeNull();
+    await disposeMountedComponent(first.component);
+    const next = mountCardItem({ card: referenceCard("backlinks", true) });
+    await tick();
+    expect(next.target.querySelectorAll(".fce-reference-snippet")).toHaveLength(5);
+    expect(next.target.querySelector(".fce-references-toggle")?.textContent).toContain("Collapse references");
+  });
+
+  it("routes reference clicks to bulk selection while bulk mode is active", async () => {
+    const onOpenNote = vi.fn(), onBulkSelectCard = vi.fn();
+    const card = referenceCard();
+    const { target } = mountCardItem({ card, bulkMode: true }, { onOpenNote, onBulkSelectCard });
+    await tick();
+    target.querySelector<HTMLButtonElement>(".fce-reference-snippet")!.click();
+    expect(onOpenNote).not.toHaveBeenCalled();
+    expect(onBulkSelectCard).toHaveBeenCalledExactlyOnceWith({ path: card.path, shiftKey: false });
+  });
+
+  it("handles reference keyboard events from another window without opening on Tab", async () => {
+    const onOpenNote = vi.fn();
+    const { target } = mountCardItem({ card: referenceCard() }, { onOpenNote });
+    const iframe = document.createElement("iframe"); document.body.appendChild(iframe);
+    const ForeignKeyboardEvent = (iframe.contentWindow as unknown as { KeyboardEvent: typeof KeyboardEvent }).KeyboardEvent;
+    await tick();
+    const button = target.querySelector<HTMLButtonElement>(".fce-reference-snippet")!;
+    button.dispatchEvent(new ForeignKeyboardEvent("keydown", { key: "Tab", bubbles: true }));
+    expect(onOpenNote).not.toHaveBeenCalled();
+    button.dispatchEvent(new ForeignKeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    expect(onOpenNote).toHaveBeenCalledTimes(1);
   });
 
   it.each(["right", "inline"])("renders %s images with click/drag behavior and a stable failure region", async (cardImageMode) => {

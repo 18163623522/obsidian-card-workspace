@@ -1,6 +1,6 @@
 import { normalizeGroupSpec, type GroupSpec } from "../../card-grouping-settings";
 import { normalizePropertyKey } from "../../property-filter-settings";
-import type { SortDirection, SortField } from "../../settings";
+import type { LinksSortField, SortDirection } from "../../settings";
 import { compareCards } from "../card-sort";
 import type { GroupCollapseController } from "../controllers/GroupCollapseController";
 import type { SourceCapabilities } from "../source-capabilities";
@@ -91,9 +91,20 @@ export class ArrangementActions {
     field?: unknown;
     direction?: unknown;
   }): Promise<void> {
-    const nextField: SortField =
-      detail.field === "ctime" || detail.field === "name" ? detail.field : "mtime";
+    const scope = this.deps.context.store.getScope();
+    const nextField: LinksSortField = scope.kind === "links" && detail.field === "reference-count"
+      ? "reference-count" : detail.field === "ctime" || detail.field === "name" ? detail.field : "mtime";
     const nextDirection: SortDirection = detail.direction === "asc" ? "asc" : "desc";
+    if (scope.kind === "links") {
+      const settings = this.deps.context.getSettings();
+      const current = settings.linksSort[scope.direction];
+      if (current.field !== nextField || current.direction !== nextDirection) {
+        await this.deps.saveSettings({ linksSort: { ...settings.linksSort, [scope.direction]: { field: nextField, direction: nextDirection } } });
+      }
+      return;
+    }
+    // Reference count is a Links-only field.
+    if (nextField === "reference-count") return;
     const owner = this.resolveArrangementOwner();
 
     if (owner.kind === "box") {

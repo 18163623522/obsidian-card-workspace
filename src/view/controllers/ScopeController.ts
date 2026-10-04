@@ -4,7 +4,7 @@ import { AsyncEpoch, type EpochToken } from "../async-epoch";
 import { findCardBox, getBoxMembershipSignature } from "../card-boxes";
 import { resolveCardFileKindFromPath } from "../file-kind";
 import { FolderScopeFileCache } from "../folder-scope-file-cache";
-import { collectLinksFiles, isPathRelevantToLinksScope } from "../links-sources";
+import { collectLinksFiles, isPathRelevantToLinksScope, readLinkReferenceCount } from "../links-sources";
 import { createFolderScope, scopeDisplayPath, scopesEqual,
   serializeScopeKey, validateScope, type CardScope } from "../scope";
 import { resolveViewConfig } from "../view-config";
@@ -477,6 +477,10 @@ export class ScopeController implements DisposableController {
       const outcome = applyIncrementalMutation(event, this.context.store.getBaseCards(), {
         app: this.context.getApp(),
         sort: this.buildLoadKey(this.context.store.getScope()).sort,
+        prepareOrderMetadata: (card) => {
+          const scope = this.context.store.getScope();
+          if (scope.kind === "links") card.referenceCount = readLinkReferenceCount(this.context.getApp(), scope, card.path);
+        },
         pendingHydration: {
           has: this.deps.hasPendingHydration,
           delete: this.deps.deletePendingHydration,

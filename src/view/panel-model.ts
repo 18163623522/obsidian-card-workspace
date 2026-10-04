@@ -1,7 +1,7 @@
 import type { CardImageState } from "../images/types";
 import type { CardImageFit, CardImageMode } from "../settings";
 import type { GroupDimension, GroupSpec } from "../card-grouping-settings";
-import type { CardCornerRadius, SortDirection, SortField } from "../settings";
+import type { CardCornerRadius, SortDirection, LinksSortField } from "../settings";
 import type { UiStrings } from "../i18n";
 import { isLinksScope, type CardScope } from "./scope";
 import { resolveSourceCapabilities } from "./source-capabilities";
@@ -27,6 +27,8 @@ import type {
 export interface OpenNotePayload {
   path: string;
   snippetId?: string;
+  referenceId?: string;
+  referenceTarget?: boolean;
 }
 
 export interface BoxSummary {
@@ -172,7 +174,7 @@ export interface PanelSearchState {
 }
 
 export interface PanelProjectionState {
-  sortField: SortField;
+  sortField: LinksSortField;
   sortDirection: SortDirection;
   availableTags: string[];
   tagCounts: Record<string, number>;

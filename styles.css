@@ -1553,6 +1553,69 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
   opacity: 1;
 }
 
+.folder-card-view .fce-card-reference-count {
+  flex-shrink: 0;
+  font-size: var(--font-smallest);
+  color: var(--text-muted);
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--background-secondary);
+}
+
+.folder-card-view .fce-reference-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--fce-preview-font-size);
+  line-height: var(--fce-preview-line-height);
+}
+
+.folder-card-view .fce-excerpt.fce-reference-list {
+  max-block-size: none;
+}
+
+.folder-card-view .fce-reference-content {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  line-height: var(--fce-preview-line-height);
+  overflow-wrap: anywhere;
+}
+
+.folder-card-view .fce-reference-paragraph-count {
+  color: var(--text-faint);
+  font-size: var(--font-smallest);
+}
+
+.folder-card-view .fce-references-toggle,
+.folder-card-view .fce-reference-target {
+  height: auto;
+  padding: 4px 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text-accent);
+  font-size: var(--font-smallest);
+  text-align: left;
+  cursor: pointer;
+}
+
+.folder-card-view .fce-card-body.has-right-image .fce-reference-details {
+  grid-column: 1;
+  grid-row: 3;
+  min-width: 0;
+}
+
+.folder-card-view .fce-card-body.has-right-image.has-reference-preview .fce-reference-details {
+  grid-row: 2;
+}
+
+.folder-card-view .fce-card-body.has-right-image.has-reference-details .fce-card-task-footer {
+  grid-row: auto;
+}
+
 /* === preview === */
 .folder-card-view .fce-excerpt {
   margin: 0;
@@ -1597,6 +1660,10 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 .folder-card-view .fce-search-snippet:hover,
 .folder-card-view .fce-search-snippet:focus-visible {
   background: var(--background-modifier-hover);
+}
+
+.folder-card-view .fce-reference-snippet.is-opening {
+  height: auto;
 }
 
 .folder-card-view .fce-search-snippet-text {

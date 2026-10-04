@@ -1,12 +1,13 @@
-import type { SortDirection, SortField } from "../settings";
+import type { SortDirection, LinksSortField } from "../settings";
 import type { NoteCardRecord } from "./types";
 
-/** Sort key shared by card records and scope files. */
+/** Snapshot sort key shared by records and files; counts are populated only for Links. */
 export interface CardOrderKey {
   name: string;
   ctime: number;
   mtime: number;
   path: string;
+  referenceCount?: number;
 }
 
 /**
@@ -16,11 +17,13 @@ export interface CardOrderKey {
 export function compareCardOrderKeys(
   left: CardOrderKey,
   right: CardOrderKey,
-  field: SortField,
+  field: LinksSortField,
   direction: SortDirection,
 ): number {
   let difference: number;
-  if (field === "name") {
+  if (field === "reference-count") {
+    difference = (left.referenceCount ?? 0) - (right.referenceCount ?? 0);
+  } else if (field === "name") {
     difference = left.name.localeCompare(right.name);
   } else {
     const leftValue = field === "ctime" ? left.ctime : left.mtime;
@@ -38,12 +41,12 @@ export function compareCardOrderKeys(
 export function compareCards(
   left: NoteCardRecord,
   right: NoteCardRecord,
-  field: SortField,
+  field: LinksSortField,
   direction: SortDirection,
 ): number {
   return compareCardOrderKeys(
-    { name: left.title, ctime: left.ctime, mtime: left.mtime, path: left.path },
-    { name: right.title, ctime: right.ctime, mtime: right.mtime, path: right.path },
+    { name: left.title, ctime: left.ctime, mtime: left.mtime, path: left.path, referenceCount: left.referenceCount },
+    { name: right.title, ctime: right.ctime, mtime: right.mtime, path: right.path, referenceCount: right.referenceCount },
     field,
     direction,
   );
@@ -53,7 +56,7 @@ export function compareCards(
 export function findSortedInsertIndex(
   cards: readonly NoteCardRecord[],
   card: NoteCardRecord,
-  field: SortField,
+  field: LinksSortField,
   direction: SortDirection,
 ): number {
   let low = 0;

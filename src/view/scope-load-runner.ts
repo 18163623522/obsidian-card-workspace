@@ -2,6 +2,7 @@ import type { TFile } from "obsidian";
 
 import { normalizeGroupSpec } from "../card-grouping-settings";
 import type { EpochToken } from "./async-epoch";
+import { readLinkReferenceCount } from "./links-sources";
 import { createCardRecord } from "./card-record";
 import { resolveCardFileKind } from "./file-kind";
 import type { FolderScopeFileCache } from "./folder-scope-file-cache";
@@ -75,7 +76,9 @@ function materializeFiles(
   for (const file of files) {
     const fileKind = resolveCardFileKind(file);
     if (fileKind !== null) {
-      records.push(createCardRecord(app, file, fileKind, deriveTasks));
+      const record = createCardRecord(app, file, fileKind, deriveTasks);
+      if (runtime.loadScope.scope.kind === "links") record.referenceCount = readLinkReferenceCount(app, runtime.loadScope.scope, record.path);
+      records.push(record);
     }
   }
   return records;
@@ -172,7 +175,10 @@ export async function runScopeLoad(runtime: ScopeLoadRuntime): Promise<boolean> 
     const candidateVaultGeneration = context.epochs.vaultContent.value;
     const files = cachedFiles ?? enumerateScopeFiles(runtime, loadToken);
     if (files === null || !isCurrent(runtime, loadToken)) return false;
-    const orderedFiles = cachedFiles ?? orderScopeFiles(files, loadScope.sort, []);
+    const linksScope = loadScope.scope.kind === "links" ? loadScope.scope : null;
+    const referenceCounts = linksScope
+      ? new Map(files.map((file) => [file.path, readLinkReferenceCount(context.getApp(), linksScope, file.path)])) : undefined;
+    const orderedFiles = cachedFiles ?? orderScopeFiles(files, loadScope.sort, [], referenceCounts);
     if (!isCurrent(runtime, loadToken)) return false;
 
     const settings = context.getSettings();

@@ -142,6 +142,15 @@ export function resolveSettingsUpdateIntent(
 ): ViewUpdateIntent | null {
   let intent: ViewUpdateIntent | null = null;
 
+  if (previous.backlinkSnippetCount !== next.backlinkSnippetCount) {
+    intent = mergeIntent(intent, scope && scope.kind !== "links" ? "patch" : "rehydrate");
+  }
+  for (const direction of ["backlinks", "outgoing"] as const) {
+    if (previous.linksSort[direction].field !== next.linksSort[direction].field || previous.linksSort[direction].direction !== next.linksSort[direction].direction) {
+      intent = mergeIntent(intent, !scope || (scope.kind === "links" && scope.direction === direction) ? "reproject" : "patch");
+    }
+  }
+
   if (previous.includeSubfolders !== next.includeSubfolders) {
     intent = mergeIntent(intent, "reload");
   }

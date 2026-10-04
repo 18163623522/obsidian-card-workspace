@@ -61,6 +61,9 @@ function declarativeSettingPatch(key: string, value: unknown): PartialPluginSett
         && value <= SEARCH_PREVIEW_SNIPPET_COUNT_MAX
         ? { searchPreviewSnippetCount: value }
         : null;
+    case "backlinkSnippetCount":
+      return value === "all" || value === "1" || value === "2" || value === "3"
+        ? { backlinkSnippetCount: value === "all" ? "all" : Number(value) as 1 | 2 | 3 } : null;
     case "showNavItemCounts":
       return typeof value === "boolean" ? { showNavItemCounts: value } : null;
     case "locateLinkCardOnOpen":
@@ -87,6 +90,8 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
   getControlValue(key: string): unknown {
     const settings = this.plugin.getSettings();
     switch (key) {
+      case "backlinkSnippetCount":
+        return String(settings.backlinkSnippetCount);
       case "defaultCardOpenBehavior":
         return settings.defaultCardOpenBehavior;
       case "dragInsertAction":
@@ -192,6 +197,11 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
               max: PREVIEW_LINES_MAX,
               step: 1,
             },
+          },
+          {
+            name: strings.backlinkSnippetCountName,
+            desc: strings.backlinkSnippetCountDesc,
+            control: { type: "dropdown", key: "backlinkSnippetCount", options: { "1": "1", "2": "2", "3": "3", all: strings.allReferenceSnippets } },
           },
           {
             name: strings.searchPreviewSnippetCountName,

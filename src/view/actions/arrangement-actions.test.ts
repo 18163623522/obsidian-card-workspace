@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_GROUP_SPEC } from "../../card-grouping-settings";
 import { DEFAULT_SETTINGS, mergeSettings, type PartialPluginSettings, type PluginSettings } from "../../settings";
 import { GroupCollapseController } from "../controllers/GroupCollapseController";
-import { createBoxScope, createFolderScope, type CardScope } from "../scope";
+import { createBoxScope, createFolderScope, createLinksScope, type CardScope } from "../scope";
 import { resolveSourceCapabilities } from "../source-capabilities";
 import type { CardBoxDefinition, NoteCardRecord } from "../types";
 import { createViewEpochs } from "../view-epochs";
@@ -24,6 +24,24 @@ function makeCard(path: string, title: string, mtime = 1): NoteCardRecord {
     taskSummary: null,
   };
 }
+
+describe("independent links arrangement", () => {
+  it("writes only the current links direction and retains global sort, pins and grouping", async () => {
+    const h = createHarness({ scope: createLinksScope("source.md", "backlinks") });
+    const previous = h.getSettings();
+    await h.actions.onSortChange({ field: "name", direction: "asc" });
+    const next = h.getSettings();
+    expect(next.linksSort.backlinks).toEqual({ field: "name", direction: "asc" });
+    expect(next.linksSort.outgoing).toEqual(previous.linksSort.outgoing);
+    expect(next.sort).toEqual(previous.sort);
+    expect(next.pinnedPaths).toEqual(previous.pinnedPaths);
+    expect(next.group).toEqual(previous.group);
+    h.store.setScope(createLinksScope("source.md", "outgoing"));
+    await h.actions.onSortChange({ field: "reference-count", direction: "asc" });
+    expect(h.getSettings().linksSort.backlinks).toEqual(next.linksSort.backlinks);
+    expect(h.getSettings().linksSort.outgoing).toEqual({ field: "reference-count", direction: "asc" });
+  });
+});
 
 function makeBox(overrides: Partial<CardBoxDefinition> = {}): CardBoxDefinition {
   return {

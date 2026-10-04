@@ -41,6 +41,7 @@ function createPlugin(
       enableHeadingDragInsert: false,
       newNoteTemplate: "blank",
       previewLines: 6,
+      backlinkSnippetCount: 3,
       searchPreviewSnippetCount: 2,
       showNavItemCounts: false,
       cardImageMode: "off",
@@ -95,6 +96,7 @@ describe("CardWorkspaceSettingTab", () => {
     expect(rowsOf(appearance).map((row) => row.name)).toEqual([
       "Card corner radius",
       "Preview lines",
+      "Default backlink reference snippets",
       "Maximum search hit snippets in each card preview",
       "Card images",
       "Image fit",
@@ -151,20 +153,21 @@ describe("CardWorkspaceSettingTab", () => {
       max: 8,
       step: 1,
     });
-    expect(controlOf(appearanceRows[2])).toEqual({
+    expect(controlOf(appearanceRows[2])).toEqual({ type: "dropdown", key: "backlinkSnippetCount", options: { "1": "1", "2": "2", "3": "3", all: "All" } });
+    expect(controlOf(appearanceRows[3])).toEqual({
       type: "slider", key: "searchPreviewSnippetCount", min: 1, max: 5, step: 1,
     });
-    expect(controlOf(appearanceRows[3])).toEqual({
+    expect(controlOf(appearanceRows[4])).toEqual({
       type: "dropdown",
       key: "cardImageMode",
       options: { off: "Off", right: "Right thumbnail", inline: "Below title" },
     });
-    expect(controlOf(appearanceRows[4])).toEqual({
+    expect(controlOf(appearanceRows[5])).toEqual({
       type: "dropdown",
       key: "cardImageFit",
       options: { contain: "Show whole image", cover: "Crop to fill" },
     });
-    expect(controlOf(appearanceRows[5])).toEqual({ type: "toggle", key: "showNavItemCounts" });
+    expect(controlOf(appearanceRows[6])).toEqual({ type: "toggle", key: "showNavItemCounts" });
   });
 
   it("keeps descriptions on every row, including the Remember Cursor Position caveat", () => {
@@ -181,7 +184,7 @@ describe("CardWorkspaceSettingTab", () => {
   it("only offers the image fit row while card images are enabled", () => {
     const plugin = createPlugin({ cardImageMode: "off" });
     const tab = createTab(plugin);
-    const fit = rowsOf(groupsOf(tab.getSettingDefinitions())[1])[4];
+    const fit = rowsOf(groupsOf(tab.getSettingDefinitions())[1])[5];
     const isVisible = fit?.visible as () => boolean;
 
     expect(isVisible()).toBe(false);
@@ -207,12 +210,13 @@ describe("CardWorkspaceSettingTab", () => {
     expect(rowsOf(appearance).map((row) => row.name)).toEqual([
       "卡片圆角",
       "预览行数",
+      "反链默认显示的引用片段数",
       "每张卡片预览最多显示的命中片段",
       "卡片图片",
       "图片显示方式",
       "在导航栏显示条目计数",
     ]);
-    expect(rowsOf(appearance)[2]?.desc).toBe("搜索时最多显示多少个正文命中片段，每个片段占两行。");
+    expect(rowsOf(appearance)[3]?.desc).toBe("搜索时最多显示多少个正文命中片段，每个片段占两行。");
     expect(controlOf(rowsOf(behavior)[0])).toMatchObject({
       options: { smart: "当前窗格 / 当前标签页" },
     });
@@ -240,12 +244,22 @@ describe("CardWorkspaceSettingTab", () => {
     expect(tab.getControlValue("newNoteTemplate")).toBe("blank");
     expect(tab.getControlValue("cardCornerRadius")).toBe("medium");
     expect(tab.getControlValue("previewLines")).toBe(6);
+    expect(tab.getControlValue("backlinkSnippetCount")).toBe("3");
     expect(tab.getControlValue("searchPreviewSnippetCount")).toBe(2);
     expect(tab.getControlValue("showNavItemCounts")).toBe(false);
     expect(tab.getControlValue("locateLinkCardOnOpen")).toBe(false);
     expect(tab.getControlValue("cardImageMode")).toBe("off");
     expect(tab.getControlValue("cardImageFit")).toBe("contain");
     expect(tab.getControlValue("pinnedPaths")).toBeUndefined();
+  });
+
+  it("converts native reference count dropdown values and rejects unsupported options", async () => {
+    const plugin = createPlugin(), tab = createTab(plugin);
+    for (const count of ["1", "2", "3", "all"]) await tab.setControlValue("backlinkSnippetCount", count);
+    for (const value of ["4", "0", "", 1, null]) await tab.setControlValue("backlinkSnippetCount", value);
+    expect(plugin.saveSettings.mock.calls).toEqual([
+      [{ backlinkSnippetCount: 1 }], [{ backlinkSnippetCount: 2 }], [{ backlinkSnippetCount: 3 }], [{ backlinkSnippetCount: "all" }],
+    ]);
   });
 
   it("saves valid changes through the plugin and ignores values outside the schema", async () => {

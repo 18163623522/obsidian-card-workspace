@@ -39,7 +39,7 @@ function harness(
     return listItems ? { listItems } : null;
   });
   const context = {
-    getApp: () => ({ vault: { cachedRead: read }, metadataCache: { getFileCache } }),
+    getApp: () => ({ vault: { cachedRead: read, getAbstractFileByPath: () => null }, metadataCache: { getFileCache } }),
     store, epochs: createViewEpochs(),
     getSettings: () => ({ ...DEFAULT_SETTINGS, previewLines: 5 }),
     getUiStrings: () => getUiStrings("en"), publishGroups: vi.fn(),

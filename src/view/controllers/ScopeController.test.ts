@@ -1184,7 +1184,7 @@ describe("ScopeController", () => {
       const scope = createLinksScope("notes/A.md", "backlinks");
       const serialized = controller.serializeLoadKey(controller.buildLoadKey(scope));
 
-      expect(serialized).toBe("links::notes/A.md::backlinks::mtime::desc");
+      expect(serialized).toBe("links::notes/A.md::backlinks::reference-count::desc");
     });
   });
 
@@ -1231,10 +1231,10 @@ describe("ScopeController", () => {
         [NOTE_C]: { [NOTE_A]: 1 },
       });
       context.store.setScope(createLinksScope(NOTE_A, "backlinks"));
-      context.store.replaceBaseCards([membershipRecord(NOTE_B)]);
+      context.store.replaceBaseCards([{ ...membershipRecord(NOTE_B), referenceCount: 1 }]);
 
       expect(controller.reconcileMetadataMembershipForPath(NOTE_C)).toBe("entered");
-      expect(context.store.getBaseCards().map((card) => card.path)).toEqual([NOTE_C, NOTE_B]);
+      expect(context.store.getBaseCards().map((card) => card.path)).toEqual([NOTE_B, NOTE_C]);
       expect(controller.reconcileMetadataMembershipForPath(NOTE_C)).toBe("unchanged");
 
       (context.getApp() as { metadataCache: { resolvedLinks: Record<string, Record<string, number>> } })
@@ -1271,7 +1271,7 @@ describe("ScopeController", () => {
       });
 
       expect(context.store.getScope()).toEqual(createLinksScope("notes/A2.md", "backlinks"));
-      expect(controller.getLoadKey()).toBe("links::notes/A2.md::backlinks::mtime::desc");
+      expect(controller.getLoadKey()).toBe("links::notes/A2.md::backlinks::reference-count::desc");
       expect(controller.getLoadKey()).not.toBe(previousKey);
       expect(result.shouldRefresh).toBe(false);
       expect(result.queueAction).toBe("ignored");
@@ -1433,7 +1433,7 @@ describe("ScopeController", () => {
         "notes/D.md": makeLiveFile("notes/D.md"),
       }, { [NOTE_A]: { [NOTE_B]: 1 } });
       context.store.setScope(createLinksScope(NOTE_A, "outgoing"));
-      context.store.replaceBaseCards([membershipRecord(NOTE_B)]);
+      context.store.replaceBaseCards([{ ...membershipRecord(NOTE_B), referenceCount: 1 }]);
 
       const result = controller.handleVaultMutation({
         eventType: "rename",
@@ -1456,7 +1456,7 @@ describe("ScopeController", () => {
         "notes/B2.md": makeLiveFile("notes/B2.md"),
       }, { [NOTE_A]: { [NOTE_B]: 1 } });
       context.store.setScope(createLinksScope(NOTE_A, "outgoing"));
-      context.store.replaceBaseCards([membershipRecord(NOTE_B)]);
+      context.store.replaceBaseCards([{ ...membershipRecord(NOTE_B), referenceCount: 1 }]);
 
       const result = controller.handleVaultMutation({
         eventType: "rename",

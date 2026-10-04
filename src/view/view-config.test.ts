@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_GROUP_SPEC } from "../card-grouping-settings";
-import type { PluginSettings } from "../settings";
-import { createBoxScope, createFolderScope } from "./scope";
+import { DEFAULT_SETTINGS, type PluginSettings } from "../settings";
+import { createBoxScope, createFolderScope, createLinksScope } from "./scope";
 import type { CardBoxDefinition } from "./types";
 import { resolveViewConfig } from "./view-config";
 
@@ -31,6 +31,18 @@ function makeSettings(overrides: Partial<PluginSettings> = {}): PluginSettings {
 }
 
 describe("resolveViewConfig", () => {
+  it("uses the direction's links sort by reference while keeping global pins and grouping", () => {
+    const settings = { ...DEFAULT_SETTINGS, linksSort: {
+      backlinks: { field: "reference-count" as const, direction: "desc" as const },
+      outgoing: { field: "name" as const, direction: "asc" as const },
+    } };
+    for (const direction of ["backlinks", "outgoing"] as const) {
+      const result = resolveViewConfig(createLinksScope("note.md", direction), settings);
+      expect(result.sort).toBe(settings.linksSort[direction]);
+      expect(result.pinnedPaths).toBe(settings.pinnedPaths);
+      expect(result.group).toBe(settings.group);
+    }
+  });
   it("returns global sort and pins for folder scope", () => {
     const settings = makeSettings({ boxes: [makeBox()] });
     const result = resolveViewConfig(createFolderScope("notes", true), settings);

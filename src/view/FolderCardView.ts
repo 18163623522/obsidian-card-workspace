@@ -352,7 +352,7 @@ export class FolderCardView extends ItemView {
         this.modules.hydration.resetForLoad();
         this.store.advanceHydrationRevision();
         this.baseCards = this.baseCards.map((card) => ({
-          ...card, hydrated: false, previewHtml: "", previewMode: "empty", searchPreview: undefined,
+          ...card, hydrated: false, previewHtml: "", previewMode: "empty", searchPreview: undefined, linkPreview: undefined,
         }));
         this.projectVisibleCards();
         this.publishForIntent(intent);

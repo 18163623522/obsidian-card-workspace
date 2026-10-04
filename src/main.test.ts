@@ -1756,6 +1756,28 @@ describe("CardWorkspacePlugin open destination routing", () => {
     return { plugin, app, target, view, leaf, location };
   }
 
+  it.each(["source", "preview"] as const)("explicit reference clicks locate in %s with automatic link positioning disabled", async (mode) => {
+    vi.useFakeTimers();
+    try {
+      const { plugin, target, view, location } = linkOpenHarness(mode);
+      mutateStoreMemory(plugin, { locateLinkCardOnOpen: false });
+      let current = true;
+      await plugin.openNoteFromCard(target.path, "new-tab", { kind: "link-reference", location, isCurrent: () => current });
+      if (mode === "source") expect(view.editor.setCursor).toHaveBeenCalledWith({ line: 1, ch: 7 });
+      else expect(view.setEphemeralState).toHaveBeenCalledWith({ line: 1 });
+      current = false;
+      vi.advanceTimersByTime(400);
+      expect(mode === "source" ? view.editor.setCursor : view.setEphemeralState).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("does not guess when a reference moved within its old line", async () => {
+    const { plugin, target, view, location } = linkOpenHarness();
+    view.getViewData.mockReturnValue("intro\nlinked changed [[target]] here\nmore");
+    await plugin.openNoteFromCard(target.path, "new-tab", { kind: "link-reference", location, isCurrent: () => true });
+    expect(view.editor.setCursor).not.toHaveBeenCalled();
+  });
+
   it("positions edit and reading views, then corrects at 400 ms", async () => {
     vi.useFakeTimers();
     try {

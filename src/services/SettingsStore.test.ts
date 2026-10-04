@@ -636,6 +636,8 @@ describe("SettingsStore — layer manifest classification (C4)", () => {
   // layer's split and nowhere else, so the typed mapping cannot drift from
   // SETTINGS_LAYER_BY_KEY.
   const classificationCases: Array<[key: keyof PluginSettings, patch: PartialPluginSettings]> = [
+    ["linksSort", { linksSort: DEFAULT_SETTINGS.linksSort }],
+    ["backlinkSnippetCount", { backlinkSnippetCount: "all" }],
     ["sort", { sort: { field: "name", direction: "asc" } }],
     ["group", { group: { dimension: "tag", orderBy: "count", orderDirection: "desc" } }],
     ["includeSubfolders", { includeSubfolders: false }],

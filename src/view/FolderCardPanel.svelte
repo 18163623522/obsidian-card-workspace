@@ -105,6 +105,7 @@
   interface FolderCardPanelProps {
     panelModel: PanelModel;
     onOpenNote?: (payload: OpenNotePayload) => void;
+    onToggleReferences?: (payload: { path: string }) => void;
     onBulkSelectCard?: (payload: BulkSelectCardPayload) => void;
     onCardContextMenu?: (payload: CardContextMenuPayload) => void;
     onPinToggle?: (payload: PinTogglePayload) => void;
@@ -204,6 +205,7 @@
   let {
     panelModel,
     onOpenNote,
+    onToggleReferences,
     onBulkSelectCard,
     onCardContextMenu,
     onPinToggle,
@@ -963,6 +965,7 @@
                 bulkSelected={bulk.bulkMode && bulk.selectedPaths.includes(card.path)}
                 selected={cards.selectedPath === card.path}
                 onOpenNote={handleCardOpenNote}
+                {onToggleReferences}
                 onBulkSelectCard={handleCardBulkSelect}
                 onCardContextMenu={handleCardContextMenu}
                 onPinToggle={handleCardPinToggle}

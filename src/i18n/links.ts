@@ -1,6 +1,14 @@
 import type { UiLanguage } from "./types";
 
 export interface LinksStrings {
+  referenceCount: (count: number) => string;
+  paragraphCount: (count: number) => string;
+  remainingReferences: (count: number) => string;
+  sourceReferences: (count: number) => string;
+  showReferences: string;
+  collapseReferences: string;
+  openTarget: string;
+  referencesUnavailable: string;
   sectionLabel: string;
   directionBacklinks: string;
   directionOutgoing: string;
@@ -14,6 +22,14 @@ export interface LinksStrings {
 
 export const linksStrings: Record<UiLanguage, LinksStrings> = {
   en: {
+    referenceCount: (count) => `${count} ${count === 1 ? "reference" : "references"}`,
+    paragraphCount: (count) => `${count} references in this paragraph`,
+    remainingReferences: (count) => `Show ${count} more ${count === 1 ? "context" : "contexts"}`,
+    sourceReferences: (count) => `${count} references in the current note`,
+    showReferences: "Show reference contexts",
+    collapseReferences: "Collapse references",
+    openTarget: "Open target location",
+    referencesUnavailable: "Reference context unavailable",
     sectionLabel: "Links",
     directionBacklinks: "Backlinks",
     directionOutgoing: "Outgoing links",
@@ -25,6 +41,14 @@ export const linksStrings: Record<UiLanguage, LinksStrings> = {
     emptySnapshotNotice: "There are no linked notes to save.",
   },
   zh: {
+    referenceCount: (count) => `引用 ${count} 次`,
+    paragraphCount: (count) => `本段 ${count} 次`,
+    remainingReferences: (count) => `查看其余 ${count} 个引用片段`,
+    sourceReferences: (count) => `当前笔记中的 ${count} 处引用`,
+    showReferences: "查看引用上下文",
+    collapseReferences: "收起引用",
+    openTarget: "打开目标位置",
+    referencesUnavailable: "暂无可用的引用上下文",
     sectionLabel: "双链",
     directionBacklinks: "反链",
     directionOutgoing: "出链",

@@ -14,6 +14,10 @@ import type { CardBoxDefinition, CardBoxSortSpec, FavoriteEntry, NavSectionId, R
 
 export type SortField = "mtime" | "ctime" | "name";
 
+export type LinksSortField = SortField | "reference-count";
+export interface LinksSortSpec { field: LinksSortField; direction: SortDirection }
+export type BacklinkSnippetCount = 1 | 2 | 3 | "all";
+
 export type SortDirection = "desc" | "asc";
 
 export type DefaultViewMode = "cards";
@@ -130,6 +134,8 @@ export function isCardImageMode(value: unknown): value is CardImageMode { return
 export function isCardImageFit(value: unknown): value is CardImageFit { return value === "contain" || value === "cover"; }
 
 export interface PluginSettings {
+  linksSort: { backlinks: LinksSortSpec; outgoing: LinksSortSpec };
+  backlinkSnippetCount: BacklinkSnippetCount;
   sort: {
     field: SortField;
     direction: SortDirection;
@@ -171,6 +177,8 @@ export type PartialPluginSettings = Omit<Partial<PluginSettings>, "sort" | "filt
 };
 
 export const DEFAULT_SETTINGS: PluginSettings = {
+  linksSort: { backlinks: { field: "reference-count", direction: "desc" }, outgoing: { field: "reference-count", direction: "desc" } },
+  backlinkSnippetCount: 3,
   sort: {
     field: "mtime",
     direction: "desc",
@@ -527,10 +535,16 @@ function normalizeSectionCollapsed(data: Record<string, unknown>): Record<NavSec
   return result;
 }
 
+export function normalizeLinksSort(value: unknown): LinksSortSpec {
+  const sort = isRecord(value) ? value : {};
+  return { field: sort.field === "name" || sort.field === "mtime" || sort.field === "ctime" ? sort.field : "reference-count", direction: sort.direction === "asc" ? "asc" : "desc" };
+}
+
 function normalizeFlatSettings(raw: unknown): PluginSettings {
   const data = isRecord(raw) ? raw : {};
   const sort = isRecord(data.sort) ? data.sort : {};
   const filter = isRecord(data.filter) ? data.filter : {};
+  const linksSort = isRecord(data.linksSort) ? data.linksSort : {};
   const boxes = normalizeBoxes(data.boxes);
   // Cross-field pass: visible keys first, then expansion/filters against them,
   // so no active clause or expansion can survive a hidden key.
@@ -542,6 +556,8 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
       field: normalizeSortField(sort.field),
       direction: normalizeSortDirection(sort.direction),
     },
+    linksSort: { backlinks: normalizeLinksSort(linksSort.backlinks), outgoing: normalizeLinksSort(linksSort.outgoing) },
+    backlinkSnippetCount: data.backlinkSnippetCount === "all" || data.backlinkSnippetCount === 1 || data.backlinkSnippetCount === 2 ? data.backlinkSnippetCount : 3,
     group: normalizeVisibleGroupSpec(data.group, visiblePropertyKeySet),
     filter: {
       tags: normalizeTags(filter.tags),

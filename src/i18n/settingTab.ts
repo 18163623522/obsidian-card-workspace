@@ -26,6 +26,9 @@ export interface SettingTabStrings {
   imageCover: string;
   previewLinesName: string;
   previewLinesDesc: (min: number, max: number) => string;
+  backlinkSnippetCountName: string;
+  backlinkSnippetCountDesc: string;
+  allReferenceSnippets: string;
   searchPreviewSnippetCountName: string;
   searchPreviewSnippetCountDesc: string;
   showNavItemCountsName: string;
@@ -57,6 +60,9 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     imageOff: "Off", imageRight: "Right thumbnail", imageInline: "Below title",
     imageContain: "Show whole image", imageCover: "Crop to fill",
     previewLinesName: "Preview lines",
+    backlinkSnippetCountName: "Default backlink reference snippets",
+    backlinkSnippetCountDesc: "Show 1, 2, 3, or all reference contexts by default. Remaining contexts can be expanded in each card.",
+    allReferenceSnippets: "All",
     searchPreviewSnippetCountName: "Maximum search hit snippets in each card preview",
     searchPreviewSnippetCountDesc: "Choose the maximum number of body hit snippets shown during search. Each snippet occupies two lines.",
     previewLinesDesc: (min: number, max: number) =>
@@ -87,6 +93,9 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     imageOff: "关闭", imageRight: "右侧缩略图", imageInline: "标题下方内联图片",
     imageContain: "完整显示", imageCover: "裁切铺满",
     previewLinesName: "预览行数",
+    backlinkSnippetCountName: "反链默认显示的引用片段数",
+    backlinkSnippetCountDesc: "默认显示 1、2、3 条或全部引用上下文，可在每张卡片中展开其余引用。",
+    allReferenceSnippets: "全部",
     searchPreviewSnippetCountName: "每张卡片预览最多显示的命中片段",
     searchPreviewSnippetCountDesc: "搜索时最多显示多少个正文命中片段，每个片段占两行。",
     previewLinesDesc: (min: number, max: number) => `选择每张卡片预览可显示的规范化摘要行数（${min}-${max}）。`,

@@ -3,9 +3,10 @@ import { TFile, type App } from "obsidian";
 import { createCardRecord } from "../card-record";
 import { findSortedInsertIndex } from "../card-sort";
 import { resolveCardFileKind } from "../file-kind";
-import { isLinksMember } from "../links-sources";
+import { isLinksMember, readLinkReferenceCount } from "../links-sources";
 import type { BoxScope, CardScope, LinksScope } from "../scope";
-import type { CardBoxSortSpec, NoteCardRecord, VaultMutationEvent } from "../types";
+import type { LinksSortSpec } from "../../settings";
+import type { NoteCardRecord, VaultMutationEvent } from "../types";
 
 /** Result of one metadata-path membership reconciliation. */
 export type MetadataMembershipOutcome = "unchanged" | "entered" | "left";
@@ -17,7 +18,7 @@ export interface PathMembershipReconcileDeps {
   prepareRecordsFromCache: (records: NoteCardRecord[]) => void;
   deletePendingHydration: (path: string) => boolean;
   getApp: () => App;
-  resolveSort: () => CardBoxSortSpec;
+  resolveSort: () => LinksSortSpec;
 }
 
 /**
@@ -100,7 +101,12 @@ export function reconcileLinksMembershipForPath(
     }
     return "unchanged";
   }
-  return reconcileSymmetricPathMembership(path, isLinksMember(deps.getApp(), scope, path), deps);
+  return reconcileSymmetricPathMembership(path, isLinksMember(deps.getApp(), scope, path), { ...deps,
+    prepareRecordsFromCache: (records) => {
+      for (const record of records) record.referenceCount = readLinkReferenceCount(deps.getApp(), scope, record.path);
+      deps.prepareRecordsFromCache(records);
+    },
+  });
 }
 
 /**

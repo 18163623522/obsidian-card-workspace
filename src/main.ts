@@ -37,7 +37,7 @@ import type { OpenDestination, PartialPluginSettings, PluginSettings } from "./s
 import type { FolderSelectionRequest, FolderSelectionSource, SelectionResult } from "./view/types";
 import { resolveCardFileKind } from "./view/file-kind";
 import { createFolderScope, type CardScope } from "./view/scope";
-import { locationExistsInText, type CardOpenLocation, type LinkCardLocation, type SearchSnippetCardLocation } from "./view/link-card-location";
+import { locationExistsInText, type CardOpenLocation, type LinkCardLocation, type LinkReferenceCardLocation, type SearchSnippetCardLocation } from "./view/link-card-location";
 import { resolveSearchSnippetLocation } from "./search";
 import { findSearchContextLocation } from "./view/context-preview";
 import { resolveSettingsUpdateIntent } from "./view/update-intent";
@@ -311,7 +311,7 @@ export default class CardWorkspacePlugin extends Plugin {
       return;
     }
 
-    let requestedJump = location && "kind" in location && location.kind === "search-snippet"
+    let requestedJump = location && "kind" in location
       ? location : this.getSettings().locateLinkCardOnOpen ? location : undefined;
     // Observe input across openFile too: file-open can synchronously re-point
     // the originating links view and replace its cards before opening settles.
@@ -339,7 +339,8 @@ export default class CardWorkspacePlugin extends Plugin {
       if (jump && (!activeLeaf || activeLeaf === leaf)) {
         const positioned = "kind" in jump && jump.kind === "search-snippet"
           ? await this.positionSearchSnippet(leaf, target, jump, openSeq)
-          : this.positionLinkCard(leaf, target, jump as LinkCardLocation);
+          : "kind" in jump && jump.kind === "link-reference"
+            ? this.positionLinkReference(leaf, target, jump) : this.positionLinkCard(leaf, target, jump as LinkCardLocation);
         if (positioned && openSeq === this.cardOpenSeq && !this.disposed) {
           this.scheduleLinkCorrection(leaf, target, jump, openSeq);
         }
@@ -349,6 +350,15 @@ export default class CardWorkspacePlugin extends Plugin {
       if (snippetJump) for (const event of inputEvents) inputTarget?.removeEventListener(event, markInput, { capture: true });
       if (leafChange) this.app.workspace.offref?.(leafChange);
     }
+  }
+
+  private positionLinkReference(leaf: WorkspaceLeaf, file: TFile, request: LinkReferenceCardLocation): boolean {
+    if (!request.isCurrent()) return false;
+    const view = leaf.view;
+    const location = request.location;
+    if (view instanceof MarkdownView && location.ch !== undefined && location.expectedText
+      && !view.getViewData().split(/\r?\n/)[location.line]?.startsWith(location.expectedText, location.ch)) return false;
+    return this.positionLinkCard(leaf, file, location);
   }
 
   private positionLinkCard(leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation): boolean {
@@ -399,7 +409,7 @@ export default class CardWorkspacePlugin extends Plugin {
   }
 
   private scheduleLinkCorrection(
-    leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation | SearchSnippetCardLocation, openSeq: number,
+    leaf: WorkspaceLeaf, file: TFile, location: LinkCardLocation | SearchSnippetCardLocation | LinkReferenceCardLocation, openSeq: number,
   ): void {
     let userInput = false;
     const target = leaf.view.containerEl;
@@ -415,7 +425,8 @@ export default class CardWorkspacePlugin extends Plugin {
       if (this.disposed || userInput || openSeq !== this.cardOpenSeq
         || (!("kind" in location) && !this.getSettings().locateLinkCardOnOpen)
         || (activeLeaf && activeLeaf !== leaf)) return;
-      if ("kind" in location) void this.positionSearchSnippet(leaf, file, location, openSeq);
+      if ("kind" in location && location.kind === "search-snippet") void this.positionSearchSnippet(leaf, file, location, openSeq);
+      else if ("kind" in location && location.kind === "link-reference") this.positionLinkReference(leaf, file, location);
       else this.positionLinkCard(leaf, file, location);
     }, 400);
     const cleanup = (): void => {

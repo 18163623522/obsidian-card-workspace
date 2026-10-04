@@ -22,6 +22,7 @@ export interface HydrationPreview {
   readonly html: string;
   readonly mode: "text" | "code" | "empty";
   readonly searchPreview?: SearchPreview;
+  readonly linkPreview?: import("../link-reference-preview").LinkReferencePreview;
 }
 
 /** A completed Markdown read: rendered preview plus the current task summary. */
@@ -36,6 +37,7 @@ export function buildPreviewPatch(
     hydrated: true,
     taskSummary: deriveCardTaskSummary(app, card.file, card.fileKind),
     searchPreview: preview.searchPreview,
+    linkPreview: preview.linkPreview,
   };
 }
 

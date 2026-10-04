@@ -1,6 +1,7 @@
 import { TFile, TFolder, type App } from "obsidian";
 
-import type { CardBoxDefinition, CardBoxSortSpec } from "./types";
+import type { LinksSortSpec } from "../settings";
+import type { CardBoxDefinition } from "./types";
 
 /** The folder, card box, or links source currently feeding the card stream. */
 export type CardScope =
@@ -62,7 +63,7 @@ export function scopesEqual(a: CardScope, b: CardScope): boolean {
 /** Load key: scope plus sort, plus the box membership signature when relevant. */
 export function serializeScopeKey(
   scope: CardScope,
-  sort: CardBoxSortSpec,
+  sort: LinksSortSpec,
   membershipSignature?: string,
 ): string {
   switch (scope.kind) {

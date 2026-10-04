@@ -4,7 +4,7 @@ import type { NoteCardRecord } from "./types";
 /** Covers hydration- and metadata-derived fields, not previews alone. */
 export type CardPreviewFields = Pick<
   NoteCardRecord,
-  "excerpt" | "previewHtml" | "previewMode" | "hydrated" | "taskSummary" | "searchPreview"
+  "excerpt" | "previewHtml" | "previewMode" | "hydrated" | "taskSummary" | "searchPreview" | "linkPreview" | "referenceCount"
 >;
 
 export interface CardPreviewUpdate {

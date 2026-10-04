@@ -2,7 +2,7 @@ import type { Menu } from "obsidian";
 
 import type { GroupDimension, GroupOrderBy, GroupSpec } from "../../card-grouping-settings";
 import type { SortGroupStrings } from "../../i18n";
-import type { SortDirection, SortField } from "../../settings";
+import type { SortDirection, LinksSortField } from "../../settings";
 import { getMenuDom } from "../menu-dom";
 
 /** Class added to the native menu surface so styles.css can scope its rules. */
@@ -11,17 +11,18 @@ export const SORT_GROUP_MENU_CLASS = "fce-sort-group-menu";
 export const SORT_GROUP_MENU_SECTION_TITLE_CLASS = "fce-menu-section-title";
 
 export interface SortGroupMenuState {
-  sortField: SortField;
+  sortField: LinksSortField;
   sortDirection: SortDirection;
   group: GroupSpec;
   availableGroupDimensions: GroupDimension[];
   visibleGroupProperties?: Array<{ key: string; label: string }>;
   hasSegments: boolean;
+  supportsReferenceCount?: boolean;
 }
 
 export interface SortGroupMenuDeps {
   strings: SortGroupStrings;
-  onSelectSort: (field: SortField) => void;
+  onSelectSort: (field: LinksSortField) => void;
   onSelectDirection: (direction: SortDirection) => void;
   onSelectDimension: (dimension: GroupDimension) => void;
   onSelectProperty?: (key: string) => void;
@@ -67,6 +68,10 @@ export function buildSortGroupMenu(
   const groupOrderDisabled = state.group.dimension === "none";
 
   addHeadingItem(menu, strings.sortFieldHeading, "arrow-up-narrow-wide");
+  if (state.supportsReferenceCount) addOptionItem(menu, {
+    title: strings.fieldReferenceCount, icon: "links", checked: state.sortField === "reference-count", disabled: false,
+    onSelect: () => deps.onSelectSort("reference-count"),
+  });
   addOptionItem(menu, {
     title: strings.fieldMtime,
     icon: "file-clock",

@@ -23,6 +23,7 @@ export type MetadataImpactBatch =
 export interface MetadataImpactControllerDeps {
   context: ViewContext;
   onImageMetadataChange?: (path?: string) => void;
+  refreshLinkMetadata?: (path?: string) => boolean;
   getGroupDimension: () => GroupDimension;
   /** True while the runtime scope is a folder with an active browse Tag filter. */
   isBrowseTagFilterActive: () => boolean;
@@ -125,6 +126,7 @@ export class MetadataImpactController implements DisposableController {
     // manual-only presentation bucket and an entering member is installed
     // before any projection reads the card set.
     const membership = this.deps.reconcileMetadataMembershipForPath(path);
+    const linkImpact = this.deps.refreshLinkMetadata?.(path) ?? false;
     if (membership !== "unchanged") {
       await this.applyMembershipImpact(path, membership);
       return;
@@ -134,9 +136,10 @@ export class MetadataImpactController implements DisposableController {
     // folder scope (or non-member Box paths) are safe no-ops.
     const card = this.context.store.getBaseCard(path);
     if (card === undefined) {
+      if (linkImpact) this.publishImpact({ kind: "reprojected", includeSearch: false }, true);
       return;
     }
-    this.applyInBaseImpact(path, card);
+    this.applyInBaseImpact(path, card, linkImpact);
   }
 
   /**
@@ -164,7 +167,7 @@ export class MetadataImpactController implements DisposableController {
     }
   }
 
-  private applyInBaseImpact(path: string, card: NoteCardRecord): void {
+  private applyInBaseImpact(path: string, card: NoteCardRecord, linkImpact = false): void {
     this.deps.invalidateMetadataDerivedCaches();
 
     // Classify the property lane once so the whole event ends in at most one
@@ -197,7 +200,7 @@ export class MetadataImpactController implements DisposableController {
     const needsReproject = this.deps.isBrowseTagFilterActive()
       || movedTaskBucket
       || bucketsMoved
-      || propertyImpact === "reproject";
+      || propertyImpact === "reproject" || linkImpact;
     if (needsReproject) {
       this.publishImpact({ kind: "reprojected", includeSearch: false }, true);
       return;
@@ -221,7 +224,10 @@ export class MetadataImpactController implements DisposableController {
   }
 
   handleMetadataResolved(): void {
-    if (!this.disposed) this.deps.onImageMetadataChange?.();
+    if (!this.disposed) {
+      this.deps.onImageMetadataChange?.();
+      if (this.deps.refreshLinkMetadata?.()) this.publishImpact({ kind: "reprojected", includeSearch: false }, true);
+    }
   }
 
   dispose(): DisposeReport {

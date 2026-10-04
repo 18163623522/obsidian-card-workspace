@@ -219,6 +219,39 @@ describe("FolderCardPanel.svelte", () => {
     resetObsidianMenuInstances();
   });
 
+  it("retains the viewport anchor when a reference list above it expands", async () => {
+    const target = document.createElement("div"); document.body.appendChild(target);
+    const state = createInitialPanelState();
+    state.cards.records = Array.from({ length: 40 }, (_, index) => createCard(`flat/${index}.md`, `Flat ${index}`));
+    const panelModel = createPanelModel(state);
+    let firstRowHeight = ESTIMATED_ROW_HEIGHT;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function(this: HTMLElement) {
+      const height = this.classList.contains("fce-wall-row")
+        ? this.querySelector("h4")?.textContent === "Flat 0" ? firstRowHeight : ESTIMATED_ROW_HEIGHT : 0;
+      return { height, width: 600, left: 0, right: 600, top: 0, bottom: height, x: 0, y: 0, toJSON: () => ({}) };
+    });
+    const component = mount(FolderCardPanel, { target, props: { panelModel } });
+    await tick();
+    await new Promise((resolve) => setTimeout(resolve, 25)); await tick();
+    const list = target.querySelector<HTMLDivElement>(".fce-list")!;
+    list.scrollTop = 700; list.dispatchEvent(new Event("scroll")); await tick();
+    firstRowHeight += 300;
+    panelModel.mutate((draft) => {
+      draft.cards = { ...draft.cards, records: draft.cards.records.map((card, index) => index !== 0 ? card : { ...card,
+        referenceCount: 5, linkPreview: { direction: "backlinks", expanded: true, status: "ready", sourcePath: card.path,
+          sourceMtime: 1, sourceRevision: 0, contextKey: "context", totalSnippets: 5,
+          snippets: Array.from({ length: 5 }, (_, reference) => ({ id: `reference-${reference}`, text: `Context ${reference}`, html: `<p>Context ${reference}</p>`, mode: "text" as const,
+            referenceCount: 1, location: { line: reference, identity: `${reference}` } })),
+        },
+      }) };
+    });
+    await tick(); ResizeObserverStub.trigger();
+    await new Promise((resolve) => setTimeout(resolve, 25)); await tick();
+    expect(list.scrollTop).toBe(1000);
+    expect(target.querySelectorAll(".fce-reference-snippet")).toHaveLength(5);
+    await unmount(component);
+  });
+
   it("limits image demand to visible rows plus one while text uses five rows", async () => {
     const target = document.createElement("div"); document.body.appendChild(target);
     const state = createInitialPanelState();

@@ -11,6 +11,7 @@ export interface SortGroupStrings {
   fieldMtime: string;
   fieldCtime: string;
   fieldName: string;
+  fieldReferenceCount: string;
   dimensionNone: string;
   dimensionFolder: string;
   dimensionTag: string;
@@ -46,6 +47,7 @@ export const sortGroupStrings: Record<UiLanguage, SortGroupStrings> = {
     fieldMtime: "Edited time",
     fieldCtime: "Created time",
     fieldName: "Filename",
+    fieldReferenceCount: "Reference count",
     dimensionNone: "None",
     dimensionFolder: "Folder",
     dimensionTag: "Tag",
@@ -80,6 +82,7 @@ export const sortGroupStrings: Record<UiLanguage, SortGroupStrings> = {
     fieldMtime: "编辑时间",
     fieldCtime: "创建时间",
     fieldName: "文件名",
+    fieldReferenceCount: "引用次数",
     dimensionNone: "不分组",
     dimensionFolder: "文件夹",
     dimensionTag: "标签",

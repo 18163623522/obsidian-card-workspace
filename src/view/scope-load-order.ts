@@ -1,6 +1,6 @@
 import type { TFile } from "obsidian";
 
-import type { SortDirection, SortField } from "../settings";
+import type { SortDirection, LinksSortField } from "../settings";
 import { compareCardOrderKeys, type CardOrderKey } from "./card-sort";
 
 /**
@@ -10,8 +10,9 @@ import { compareCardOrderKeys, type CardOrderKey } from "./card-sort";
  */
 export function orderScopeFiles(
   files: readonly TFile[],
-  sort: { field: SortField; direction: SortDirection },
+  sort: { field: LinksSortField; direction: SortDirection },
   pinnedPaths: readonly string[],
+  referenceCounts?: ReadonlyMap<string, number>,
 ): TFile[] {
   if (files.length === 0) {
     return [];
@@ -19,7 +20,7 @@ export function orderScopeFiles(
 
   const ordered = [...files];
   ordered.sort((left, right) =>
-    compareCardOrderKeys(fileOrderKey(left), fileOrderKey(right), sort.field, sort.direction),
+    compareCardOrderKeys({ ...fileOrderKey(left), referenceCount: referenceCounts?.get(left.path) }, { ...fileOrderKey(right), referenceCount: referenceCounts?.get(right.path) }, sort.field, sort.direction),
   );
   if (pinnedPaths.length === 0) {
     return ordered;

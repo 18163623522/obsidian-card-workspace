@@ -61,6 +61,13 @@ function candidatePaths(app: App, scope: LinksScope): string[] {
   return Object.keys(readDestMap(resolvedLinks, scope.notePath));
 }
 
+export function readLinkReferenceCount(app: App, scope: LinksScope, cardPath: string): number {
+  const source = scope.direction === "backlinks" ? cardPath : scope.notePath;
+  const destination = scope.direction === "backlinks" ? scope.notePath : cardPath;
+  const count = readDestMap(readResolvedLinks(app), source)[destination];
+  return Number.isSafeInteger(count) && count > 0 ? count : 0;
+}
+
 /** C10 + C8: resolved, supported card files linked to `scope.notePath`, excluding the source itself. */
 export function collectLinksFiles(app: App, scope: LinksScope): TFile[] {
   const files: TFile[] = [];

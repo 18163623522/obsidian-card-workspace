@@ -1,5 +1,5 @@
 import { normalizeGroupSpec, type GroupDimension, type GroupSpec } from "../card-grouping-settings";
-import type { SortDirection, SortField } from "../settings";
+import type { SortDirection, LinksSortField } from "../settings";
 import type { CardGroupSegment } from "./card-grouping";
 import type { PanelModelState } from "./panel-model";
 import type { NoteCardRecord } from "./types";
@@ -32,7 +32,7 @@ export function buildCardsPanelGroup(input: {
 }
 
 export function buildProjectionPanelGroup(input: {
-  sortField: SortField;
+  sortField: LinksSortField;
   sortDirection: SortDirection;
   deriveAvailableTags: () => string[];
   deriveTagCounts: () => Record<string, number>;

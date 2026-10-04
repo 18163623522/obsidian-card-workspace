@@ -46,6 +46,7 @@
     searchQuery?: string;
     searchMatchCount?: number;
     onOpenNote?: (payload: OpenNotePayload) => void;
+    onToggleReferences?: (payload: { path: string }) => void;
     onBulkSelectCard?: (payload: BulkSelectCardPayload) => void;
     onCardContextMenu?: (payload: CardContextMenuPayload) => void;
     onPinToggle?: (payload: PinTogglePayload) => void;
@@ -70,6 +71,7 @@
     searchQuery = "",
     searchMatchCount = 0,
     onOpenNote,
+    onToggleReferences,
     onBulkSelectCard,
     onCardContextMenu,
     onPinToggle,
@@ -89,9 +91,13 @@
   const isPinned = $derived(pinnedPaths.includes(card.path));
   const highlightedTitleSegments = $derived(getHighlightedTitleSegments(card.title, searchQuery));
   const normalizedSearchQuery = $derived(searchQuery.trim());
+  const linkPreview = $derived(card.linkPreview);
   const searchPreview = $derived(card.searchPreview?.query === normalizedSearchQuery
     && card.searchPreview.previewLines === previewLines
     && card.searchPreview.snippetLimit === searchPreviewSnippetCount ? card.searchPreview : undefined);
+  const inlineReferences = $derived(card.referenceCount !== undefined && (!normalizedSearchQuery || searchPreview?.status === "title-only"));
+  const showReferenceList = $derived(inlineReferences || linkPreview?.expanded);
+  const canToggleReferences = $derived(card.referenceCount !== undefined && (linkPreview?.expanded || (!inlineReferences && normalizedSearchQuery) || (linkPreview?.totalSnippets ?? 0) > (linkPreview?.snippets.length ?? 0)));
   const sanitizedPreviewHtml = $derived(
     typeof document === "undefined"
       ? card.previewHtml
@@ -337,6 +343,27 @@
     else onOpenNote?.({ path: card.path, snippetId });
   }
 
+  function onReferenceClick(event: MouseEvent | KeyboardEvent, referenceId: string, referenceTarget = false): void {
+    event.stopPropagation();
+    if ("key" in event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      if (event.repeat) return;
+    }
+    if (bulkMode) emitBulkSelect(event.shiftKey);
+    else onOpenNote?.({ path: card.path, referenceId, referenceTarget });
+  }
+  function onReferencesToggle(event: MouseEvent | KeyboardEvent): void {
+    event.stopPropagation();
+    if ("key" in event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      if (event.repeat) return;
+    }
+    if (bulkMode) emitBulkSelect(event.shiftKey);
+    else onToggleReferences?.({ path: card.path });
+  }
+
   function emitBulkSelect(shiftKey: boolean): void {
     onBulkSelectCard?.({ path: card.path, shiftKey });
   }
@@ -493,11 +520,14 @@
   ondrag={onCardDrag}
   ondragend={onCardDragEnd}
 >
-  <div class="fce-card-body" class:has-right-image={showImage && imageMode === "right"}>
+  <div class="fce-card-body" class:has-right-image={showImage && imageMode === "right"} class:has-reference-preview={inlineReferences} class:has-reference-details={!!showReferenceList || !!canToggleReferences}>
     <div class="fce-card-header">
       <div class="fce-card-title-group" role="presentation" onmouseenter={emitCardHoverLink}>
         <span class="fce-card-file-icon" aria-hidden="true" data-file-kind={card.fileKind} use:applyIcon={getCardFileIcon(card.fileKind)}></span>
         <h4>{#each highlightedTitleSegments as segment, index (index)}{#if segment.highlighted}<mark class="fce-search-hit">{segment.text}</mark>{:else}{segment.text}{/if}{/each}</h4>
+        {#if card.referenceCount !== undefined}
+          <span class="fce-card-reference-count">{strings.links.referenceCount(card.referenceCount)}</span>
+        {/if}
         {#if searchQuery.trim().length > 0 && searchMatchCount > 0}
           <span
             class="fce-card-search-count"
@@ -552,6 +582,7 @@
         {/if}
       </div>
     {/if}
+    {#if !inlineReferences}
     <div
       class="fce-excerpt {searchPreview?.status === 'hits' ? 'is-search' : ''} {card.previewMode === 'code' && (!normalizedSearchQuery || searchPreview?.status === 'title-only') ? 'is-code' : ''} {card.hydrated && (!normalizedSearchQuery || searchPreview) ? '' : 'is-loading'} {(card.previewMode === 'empty' || (card.previewMode !== 'placeholder' && !card.previewHtml)) && card.hydrated && !normalizedSearchQuery ? 'is-empty' : ''}"
       role="presentation"
@@ -618,6 +649,45 @@
         <p class="fce-preview-empty">{cardStrings.placeholderLoading}</p>
       {/if}
     </div>
+    {/if}
+    {#if showReferenceList || canToggleReferences}
+    <div class="fce-reference-details">
+    {#if showReferenceList}
+      <div class="fce-excerpt fce-reference-list" aria-label={strings.links.showReferences}>
+        {#if linkPreview?.status === "ready"}
+          {#each linkPreview.snippets as snippet (snippet.id)}
+            <div class="fce-reference-entry">
+              <button type="button" class="fce-search-snippet fce-reference-snippet" class:is-opening={snippet.openingPreview === true} aria-label={snippet.text || card.title} onclick={(event) => onReferenceClick(event, snippet.id, snippet.displayTarget === true)} onkeydown={(event) => onReferenceClick(event, snippet.id, snippet.displayTarget === true)}>
+                <div class={snippet.openingPreview ? "fce-excerpt" : "fce-reference-content"} class:is-code={snippet.mode === "code"} style={snippet.openingPreview ? `--fce-preview-line-clamp: ${previewLines};` : undefined} role="presentation" onmouseenter={emitCardHoverLink}>
+                  {#if snippet.openingPreview && card.fileKind !== "markdown"}
+                    <p class="fce-preview-placeholder">{getCardPlaceholderText(card.fileKind, fileKindStrings)}</p>
+                  {:else if snippet.openingPreview && (snippet.mode === "empty" || !snippet.html)}
+                    <p class="fce-preview-empty">{cardStrings.placeholderEmpty}</p>
+                  {:else}
+                    {@html typeof document === "undefined" ? snippet.html : previewHtmlSanitizer(snippet.html, document)}
+                  {/if}
+                </div>
+              </button>
+              {#if snippet.referenceCount > 1}<span class="fce-reference-paragraph-count">{snippet.displayTarget ? strings.links.referenceCount(snippet.referenceCount) : strings.links.paragraphCount(snippet.referenceCount)}</span>{/if}
+              {#if snippet.targetLocation && !snippet.displayTarget}
+                <button type="button" class="fce-reference-target" onclick={(event) => onReferenceClick(event, snippet.id, true)} onkeydown={(event) => onReferenceClick(event, snippet.id, true)}>{strings.links.openTarget}</button>
+              {/if}
+            </div>
+          {/each}
+        {:else}
+          <p class="fce-preview-empty">{linkPreview?.status === "loading" || !card.hydrated ? cardStrings.placeholderLoading : card.fileKind === "markdown" ? strings.links.referencesUnavailable : getCardPlaceholderText(card.fileKind, fileKindStrings)}</p>
+        {/if}
+      </div>
+    {/if}
+    {#if canToggleReferences}
+      <button type="button" class="fce-references-toggle" aria-expanded={linkPreview?.expanded ?? false} onclick={onReferencesToggle} onkeydown={onReferencesToggle}>
+        {#if linkPreview?.expanded}{strings.links.collapseReferences}
+        {:else if normalizedSearchQuery}{strings.links.showReferences}
+        {:else}{strings.links.remainingReferences((linkPreview?.totalSnippets ?? 0) - (linkPreview?.snippets.length ?? 0))}{/if}
+      </button>
+    {/if}
+    </div>
+    {/if}
     {#if card.taskSummary}
       <CardTaskFooter summary={card.taskSummary} strings={cardStrings} />
     {/if}

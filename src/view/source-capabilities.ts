@@ -13,7 +13,8 @@ import type { CardScope } from "./scope";
  * capability lookup. A later source kind must extend this switch together with
  * the semantic dispatchers; the `never` arm fails compilation otherwise.
  *
- * Links uses global arrangement ownership. Browse tag and property filters
+ * Links keeps global grouping and pin ownership; view-config resolves its
+ * per-direction sort independently. Browse tag and property filters
  * are folder-only capabilities: box and links scopes keep the workspace filter
  * clauses dormant (never applied to their card streams) and surface that state
  * through the paused-filters hint instead. Accepted side effect: card-pin

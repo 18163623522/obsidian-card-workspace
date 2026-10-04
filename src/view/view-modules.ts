@@ -1,6 +1,6 @@
 import { normalizeGroupSpec, type GroupSpec } from "../card-grouping-settings";
 import type { SearchService, SearchServiceSnapshot } from "../search";
-import type { OpenDestination, SortDirection, SortField } from "../settings";
+import type { OpenDestination, SortDirection, LinksSortField } from "../settings";
 import { ArrangementActions } from "./actions/arrangement-actions";
 import { BoxActions } from "./actions/box-actions";
 import { createFavoriteActions, type FavoriteActions } from "./actions/favorite-actions";
@@ -35,7 +35,7 @@ import { resolveViewConfig } from "./view-config";
  */
 export interface ViewModuleHost {
   getThumbnailService?: () => { service: ThumbnailService; vault: string } | null;
-  effectiveSortAndPins: () => { sortField: SortField; sortDirection: SortDirection; pinnedPaths: string[] };
+  effectiveSortAndPins: () => { sortField: LinksSortField; sortDirection: SortDirection; pinnedPaths: string[] };
   getDisplayFolderPath: () => string;
   getTooltipSide: () => "left" | "right";
   openCardWithDestination: (path: string, destination: OpenDestination) => void;
@@ -135,6 +135,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
   const hydration: HydrationController = new HydrationController({
     context,
     isLoading: gate.guard("scopeController.isLoading", () => scopeController.isLoading()),
+    getActiveSelectionVersion: gate.guard("scopeController.getActiveSelectionVersion", () => scopeController.getActiveSelectionVersion()),
     getCommittedQuery: gate.guard("search.getCommittedQuery", () => search.getCommittedQuery()),
     getSearchContentRevision: gate.guard("search.getContentRevision", () => search.getContentRevision()),
     isCommittedQueryCurrent: gate.guard("search.isCommittedQueryCurrent", () => search.isCommittedQueryCurrent()),
@@ -354,6 +355,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
   const metadataImpact: MetadataImpactController = new MetadataImpactController({
     context,
     onImageMetadataChange: (path) => images.handleMetadataChange(path),
+    refreshLinkMetadata: (path) => hydration.invalidateLinkMetadata(path),
     getGroupDimension: () => resolveGroupSpec().dimension,
     isBrowseTagFilterActive: () => resolveSourceCapabilities(context.store.getScope()).browseTagFilter && context.getSettings().filter.tags.length > 0,
     isSearchActive: () => search.getQuery().trim().length > 0,
@@ -382,6 +384,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
     },
     refreshSearchCandidatesSilently: () => search.refreshProjection({ publish: false }),
     reprojectCardsForMetadata: () => {
+      if (context.store.getScope().kind === "links") { arrangementActions.sortAndReprojectCards(); return; }
       projection.reprojectCards();
       bulk.reconcileToVisibleCards();
     },

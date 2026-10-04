@@ -55,6 +55,8 @@ function createSettings(): PluginSettings {
  */
 const EXPECTED_INTENTS: Record<keyof PluginSettings, ViewUpdateIntent> = {
   sort: "reproject",
+  linksSort: "reproject",
+  backlinkSnippetCount: "rehydrate",
   group: "reproject",
   filter: "reproject",
   pinnedPaths: "reproject",
@@ -87,6 +89,8 @@ const EXPECTED_INTENTS: Record<keyof PluginSettings, ViewUpdateIntent> = {
 
 function changeSetting(settings: PluginSettings, key: keyof PluginSettings): void {
   switch (key) {
+    case "linksSort": settings.linksSort = { ...settings.linksSort, backlinks: { field: "name", direction: "asc" } }; break;
+    case "backlinkSnippetCount": settings.backlinkSnippetCount = "all"; break;
     case "sort": settings.sort = { field: "ctime", direction: "asc" }; break;
     case "group": settings.group = { dimension: "folder", orderBy: "name", orderDirection: "desc" }; break;
     case "filter": settings.filter = { tags: ["changed"], properties: [{ key: "status", values: [{ kind: "text", value: "open" }] }] }; break;

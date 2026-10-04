@@ -11,11 +11,10 @@ import { findCardBox } from "./card-boxes";
 import { resolveSourceCapabilities } from "./source-capabilities";
 import type { CardScope } from "./scope";
 import type { GroupSpec } from "../card-grouping-settings";
-import type { PluginSettings } from "../settings";
-import type { CardBoxSortSpec } from "./types";
+import type { LinksSortSpec, PluginSettings } from "../settings";
 
 export interface ResolvedViewConfig {
-  sort: CardBoxSortSpec;
+  sort: LinksSortSpec;
   pinnedPaths: string[];
   group: GroupSpec;
 }
@@ -25,7 +24,7 @@ export function resolveViewConfig(
   settings: PluginSettings,
 ): ResolvedViewConfig {
   const global = {
-    sort: settings.sort,
+    sort: scope.kind === "links" ? settings.linksSort[scope.direction] : settings.sort,
     pinnedPaths: settings.pinnedPaths,
     group: settings.group,
   };

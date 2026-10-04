@@ -1,6 +1,6 @@
 import { TFile, type App } from "obsidian";
 
-import type { SortDirection, SortField } from "../../settings";
+import type { SortDirection, LinksSortField } from "../../settings";
 import { migrateRenamedPath, pruneRemovedPath } from "../bulk-selection";
 import { createCardRecord } from "../card-record";
 import { findSortedInsertIndex } from "../card-sort";
@@ -14,7 +14,8 @@ export interface BulkSelectionState {
 
 export interface IncrementalMutationDeps {
   app: App;
-  sort: { field: SortField; direction: SortDirection };
+  sort: { field: LinksSortField; direction: SortDirection };
+  prepareOrderMetadata?: (card: NoteCardRecord) => void;
   pendingHydration: {
     has: (path: string) => boolean;
     delete: (path: string) => boolean;
@@ -77,6 +78,7 @@ export function applyIncrementalMutation(
     deps.setBulkSelection(pruneRemovedPath(deps.getBulkSelection(), path));
   };
   const insertSorted = (card: NoteCardRecord): void => {
+    deps.prepareOrderMetadata?.(card);
     const index = findSortedInsertIndex(cards, card, deps.sort.field, deps.sort.direction);
     cards.splice(index, 0, card);
   };

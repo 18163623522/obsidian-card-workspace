@@ -29,8 +29,14 @@ type PanelCallbackProps = { panelModel: PanelModel } & Record<string, unknown>;
 export function buildPanelProps(view: PanelHost): PanelCallbackProps {
   return {
     panelModel: view.panelModel,
-    onOpenNote: (detail: { path?: unknown; snippetId?: unknown }) => {
+    onOpenNote: (detail: { path?: unknown; snippetId?: unknown; referenceId?: unknown; referenceTarget?: unknown }) => {
       if (view.modules.bulk.isBulkMode() || typeof detail.path !== "string") {
+        return;
+      }
+      if (detail.referenceId !== undefined) {
+        if (typeof detail.referenceId !== "string" || (detail.referenceTarget !== undefined && typeof detail.referenceTarget !== "boolean")) return;
+        const resolved = view.modules.hydration.resolveReferenceLocation(detail.path, detail.referenceId, detail.referenceTarget === true);
+        if (resolved) void view.plugin.openNoteFromCard(resolved.path, undefined, resolved.location);
         return;
       }
       if (detail.snippetId !== undefined && typeof detail.snippetId !== "string") return;
@@ -40,6 +46,9 @@ export function buildPanelProps(view: PanelHost): PanelCallbackProps {
       if (detail.snippetId !== undefined && !location) return;
       if (location) void view.plugin.openNoteFromCard(detail.path, undefined, location);
       else void view.plugin.openNoteFromCard(detail.path);
+    },
+    onToggleReferences: (detail: { path?: unknown }) => {
+      if (typeof detail.path === "string" && !view.modules.bulk.isBulkMode()) void view.modules.hydration.toggleReferences(detail.path).catch((error: unknown) => console.warn("Card Workspace reference preview failed", error));
     },
     onBulkSelectCard: (detail: { path?: unknown; shiftKey?: unknown }) => {
       view.modules.bulk.onBulkSelectCard(detail);

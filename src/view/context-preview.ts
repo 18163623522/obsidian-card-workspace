@@ -12,13 +12,14 @@ export function buildLocationPreview(
   return buildLocationPreviewFromLines(markdown.split(/\r?\n/), location, maxVisibleChars, previewLines);
 }
 
-function buildLocationPreviewFromLines(
+export function buildLocationPreviewFromLines(
   lines: string[], location: LinkCardLocation, maxVisibleChars: number, previewLines: number,
+  endLineExclusive = lines.length,
 ): LightPreviewResult | null {
   if (!locationExistsInLines(lines, location)) return null;
   const target = lines[location.line] ?? "";
   const start = location.line;
-  const end = Math.min(lines.length, start + Math.max(2, previewLines * 2));
+  const end = Math.min(lines.length, endLineExclusive, start + Math.max(2, previewLines * 2));
   const snippet = lines.slice(start, end);
   if (location.ch !== undefined && location.ch > 60) {
     snippet[0] = target.slice(location.ch - 60);
