@@ -165,7 +165,8 @@ export function resolveSettingsUpdateIntent(
     );
   }
 
-  if (previous.previewLines !== next.previewLines) {
+  if (previous.previewLines !== next.previewLines
+    || previous.searchPreviewSnippetCount !== next.searchPreviewSnippetCount) {
     intent = mergeIntent(intent, "rehydrate");
   }
 

@@ -26,6 +26,8 @@ export interface SettingTabStrings {
   imageCover: string;
   previewLinesName: string;
   previewLinesDesc: (min: number, max: number) => string;
+  searchPreviewSnippetCountName: string;
+  searchPreviewSnippetCountDesc: string;
   showNavItemCountsName: string;
   showNavItemCountsDesc: string;
 }
@@ -55,6 +57,8 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     imageOff: "Off", imageRight: "Right thumbnail", imageInline: "Below title",
     imageContain: "Show whole image", imageCover: "Crop to fill",
     previewLinesName: "Preview lines",
+    searchPreviewSnippetCountName: "Maximum search hit snippets in each card preview",
+    searchPreviewSnippetCountDesc: "Choose the maximum number of body hit snippets shown during search. Each snippet occupies two lines.",
     previewLinesDesc: (min: number, max: number) =>
       `Choose how many normalized summary lines each card preview can show (${min}-${max}).`,
     showNavItemCountsName: "Show item counts in navigation",
@@ -83,6 +87,8 @@ export const settingTabStrings: Record<UiLanguage, SettingTabStrings> = {
     imageOff: "关闭", imageRight: "右侧缩略图", imageInline: "标题下方内联图片",
     imageContain: "完整显示", imageCover: "裁切铺满",
     previewLinesName: "预览行数",
+    searchPreviewSnippetCountName: "每张卡片预览最多显示的命中片段",
+    searchPreviewSnippetCountDesc: "搜索时最多显示多少个正文命中片段，每个片段占两行。",
     previewLinesDesc: (min: number, max: number) => `选择每张卡片预览可显示的规范化摘要行数（${min}-${max}）。`,
     showNavItemCountsName: "在导航栏显示条目计数",
     showNavItemCountsDesc:

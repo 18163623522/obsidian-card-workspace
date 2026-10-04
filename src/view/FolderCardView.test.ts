@@ -1515,7 +1515,7 @@ describe("FolderCardView host contract", () => {
     {mode: "source", cancel: "source"}, {mode: "source", cancel: "query"},
     {mode: "source", cancel: "input"}, {mode: "source", cancel: "new-open"},
     {mode: "source", cancel: "close"}, {mode: "source", cancel: "settings"},
-    {mode: "source", cancel: "file"},
+    {mode: "source", cancel: "file"}, {mode: "source", cancel: "snippet-limit"},
   ] as const)("positions through file-open and links replacement: $mode, cancellation=$cancel", async ({mode, cancel}) => {
     const { default: CardWorkspacePlugin } = await import("../main");
     const { MarkdownView } = await import("obsidian");
@@ -1590,6 +1590,7 @@ describe("FolderCardView host contract", () => {
         if (cancel === "new-open") await host.openNoteFromCard(b.path);
         if (cancel === "close") await view.onClose();
         if (cancel === "settings") (plugin.getSettings as unknown as () => PluginSettings)().previewLines = 8;
+        if (cancel === "snippet-limit") (plugin.getSettings as unknown as () => PluginSettings)().searchPreviewSnippetCount = 5;
         if (cancel === "file") view.handleVaultMutation({eventType: "modify", path: b.path, oldPath: null, isFolder: false, fileKind: "markdown"});
         await new Promise(resolve => setTimeout(resolve, 460));
         expect(positioned).toHaveBeenCalledOnce();
@@ -2646,7 +2647,7 @@ describe("FolderCardView graded update intents", () => {
     expect(collectSpy).not.toHaveBeenCalled();
   });
 
-  it("renews the current scrolled viewport once when previewLines advances hydration revision", async () => {
+  it.each(["previewLines", "searchPreviewSnippetCount"] as const)("renews the current scrolled viewport once when %s advances hydration revision", async (key) => {
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(600);
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(300);
     const { view, plugin } = createHarness();
@@ -2669,7 +2670,7 @@ describe("FolderCardView graded update intents", () => {
     const revisionBefore = (view as any).store.getHydrationRevision();
     const hydrateSpy = vi.spyOn((view as any).modules.hydration, "hydrateViewport");
     const currentSettings = (plugin.getSettings as unknown as () => PluginSettings)();
-    plugin.getSettings.mockReturnValue({ ...currentSettings, previewLines: currentSettings.previewLines + 1 });
+    plugin.getSettings.mockReturnValue({ ...currentSettings, [key]: currentSettings[key] + 1 });
 
     await view.applyUpdateIntent("rehydrate", "settings-change");
     await tick();

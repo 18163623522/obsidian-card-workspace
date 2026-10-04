@@ -95,12 +95,12 @@ function getExcerptHtml(target: HTMLDivElement): string {
   return target.querySelector<HTMLElement>(".fce-excerpt")?.innerHTML ?? "";
 }
 
-async function searchCard(query: string, text: string, options: CreateCardOptions = {}, lines = 5): Promise<NoteCardRecord> {
+async function searchCard(query: string, text: string, options: CreateCardOptions = {}, lines = 5, snippetLimit = 2): Promise<NoteCardRecord> {
   const card = createCard("notes/search.md", options);
   const snippets = (await extractSearchPreviewSnippets(text, {
-    limit: Math.floor(lines / 2), idPrefix: "fixture", matcher: createSearchPreviewMatcher(query),
+    limit: snippetLimit, idPrefix: "fixture", matcher: createSearchPreviewMatcher(query),
   }))!;
-  card.searchPreview = { query, revision: 1, mtime: card.mtime, previewLines: lines, status: snippets.length ? "hits" : "unavailable", snippets };
+  card.searchPreview = { query, revision: 1, mtime: card.mtime, previewLines: lines, snippetLimit, status: snippets.length ? "hits" : "unavailable", snippets };
   return card;
 }
 
@@ -155,6 +155,7 @@ function mountCardItem(
       appearance: values.appearance ?? {
         cardCornerRadius: values.cardCornerRadius ?? "compact",
         previewLines: values.previewLines ?? 5,
+        searchPreviewSnippetCount: values.searchPreviewSnippetCount ?? 2,
         cardImageMode: values.cardImageMode ?? "off",
         cardImageFit: values.cardImageFit ?? "contain",
       },
@@ -567,11 +568,11 @@ describe("CardItem.svelte", () => {
     expect(Array.from(target.querySelectorAll("mark"), (mark) => mark.textContent)).toEqual(["[draft]", "a+b", "draft", "a+b"]);
   });
 
-  it.each([3, 4, 5, 6, 7, 8])("renders complete two-line snippets within a %i-line budget", async (lines) => {
-    const card = await searchCard("needle", Array.from({ length: 10 }, (_, i) => `line ${i} needle`).join("\n\n"), {}, lines);
-    const { target } = mountCardItem({ searchQuery: "needle", card, appearance: { cardCornerRadius: "compact", previewLines: lines } });
-    expect(target.querySelectorAll(".fce-search-snippet")).toHaveLength(Math.floor(lines / 2));
-    expect(target.querySelector(".fce-excerpt")?.getAttribute("style")).toContain(`--fce-preview-line-clamp: ${lines}`);
+  it.each([1, 2, 3, 4, 5])("renders %i two-line snippets independently of ordinary preview lines", async (snippetLimit) => {
+    const card = await searchCard("needle", Array.from({ length: 10 }, (_, i) => `line ${i} needle`).join("\n\n"), {}, 3, snippetLimit);
+    const { target } = mountCardItem({ searchQuery: "needle", card, appearance: { cardCornerRadius: "compact", previewLines: 3, searchPreviewSnippetCount: snippetLimit } });
+    expect(target.querySelectorAll(".fce-search-snippet")).toHaveLength(snippetLimit);
+    expect(target.querySelector(".fce-excerpt")?.getAttribute("style")).toContain(`--fce-preview-line-clamp: ${snippetLimit * 2}`);
   });
 
   it("opens each snippet once by mouse, Enter, and Space; the title opens normally", async () => {
@@ -611,9 +612,13 @@ describe("CardItem.svelte", () => {
     expect(sanitizer).not.toHaveBeenCalled();
   });
 
-  it("hides previews belonging to an old query or preview-line setting", async () => {
+  it("hides previews belonging to an old query or preview preference", async () => {
     const card = await searchCard("needle", "needle");
-    for (const props of [{ searchQuery: "other" }, { searchQuery: "needle", appearance: { previewLines: 8, cardCornerRadius: "compact" } }]) {
+    for (const props of [
+      { searchQuery: "needle", appearance: { previewLines: 5, searchPreviewSnippetCount: 5, cardCornerRadius: "compact" } },
+      { searchQuery: "other" },
+      { searchQuery: "needle", appearance: { previewLines: 8, searchPreviewSnippetCount: 2, cardCornerRadius: "compact" } },
+    ]) {
       const { target } = mountCardItem({ card, ...props });
       expect(target.querySelectorAll(".fce-search-snippet")).toHaveLength(0);
       expect(target.querySelector(".fce-excerpt")?.textContent).toContain("Loading preview");

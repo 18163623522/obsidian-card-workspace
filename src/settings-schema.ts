@@ -34,6 +34,7 @@ export const SETTINGS_LAYER_BY_KEY = {
   cardCornerRadius: "preferences",
   newNoteTemplate: "preferences",
   previewLines: "preferences",
+  searchPreviewSnippetCount: "preferences",
   cardImageMode: "preferences",
   cardImageFit: "preferences",
   showNavItemCounts: "preferences",

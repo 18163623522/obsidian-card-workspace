@@ -64,6 +64,61 @@ async function ticks(count = 4): Promise<void> {
 }
 
 describe("HydrationController", () => {
+  it.each([1, 2, 3, 4, 5])("hydrates %i independent snippets with a three-line ordinary preview", async (limit) => {
+    const record = card("search.md");
+    const source = Array.from({ length: 8 }, (_, index) => `section ${index} needle`).join("\n\n");
+    const { controller, context } = harness([record], vi.fn(async () => source), {}, () => "needle");
+    context.getSettings = () => ({ ...DEFAULT_SETTINGS, previewLines: 3, searchPreviewSnippetCount: limit });
+    await controller.hydrateViewport(request(context, [record]));
+    const preview = context.store.getBaseCard(record.path)?.searchPreview;
+    expect(preview?.snippets).toHaveLength(limit);
+    expect(preview?.snippetLimit).toBe(limit);
+    expect(preview?.previewLines).toBe(3);
+    controller.dispose();
+  });
+
+  it("does not reuse snippets after the limit changes and restores the ordinary preview on clear", async () => {
+    const record = card("search.md");
+    let query = "needle";
+    let limit = 2;
+    const { controller, context, read } = harness([record], vi.fn(async () => "needle\n\nneedle\n\nneedle\n\nneedle\n\nneedle"), {}, () => query);
+    context.getSettings = () => ({ ...DEFAULT_SETTINGS, searchPreviewSnippetCount: limit });
+    await controller.hydrateViewport(request(context, [record]));
+    expect(context.store.getBaseCard(record.path)?.searchPreview?.snippets).toHaveLength(2);
+    limit = 5;
+    const replacement = card(record.path);
+    context.store.replaceBaseCards([replacement]);
+    context.store.replaceVisibleCards([replacement]);
+    controller.prepareRecordsFromCache([replacement]);
+    expect(replacement.searchPreview).toBeUndefined();
+    await controller.hydrateViewport(request(context, [replacement]));
+    expect(context.store.getBaseCard(record.path)?.searchPreview?.snippets).toHaveLength(5);
+    query = "";
+    const ordinary = card(record.path);
+    controller.prepareRecordsFromCache([ordinary]);
+    expect(ordinary.hydrated).toBe(true);
+    expect(ordinary.searchPreview).toBeUndefined();
+    expect(read).toHaveBeenCalledTimes(2);
+    controller.dispose();
+  });
+
+  it("drops pending reads after the snippet preference changes", async () => {
+    const record = card("search.md");
+    const pending = deferred<string>();
+    let limit = 2;
+    const { controller, context } = harness([record], vi.fn(() => pending.promise), {}, () => "needle");
+    context.getSettings = () => ({ ...DEFAULT_SETTINGS, searchPreviewSnippetCount: limit });
+    const hydration = controller.hydrateViewport(request(context, [record]));
+    limit = 5;
+    pending.resolve("needle");
+    await hydration;
+    expect(context.store.getBaseCard(record.path)?.searchPreview).toBeUndefined();
+    const replacement = card(record.path);
+    controller.prepareRecordsFromCache([replacement]);
+    expect(replacement.hydrated).toBe(false);
+    controller.dispose();
+  });
+
   it("caches search snippets in the shared preview entry and rebinds IDs after a load", async () => {
     const record = card("search.md");
     const { controller, context, read } = harness([record], vi.fn(async () => "needle\nsecond needle"), {}, () => "needle");

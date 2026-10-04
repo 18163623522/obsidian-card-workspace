@@ -33,21 +33,21 @@ const source = Array.from({length: 12}, (_, i) => 'prefix ' + '宽'.repeat(70) +
 let component, events = [], records = [], model;
 const image = {status: 'ready', url: 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88"><rect width="88" height="88" rx="5" fill="#d8e7f5"/><path d="M8 69L30 37L48 55L66 22L80 69Z" fill="#7398b8"/></svg>')};
 const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
-async function render({lines, mode, width = 280, panel = false, bulk = false}) {
+async function render({lines, snippetLimit = 2, mode, width = 280, panel = false, bulk = false}) {
   if (component) await unmount(component);
   events = [];
   const target = document.querySelector('#mount'); target.innerHTML = ''; target.style.width = width + 'px'; target.style.height = panel ? '640px' : 'auto';
-  const snippets = await extractSearchPreviewSnippets(source, {limit: Math.floor(lines / 2), idPrefix: 'browser', matcher: createSearchPreviewMatcher('needle')});
+  const snippets = await extractSearchPreviewSnippets(source, {limit: snippetLimit, idPrefix: 'browser', matcher: createSearchPreviewMatcher('needle')});
   const card = {path: 'test.md', title: 'Needle title', fileKind: 'markdown', file: {}, ctime: 1, mtime: 2, excerpt: '', previewHtml: '<p>Ordinary opening</p>', previewMode: 'text', hydrated: true, taskSummary: null,
-    searchPreview: {query: 'needle', revision: 1, mtime: 2, previewLines: lines, status: 'hits', snippets}};
+    searchPreview: {query: 'needle', revision: 1, mtime: 2, previewLines: lines, snippetLimit, status: 'hits', snippets}};
   records = Array.from({length: panel ? 80 : 1}, (_, index) => ({...card, path: 'note-' + index + '.md', title: 'Needle ' + index}));
-  if (!panel) component = mount(CardItem, {target, props: {card, searchQuery: 'needle', appearance: {previewLines: lines, cardCornerRadius: 'compact', cardImageMode: mode, cardImageFit: 'cover'},
+  if (!panel) component = mount(CardItem, {target, props: {card, searchQuery: 'needle', appearance: {previewLines: lines, searchPreviewSnippetCount: snippetLimit, cardCornerRadius: 'compact', cardImageMode: mode, cardImageFit: 'cover'},
     bulkMode: bulk, image: mode === 'right' ? image : undefined, onOpenNote: event => events.push(event), onBulkSelectCard: event => events.push(event)}});
   else {
     const epochs = {load: {value: 1}}, settings = {cardImageMode: mode};
     const cardsGroup = () => ({records, searchMatchCountsByPath: {}, selectedPath: null, loading: false, generation: 1, sequenceRevision: 1, hydrationRevision: 1, groupSegments: [], groupRevision: 0, extentCount: records.length});
     ${modelCode.replace('const model =', 'model =')}
-    model.mutate(draft => {draft.search = {...draft.search, query: 'needle', committedQuery: 'needle'}; draft.appearance = {...draft.appearance, previewLines: lines}; draft.images = {byPath: mode === 'right' ? Object.fromEntries(records.map(card => [card.path, image])) : {}, requestVersion: 1};});
+    model.mutate(draft => {draft.search = {...draft.search, query: 'needle', committedQuery: 'needle'}; draft.appearance = {...draft.appearance, previewLines: lines, searchPreviewSnippetCount: snippetLimit}; draft.images = {byPath: mode === 'right' ? Object.fromEntries(records.map(card => [card.path, image])) : {}, requestVersion: 1};});
     component = mount(FolderCardPanel, {target, props: {panelModel: model, onOpenNote: event => events.push(event)}});
   }
   await tick(); await frame(); await frame();
@@ -80,9 +80,9 @@ window.searchPreviewBrowser = {render, events: () => events, resize: async width
       clamp: getComputedStyle(text).webkitLineClamp, location: button.getAttribute("aria-label")};
   }));
   const layouts = [];
-  for (const mode of ["off", "right"]) for (const lines of [3,4,5,6,7,8]) {
-    await page.evaluate(options => window.searchPreviewBrowser.render(options), {mode, lines});
-    const values = await measure(); assert.equal(values.length, Math.floor(lines / 2));
+  for (const mode of ["off", "right"]) for (const lines of [3,8]) for (const snippetLimit of [1,2,3,4,5]) {
+    await page.evaluate(options => window.searchPreviewBrowser.render(options), {mode, lines, snippetLimit});
+    const values = await measure(); assert.equal(values.length, snippetLimit);
     if (mode === "right") {
       const imageRect = await page.locator(".fce-card-image").boundingBox();
       assert(Math.abs(imageRect.width - 88) < 0.1); assert(Math.abs(imageRect.height - 88) < 0.1);
@@ -98,9 +98,9 @@ window.searchPreviewBrowser = {render, events: () => events, resize: async width
     assert.equal(await page.evaluate(() => window.searchPreviewBrowser.events().length), 3, "Native keyboard duplicate activation");
     await page.evaluate(() => window.searchPreviewBrowser.resize(220));
     const narrow = await measure(); assert(narrow.every(value => value.firstHitVisible && value.prefixWidth <= value.width * 0.3 + 1));
-    layouts.push({mode, lines, values, narrow});
+    layouts.push({mode, lines, snippetLimit, values, narrow});
   }
-  await page.evaluate(() => window.searchPreviewBrowser.render({lines: 8, mode: "right"}));
+  await page.evaluate(() => window.searchPreviewBrowser.render({lines: 3, snippetLimit: 5, mode: "right"}));
   await mkdir(path.dirname(output), {recursive: true});
   await page.screenshot({path: output.replace(/\.json$/, ".png"), fullPage: true});
   await page.evaluate(() => window.searchPreviewBrowser.render({lines: 5, mode: "right", bulk: true}));

@@ -25,6 +25,7 @@ export interface SearchPreview {
   revision: number;
   mtime: number;
   previewLines: number;
+  snippetLimit: number;
   status: "hits" | "title-only" | "unavailable";
   snippets: SearchPreviewSnippet[];
 }
@@ -90,11 +91,6 @@ function findLine(starts: number[], offset: number): number {
 }
 
 function isLowSurrogate(code: number): boolean { return code >= 0xdc00 && code <= 0xdfff; }
-
-/** Each snippet reserves two complete display lines. */
-export function searchPreviewSnippetLimit(previewLines: number): number {
-  return Math.floor(previewLines / 2);
-}
 
 function mergeRanges(ranges: SearchTextRange[]): SearchTextRange[] {
   const merged: SearchTextRange[] = [];

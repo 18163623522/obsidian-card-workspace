@@ -9,6 +9,8 @@ import {
 import {
   PREVIEW_LINES_MAX,
   PREVIEW_LINES_MIN,
+  SEARCH_PREVIEW_SNIPPET_COUNT_MIN,
+  SEARCH_PREVIEW_SNIPPET_COUNT_MAX,
   isCardCornerRadius,
   isCardImageMode,
   isCardImageFit,
@@ -52,6 +54,13 @@ function declarativeSettingPatch(key: string, value: unknown): PartialPluginSett
         && value <= PREVIEW_LINES_MAX
         ? { previewLines: value }
         : null;
+    case "searchPreviewSnippetCount":
+      return typeof value === "number"
+        && Number.isInteger(value)
+        && value >= SEARCH_PREVIEW_SNIPPET_COUNT_MIN
+        && value <= SEARCH_PREVIEW_SNIPPET_COUNT_MAX
+        ? { searchPreviewSnippetCount: value }
+        : null;
     case "showNavItemCounts":
       return typeof value === "boolean" ? { showNavItemCounts: value } : null;
     case "locateLinkCardOnOpen":
@@ -94,6 +103,8 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
         return settings.cardImageFit;
       case "previewLines":
         return settings.previewLines;
+      case "searchPreviewSnippetCount":
+        return settings.searchPreviewSnippetCount;
       case "showNavItemCounts":
         return settings.showNavItemCounts;
       case "locateLinkCardOnOpen":
@@ -179,6 +190,17 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
               key: "previewLines",
               min: PREVIEW_LINES_MIN,
               max: PREVIEW_LINES_MAX,
+              step: 1,
+            },
+          },
+          {
+            name: strings.searchPreviewSnippetCountName,
+            desc: strings.searchPreviewSnippetCountDesc,
+            control: {
+              type: "slider",
+              key: "searchPreviewSnippetCount",
+              min: SEARCH_PREVIEW_SNIPPET_COUNT_MIN,
+              max: SEARCH_PREVIEW_SNIPPET_COUNT_MAX,
               step: 1,
             },
           },

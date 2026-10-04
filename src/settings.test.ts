@@ -273,6 +273,35 @@ describe("normalizeSettings — sort fields", () => {
 });
 
 
+describe("search preview snippet preference", () => {
+  it("defaults old flat and layered settings to two snippets independently of preview lines", () => {
+    expect(normalizeSettings({ previewLines: 8 }).searchPreviewSnippetCount).toBe(2);
+    expect(migrateSettings({ schemaVersion: 2, preferences: { previewLines: 3 } }).searchPreviewSnippetCount).toBe(2);
+  });
+
+  it.each([[0, 1], [1, 1], [3, 3], [5, 5], [6, 5], [2.6, 3]])(
+    "normalizes %s to %s on load and update", (value, expected) => {
+      expect(normalizeSettings({ searchPreviewSnippetCount: value }).searchPreviewSnippetCount).toBe(expected);
+      const next = mergeSettings({ ...DEFAULT_SETTINGS, previewLines: 3 }, { searchPreviewSnippetCount: value });
+      expect(next.searchPreviewSnippetCount).toBe(expected);
+      expect(next.previewLines).toBe(3);
+    },
+  );
+
+  it.each([null, "5", NaN, Infinity, -Infinity, {}, []])("defaults malformed values %s", (value) => {
+    expect(normalizeSettings({ searchPreviewSnippetCount: value }).searchPreviewSnippetCount).toBe(2);
+    expect(mergeSettings(DEFAULT_SETTINGS, { searchPreviewSnippetCount: value } as never).searchPreviewSnippetCount).toBe(2);
+  });
+
+  it("round-trips five snippets in preferences with the existing schema", () => {
+    const settings = mergeSettings(DEFAULT_SETTINGS, { previewLines: 3, searchPreviewSnippetCount: 5 });
+    const document = serializeSettings(settings);
+    expect(document.schemaVersion).toBe(2);
+    expect(document.preferences.searchPreviewSnippetCount).toBe(5);
+    expect(migrateSettings(document)).toEqual(settings);
+  });
+});
+
 describe("normalizeSettings — previewLines", () => {
   it("defaults previewLines to 5 when value is missing", () => {
     const raw = {
@@ -1022,7 +1051,7 @@ describe("card grouping settings normalization", () => {
     expect(result.boxes[0].rules.map((rule) => rule.name)).toEqual(["Client work", ""]);
   });
 
-  it("adds exactly the grouping and rule-identity keys when re-serializing a v2 document", () => {
+  it("adds grouping, rule identities, and missing preference defaults when re-serializing a v2 document", () => {
     const persisted = {
       schemaVersion: SETTINGS_SCHEMA_VERSION,
       preferences: {
@@ -1062,9 +1091,8 @@ describe("card grouping settings normalization", () => {
       },
     };
 
-    // Upgrading a pre-grouping vault must add the grouping/rule-identity keys
-    // plus the Properties defaults (visible keys in preferences; expansion,
-    // clauses, and section collapse in workspace) and nothing else.
+    // Upgrading a pre-grouping vault adds grouping/rule identities and defaults
+    // for newer preferences and workspace fields while preserving authored data.
     // Rule identity is written unconditionally: C11's downgrade path re-derives
     // a dropped id and falls back for a dropped name, which presumes both are
     // normally persisted.
@@ -1076,6 +1104,7 @@ describe("card grouping settings normalization", () => {
         group: DEFAULT_GROUP_SPEC,
         locateLinkCardOnOpen: false,
         enableHeadingDragInsert: false,
+        searchPreviewSnippetCount: 2,
         navSectionOrder: ["properties", "boxes", "tags", "folders", "favorites", "links"],
         visiblePropertyKeys: [],
       },
@@ -1546,6 +1575,7 @@ describe("settings layer manifest (C4)", () => {
     cardCornerRadius: "preferences",
     newNoteTemplate: "preferences",
     previewLines: "preferences",
+    searchPreviewSnippetCount: "preferences",
     cardImageMode: "preferences",
     cardImageFit: "preferences",
     showNavItemCounts: "preferences",
@@ -1610,6 +1640,7 @@ describe("non-default v2 round trip per layer (C4)", () => {
     cardImageFit: "contain",
     previewLines: 8,
     lastFolderPath: "Projects",
+    searchPreviewSnippetCount: 5,
     expandedFolderPaths: ["Projects"],
     expandedTagPaths: ["work"],
     visiblePropertyKeys: ["status"],
@@ -1642,6 +1673,7 @@ describe("non-default v2 round trip per layer (C4)", () => {
     ["cardImageMode", (d) => d.preferences.cardImageMode, "off"],
     ["cardImageFit", (d) => d.preferences.cardImageFit, "contain"],
     ["previewLines", (d) => d.preferences.previewLines, 8],
+    ["searchPreviewSnippetCount", (d) => d.preferences.searchPreviewSnippetCount, 5],
     ["showNavItemCounts", (d) => d.preferences.showNavItemCounts, true],
     ["navSectionOrder", (d) => d.preferences.navSectionOrder, ["properties", "boxes", "tags", "folders", "favorites", "links"]],
     ["visiblePropertyKeys", (d) => d.preferences.visiblePropertyKeys, ["status"]],

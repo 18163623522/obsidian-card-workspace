@@ -28,6 +28,7 @@ export interface PreferencesSettings {
   cardCornerRadius: PluginSettings["cardCornerRadius"];
   newNoteTemplate: PluginSettings["newNoteTemplate"];
   previewLines: number;
+  searchPreviewSnippetCount: number;
   cardImageMode: PluginSettings["cardImageMode"];
   cardImageFit: PluginSettings["cardImageFit"];
   showNavItemCounts: boolean;
@@ -142,6 +143,7 @@ export function splitFlatPatch(patch: PartialPluginSettings): {
   if (patch.cardImageMode !== undefined) preferences.cardImageMode = patch.cardImageMode;
   if (patch.cardImageFit !== undefined) preferences.cardImageFit = patch.cardImageFit;
   if (patch.previewLines !== undefined) preferences.previewLines = patch.previewLines;
+  if (patch.searchPreviewSnippetCount !== undefined) preferences.searchPreviewSnippetCount = patch.searchPreviewSnippetCount;
   if (patch.showNavItemCounts !== undefined) preferences.showNavItemCounts = patch.showNavItemCounts;
   if (patch.navSectionOrder !== undefined) preferences.navSectionOrder = patch.navSectionOrder;
   if (patch.visiblePropertyKeys !== undefined) preferences.visiblePropertyKeys = patch.visiblePropertyKeys;
@@ -189,6 +191,7 @@ export function serializeSettings(settings: PluginSettings): PersistedSettingsV2
       cardCornerRadius: settings.cardCornerRadius,
       newNoteTemplate: settings.newNoteTemplate,
       previewLines: settings.previewLines,
+      searchPreviewSnippetCount: settings.searchPreviewSnippetCount,
       cardImageMode: settings.cardImageMode,
       cardImageFit: settings.cardImageFit,
       showNavItemCounts: settings.showNavItemCounts,

@@ -107,7 +107,7 @@ async function open(options: { mode: string; columns: number; scenario: string; 
     projection: { sortField: "mtime", sortDirection: "desc", availableTags: [], tagCounts: {}, activeFilterTags: [], pinnedPaths: [], group: DEFAULT_GROUP_SPEC, availableGroupDimensions: [], groupSegmentCount: 0, metadataStatus: "ready" },
     bulk: { bulkMode: false, selectedPaths: [], selectedCount: 0, canBulkSelectAll: false, canBulkClearSelection: false, canBulkMoveSelected: false, canBulkDeleteSelected: false, canBulkMergeSelected: false },
     nav: { folderTree: [], favorites: [], boxSummaries: [], paneWidth: 240, layoutMode: "single", visible: false, sectionCollapsed: {}, showItemCounts: false, tooltipSide: "right", propertyFilterCount: 0, projection: { rows: [], sections: [], normalizedQuery: "", querying: false, noResults: false }, query: "", focusId: null, focusRequest: null, revealRequest: null },
-    appearance: { cardCornerRadius: "compact", previewLines: 5, cardImageMode: settings.cardImageMode, cardImageFit: "contain" }, images: { byPath: {}, requestVersion: 0 },
+    appearance: { cardCornerRadius: "compact", previewLines: 5, searchPreviewSnippetCount: 2, cardImageMode: settings.cardImageMode, cardImageFit: "contain" }, images: { byPath: {}, requestVersion: 0 },
   } as any);
   const target = document.querySelector("#mount") as HTMLElement; target.style.width = `${options.columns * 250}px`; target.style.height = "720px";
   component = mount(FolderCardPanel, { target, props: { panelModel: model,

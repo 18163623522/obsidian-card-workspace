@@ -41,6 +41,7 @@ function createPlugin(
       enableHeadingDragInsert: false,
       newNoteTemplate: "blank",
       previewLines: 6,
+      searchPreviewSnippetCount: 2,
       showNavItemCounts: false,
       cardImageMode: "off",
       cardImageFit: "contain",
@@ -94,6 +95,7 @@ describe("CardWorkspaceSettingTab", () => {
     expect(rowsOf(appearance).map((row) => row.name)).toEqual([
       "Card corner radius",
       "Preview lines",
+      "Maximum search hit snippets in each card preview",
       "Card images",
       "Image fit",
       "Show item counts in navigation",
@@ -150,16 +152,19 @@ describe("CardWorkspaceSettingTab", () => {
       step: 1,
     });
     expect(controlOf(appearanceRows[2])).toEqual({
+      type: "slider", key: "searchPreviewSnippetCount", min: 1, max: 5, step: 1,
+    });
+    expect(controlOf(appearanceRows[3])).toEqual({
       type: "dropdown",
       key: "cardImageMode",
       options: { off: "Off", right: "Right thumbnail", inline: "Below title" },
     });
-    expect(controlOf(appearanceRows[3])).toEqual({
+    expect(controlOf(appearanceRows[4])).toEqual({
       type: "dropdown",
       key: "cardImageFit",
       options: { contain: "Show whole image", cover: "Crop to fill" },
     });
-    expect(controlOf(appearanceRows[4])).toEqual({ type: "toggle", key: "showNavItemCounts" });
+    expect(controlOf(appearanceRows[5])).toEqual({ type: "toggle", key: "showNavItemCounts" });
   });
 
   it("keeps descriptions on every row, including the Remember Cursor Position caveat", () => {
@@ -176,7 +181,7 @@ describe("CardWorkspaceSettingTab", () => {
   it("only offers the image fit row while card images are enabled", () => {
     const plugin = createPlugin({ cardImageMode: "off" });
     const tab = createTab(plugin);
-    const fit = rowsOf(groupsOf(tab.getSettingDefinitions())[1])[3];
+    const fit = rowsOf(groupsOf(tab.getSettingDefinitions())[1])[4];
     const isVisible = fit?.visible as () => boolean;
 
     expect(isVisible()).toBe(false);
@@ -202,10 +207,12 @@ describe("CardWorkspaceSettingTab", () => {
     expect(rowsOf(appearance).map((row) => row.name)).toEqual([
       "卡片圆角",
       "预览行数",
+      "每张卡片预览最多显示的命中片段",
       "卡片图片",
       "图片显示方式",
       "在导航栏显示条目计数",
     ]);
+    expect(rowsOf(appearance)[2]?.desc).toBe("搜索时最多显示多少个正文命中片段，每个片段占两行。");
     expect(controlOf(rowsOf(behavior)[0])).toMatchObject({
       options: { smart: "当前窗格 / 当前标签页" },
     });
@@ -233,6 +240,7 @@ describe("CardWorkspaceSettingTab", () => {
     expect(tab.getControlValue("newNoteTemplate")).toBe("blank");
     expect(tab.getControlValue("cardCornerRadius")).toBe("medium");
     expect(tab.getControlValue("previewLines")).toBe(6);
+    expect(tab.getControlValue("searchPreviewSnippetCount")).toBe(2);
     expect(tab.getControlValue("showNavItemCounts")).toBe(false);
     expect(tab.getControlValue("locateLinkCardOnOpen")).toBe(false);
     expect(tab.getControlValue("cardImageMode")).toBe("off");
@@ -254,6 +262,8 @@ describe("CardWorkspaceSettingTab", () => {
     await tab.setControlValue("previewLines", 4);
     await tab.setControlValue("previewLines", 99);
     await tab.setControlValue("previewLines", 4.5);
+    await tab.setControlValue("searchPreviewSnippetCount", 5);
+    for (const value of [0, 6, 2.5, "3", NaN]) await tab.setControlValue("searchPreviewSnippetCount", value);
     await tab.setControlValue("showNavItemCounts", true);
     await tab.setControlValue("showNavItemCounts", "yes");
     await tab.setControlValue("locateLinkCardOnOpen", true);
@@ -267,6 +277,7 @@ describe("CardWorkspaceSettingTab", () => {
       [{ newNoteTemplate: "blank" }],
       [{ cardCornerRadius: "rounded" }],
       [{ previewLines: 4 }],
+      [{ searchPreviewSnippetCount: 5 }],
       [{ showNavItemCounts: true }],
       [{ locateLinkCardOnOpen: true }],
       [{ cardImageFit: "cover" }],

@@ -1,6 +1,6 @@
 # Search preview verification
 
-Markdown search results render readable hit contexts in source order. Each snippet reserves two display lines, so preview settings of 3, 4, 5, 6, 7 and 8 lines allow 1, 2, 2, 3, 3 and 4 snippets. Overlapping contexts merge; short hit lines can include following prose, stopping at blank lines and new Markdown block boundaries. Each snippet has a 200 UTF-16 character budget and at most 60 preceding characters. Width changes crop only presentation text, keeping the first highlight visible and its source location unchanged.
+Markdown search results render readable hit contexts in source order. Each snippet reserves two display lines. The independent maximum snippet setting accepts 1–5 (default 2), without using the ordinary preview-line budget. Overlapping contexts merge; short hit lines can include following prose, stopping at blank lines and new Markdown block boundaries. Each snippet has a 200 UTF-16 character budget and at most 60 preceding characters. Width changes crop only presentation text, keeping the first highlight visible and its source location unchanged.
 
 Title-only matches retain the ordinary opening preview. One runtime LRU entry per file holds that preview and the current query context. Reads and cooperative extraction use the existing five-task queue; search results publish before snippet hydration finishes. Query drafts, preview settings and file events invalidate stale work, including file mutations with unchanged timestamps.
 
@@ -27,7 +27,7 @@ npx playwright install chromium
 node scripts/run-search-preview-browser.mjs --output /absolute/path/search-preview-browser.json
 ```
 
-This mounts production cards and the production virtualized panel. It checks all six line budgets in 280px cards, with and without an 88px right image; two-line heights and clamps; contiguous snippet rows; first-highlight and prefix visibility; resizing to 220px; one activation per native mouse/Enter/Space gesture; bulk selection; and scroll anchoring during preview publication and resize. Its images are local fixtures, without external assets or a real vault.
+This mounts production cards and the production virtualized panel. It checks all five snippet limits with both minimum and maximum ordinary preview-line budgets in 280px cards, with and without an 88px right image; two-line heights and clamps; contiguous snippet rows; first-highlight and prefix visibility; resizing to 220px; one activation per native mouse/Enter/Space gesture; bulk selection; and scroll anchoring during preview publication and resize. Its images are local fixtures, without external assets or a real vault.
 
 Saved verification artifacts:
 

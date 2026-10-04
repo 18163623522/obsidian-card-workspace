@@ -96,6 +96,7 @@ function buildState(): PanelModelState {
     appearance: {
       cardCornerRadius: "medium",
       previewLines: 8,
+      searchPreviewSnippetCount: 2,
     },
   };
 }

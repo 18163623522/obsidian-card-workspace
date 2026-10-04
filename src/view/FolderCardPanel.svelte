@@ -197,7 +197,7 @@
       focusId: null, focusRequest: null,
       revealRequest: null,
     },
-    appearance: { cardCornerRadius: "compact", previewLines: 5, cardImageMode: "off", cardImageFit: "contain" },
+    appearance: { cardCornerRadius: "compact", previewLines: 5, searchPreviewSnippetCount: 2, cardImageMode: "off", cardImageFit: "contain" },
     images: { byPath: {}, requestVersion: 0 },
   };
 

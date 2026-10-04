@@ -213,6 +213,7 @@ export interface PanelNavState {
 export interface PanelAppearanceState {
   cardCornerRadius: CardCornerRadius;
   previewLines: number;
+  searchPreviewSnippetCount: number;
   cardImageMode?: CardImageMode;
   cardImageFit?: CardImageFit;
 }

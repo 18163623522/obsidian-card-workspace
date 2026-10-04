@@ -80,7 +80,7 @@ async function hydrationRun(Controller) {
   const scroll = await time(() => controller.hydrateViewport(request(6, 12)));
   assert.equal(readsAfterCache, 6); assert.equal(reads, 12); assert.ok(peakReads <= 5);
   const location = store.getBaseCard(records[0].path).searchPreview?.snippets[0].location;
-  if (location) assert.ok(store.getBaseCard(records[0].path).searchPreview.snippets.length <= Math.floor(DEFAULT_SETTINGS.previewLines / 2));
+  if (location) assert.ok(store.getBaseCard(records[0].path).searchPreview.snippets.length <= DEFAULT_SETTINGS.searchPreviewSnippetCount);
   controller.dispose();
   await new Promise(resolve => setTimeout(resolve, 0));
   clearInterval(probe);
@@ -102,7 +102,7 @@ for (const [name, markdown] of [
  ['fenced-separators', '\x60\x60\x60js\\n' + 'long_word '.repeat(49000) + 'needle\\n\x60\x60\x60'],
 ]) {
   let diagnostics;
-  const snippets = await extractSearchPreviewSnippets(markdown, {limit: Math.floor(DEFAULT_SETTINGS.previewLines / 2), idPrefix: name, matcher: createSearchPreviewMatcher(name === 'han-run' ? '中' : query), onDiagnostics: d => {diagnostics = d;}});
+  const snippets = await extractSearchPreviewSnippets(markdown, {limit: DEFAULT_SETTINGS.searchPreviewSnippetCount, idPrefix: name, matcher: createSearchPreviewMatcher(name === 'han-run' ? '中' : query), onDiagnostics: d => {diagnostics = d;}});
   extraction.push({name, sourceChars: markdown.length, snippets: snippets.length, ...diagnostics});
 }
 const report = {schemaVersion: 1, fixture: '36 deterministic notes; 320 ordinary lines and five hit lines', baselineCommit: ${JSON.stringify(revision)},

@@ -100,7 +100,7 @@ function createPanelState(): PanelModelState {
       revealRequest: null,
     },
     images: { byPath: {}, requestVersion: 0 },
-    appearance: { cardCornerRadius: "compact", previewLines: 5 },
+    appearance: { cardCornerRadius: "compact", previewLines: 5, searchPreviewSnippetCount: 2 },
   };
 }
 

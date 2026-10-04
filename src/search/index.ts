@@ -9,7 +9,7 @@ export {
   prepareSearchableDocuments,
 } from "./document-preparation";
 export { PHASE3_MINISEARCH_CONTRACT } from "./types";
-export { searchPreviewSnippetLimit, createSearchPreviewMatcher, extractSearchPreviewSnippets, resolveSearchSnippetLocation } from "./search-preview";
+export { createSearchPreviewMatcher, extractSearchPreviewSnippets, resolveSearchSnippetLocation } from "./search-preview";
 export type { SearchPreview, SearchPreviewSnippet, SearchSnippetLocation, SearchTextRange } from "./search-preview";
 export type {
   SearchableDocument,

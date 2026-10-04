@@ -176,10 +176,11 @@ export class FolderCardView extends ItemView {
       || this.modules.search.getCommittedQuery().trim() !== preview.query
       || this.modules.search.getContentRevision() !== preview.revision
       || this.plugin.getSettings().previewLines !== preview.previewLines
+      || this.plugin.getSettings().searchPreviewSnippetCount !== preview.snippetLimit
       || (card.file.stat?.mtime ?? card.mtime) !== preview.mtime) return null;
     const snippet = preview.snippets.find((entry) => entry.id === snippetId);
     if (!snippet) return null;
-    const { query, revision, previewLines, mtime } = preview;
+    const { query, revision, previewLines, snippetLimit, mtime } = preview;
     const selectionVersion = this.modules.scopeController.getActiveSelectionVersion();
     const fileVersion = this.modules.hydration.getFileRevision(card.file);
     const size = card.file.stat?.size;
@@ -191,6 +192,7 @@ export class FolderCardView extends ItemView {
       && this.modules.hydration.getFileRevision(card.file) === fileVersion
       && this.modules.scopeController.getActiveSelectionVersion() === selectionVersion
       && this.plugin.getSettings().previewLines === previewLines
+      && this.plugin.getSettings().searchPreviewSnippetCount === snippetLimit
       && this.app.vault.getAbstractFileByPath(pathAtClick) === file
       && card.file.path === pathAtClick
       && card.file.stat?.size === size
@@ -593,6 +595,7 @@ export class FolderCardView extends ItemView {
     return {
       cardCornerRadius: settings.cardCornerRadius,
       previewLines: settings.previewLines,
+      searchPreviewSnippetCount: settings.searchPreviewSnippetCount,
       cardImageMode: settings.cardImageMode,
       cardImageFit: settings.cardImageFit,
     };

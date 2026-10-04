@@ -60,7 +60,7 @@
   let {
     card,
     strings = getUiStrings("en"),
-    appearance = { cardCornerRadius: "compact", previewLines: 5 },
+    appearance = { cardCornerRadius: "compact", previewLines: 5, searchPreviewSnippetCount: 2 },
     image,
     selected = false,
     bulkMode = false,
@@ -80,6 +80,7 @@
   const fileKindStrings = $derived(strings.fileKind);
   const cardCornerRadius = $derived(appearance.cardCornerRadius);
   const previewLines = $derived(appearance.previewLines);
+  const searchPreviewSnippetCount = $derived(appearance.searchPreviewSnippetCount);
   const imageMode = $derived(appearance.cardImageMode ?? "off");
   const showImage = $derived(imageMode !== "off" && image !== undefined);
   let failedUrl = $state<string | null>(null);
@@ -88,7 +89,8 @@
   const highlightedTitleSegments = $derived(getHighlightedTitleSegments(card.title, searchQuery));
   const normalizedSearchQuery = $derived(searchQuery.trim());
   const searchPreview = $derived(card.searchPreview?.query === normalizedSearchQuery
-    && card.searchPreview.previewLines === previewLines ? card.searchPreview : undefined);
+    && card.searchPreview.previewLines === previewLines
+    && card.searchPreview.snippetLimit === searchPreviewSnippetCount ? card.searchPreview : undefined);
   const sanitizedPreviewHtml = $derived(
     typeof document === "undefined"
       ? card.previewHtml
@@ -429,7 +431,8 @@
   }
 
   function getPreviewStyle(): string {
-    return `--fce-preview-line-clamp: ${previewLines};`;
+    const lines = searchPreview?.status === "hits" ? searchPreviewSnippetCount * 2 : previewLines;
+    return `--fce-preview-line-clamp: ${lines};`;
   }
 </script>
 

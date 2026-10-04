@@ -125,7 +125,7 @@ function buildState(): PanelModelState {
       revealRequest: null,
     },
     images: { byPath: {}, requestVersion: 0 },
-    appearance: { cardCornerRadius: "medium", previewLines: 8 },
+    appearance: { cardCornerRadius: "medium", previewLines: 8, searchPreviewSnippetCount: 2 },
   };
 }
 

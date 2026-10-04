@@ -67,6 +67,7 @@ const EXPECTED_INTENTS: Record<keyof PluginSettings, ViewUpdateIntent> = {
   cardCornerRadius: "patch",
   newNoteTemplate: "patch",
   previewLines: "rehydrate",
+  searchPreviewSnippetCount: "rehydrate",
   cardImageMode: "patch",
   cardImageFit: "patch",
   lastFolderPath: "patch",
@@ -103,6 +104,7 @@ function changeSetting(settings: PluginSettings, key: keyof PluginSettings): voi
     case "cardImageMode": settings.cardImageMode = "off"; break;
     case "cardImageFit": settings.cardImageFit = "contain"; break;
     case "previewLines": settings.previewLines += 1; break;
+    case "searchPreviewSnippetCount": settings.searchPreviewSnippetCount += 1; break;
     case "lastFolderPath": settings.lastFolderPath = "changed"; break;
     case "expandedFolderPaths": settings.expandedFolderPaths = ["changed"]; break;
     case "expandedTagPaths": settings.expandedTagPaths = ["changed"]; break;

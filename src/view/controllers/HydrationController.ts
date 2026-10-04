@@ -1,5 +1,5 @@
 import type { EpochToken } from "../async-epoch";
-import { createSearchPreviewMatcher, extractSearchPreviewSnippets, searchPreviewSnippetLimit, type SearchPreview, type SearchMatchField } from "../../search";
+import { createSearchPreviewMatcher, extractSearchPreviewSnippets, type SearchPreview, type SearchMatchField } from "../../search";
 import { isMarkdownCardKind } from "../file-kind";
 import type { HydrateViewportRequest } from "../hydration-request";
 import { buildLightPreview, DEFAULT_PREVIEW_MAX_VISIBLE_CHARS } from "../markdown-utils";
@@ -332,7 +332,7 @@ export class HydrationController implements DisposableController {
           this.matcher = createSearchPreviewMatcher(query);
         }
         const snippets = await extractSearchPreviewSnippets(markdown, {
-          limit: searchPreviewSnippetLimit(job.fingerprint.previewLines),
+          limit: this.context.getSettings().searchPreviewSnippetCount,
           maxChars: 200,
           idPrefix: `${job.generation}:${job.hydrationRevision}:${job.fingerprint.contextKey}`,
           matcher: this.matcher,
@@ -443,7 +443,7 @@ export class HydrationController implements DisposableController {
       card.mtime,
       this.context.getSettings().previewLines,
       DEFAULT_PREVIEW_MAX_VISIBLE_CHARS,
-      `${query ? `search:${this.deps.getSearchContentRevision?.() ?? 0}:${query}` : location ? `link:${location.identity}` : ""}|file:${this.getFileRevision(card.file)}|live:${card.file.stat?.mtime ?? card.mtime}`,
+      `${query ? `search:${this.deps.getSearchContentRevision?.() ?? 0}:${query}:snippets:${this.context.getSettings().searchPreviewSnippetCount}` : location ? `link:${location.identity}` : ""}|file:${this.getFileRevision(card.file)}|live:${card.file.stat?.mtime ?? card.mtime}`,
     );
   }
   private rememberAppliedFingerprint(path: string, fingerprint: PreviewFingerprint): void {
@@ -478,6 +478,7 @@ export class HydrationController implements DisposableController {
       revision: this.deps.getSearchContentRevision?.() ?? 0,
       mtime: card.file.stat?.mtime ?? card.mtime,
       previewLines: this.context.getSettings().previewLines,
+      snippetLimit: this.context.getSettings().searchPreviewSnippetCount,
       status, snippets,
     };
   }

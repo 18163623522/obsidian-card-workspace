@@ -4,18 +4,18 @@ import { runSearchTask } from "./cooperative-task";
 import { SEARCH_MARKDOWN_MAX_LENGTH } from "./document-preparation";
 import { mapMarkdownSearchText } from "./mapped-search-text";
 import { extractMarkdownSearchText } from "./markdown-search-text";
-import { createSearchPreviewMatcher, extractSearchPreviewSnippets, resolveSearchSnippetLocation, searchPreviewSnippetLimit } from "./search-preview";
+import { createSearchPreviewMatcher, extractSearchPreviewSnippets, resolveSearchSnippetLocation } from "./search-preview";
 
 async function extract(markdown: string, query: string, limit = 5) {
   return (await extractSearchPreviewSnippets(markdown, { limit, idPrefix: "test", matcher: createSearchPreviewMatcher(query) }))!;
 }
 
 describe("source-mapped search previews", () => {
-  it.each([3, 4, 5, 6, 7, 8])("reserves two full display lines within a %i-line budget", async (lines) => {
+  it.each([1, 2, 3, 4, 5])("collects up to %i independent hit snippets", async (limit) => {
     const source = Array.from({ length: 12 }, (_, index) => `line ${index} needle needle`).join("\n\n");
-    const snippets = await extract(source, "needle", searchPreviewSnippetLimit(lines));
-    expect(snippets).toHaveLength(Math.floor(lines / 2));
-    expect(snippets.map((snippet) => snippet.location.from.line)).toEqual(Array.from({ length: Math.floor(lines / 2) }, (_, i) => i * 2));
+    const snippets = await extract(source, "needle", limit);
+    expect(snippets).toHaveLength(limit);
+    expect(snippets.map((snippet) => snippet.location.from.line)).toEqual(Array.from({ length: limit }, (_, i) => i * 2));
     expect(snippets[0].highlights).toHaveLength(2);
     expect(snippets[0].location.text).toBe("needle");
   });

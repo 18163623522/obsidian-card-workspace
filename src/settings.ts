@@ -31,6 +31,9 @@ export type NewNoteTemplate = "tags-frontmatter" | "blank";
 export const PREVIEW_LINES_MIN = 3;
 export const PREVIEW_LINES_MAX = 8;
 export const DEFAULT_PREVIEW_LINES = 5;
+export const SEARCH_PREVIEW_SNIPPET_COUNT_MIN = 1;
+export const SEARCH_PREVIEW_SNIPPET_COUNT_MAX = 5;
+export const DEFAULT_SEARCH_PREVIEW_SNIPPET_COUNT = 2;
 export const NAV_PANE_WIDTH_MIN = 160;
 export const NAV_PANE_WIDTH_MAX = 480;
 export const DEFAULT_NAV_PANE_WIDTH = 240;
@@ -143,6 +146,7 @@ export interface PluginSettings {
   cardCornerRadius: CardCornerRadius;
   newNoteTemplate: NewNoteTemplate;
   previewLines: number;
+  searchPreviewSnippetCount: number;
   cardImageMode: CardImageMode;
   cardImageFit: CardImageFit;
   lastFolderPath: string;
@@ -183,6 +187,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   cardCornerRadius: DEFAULT_CARD_CORNER_RADIUS,
   newNoteTemplate: DEFAULT_NEW_NOTE_TEMPLATE,
   previewLines: DEFAULT_PREVIEW_LINES,
+  searchPreviewSnippetCount: DEFAULT_SEARCH_PREVIEW_SNIPPET_COUNT,
   cardImageMode: "right",
   cardImageFit: "cover",
   lastFolderPath: "",
@@ -297,6 +302,14 @@ function normalizeNavPaneWidth(value: unknown): number {
 
 function normalizeBooleanSetting(value: unknown, defaultValue: boolean): boolean {
   return typeof value === "boolean" ? value : defaultValue;
+}
+
+function normalizeSearchPreviewSnippetCount(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return DEFAULT_SEARCH_PREVIEW_SNIPPET_COUNT;
+  }
+  return Math.min(SEARCH_PREVIEW_SNIPPET_COUNT_MAX,
+    Math.max(SEARCH_PREVIEW_SNIPPET_COUNT_MIN, Math.round(value)));
 }
 
 function normalizePreviewLines(value: unknown): number {
@@ -544,6 +557,7 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
     cardCornerRadius: normalizeCardCornerRadius(data.cardCornerRadius),
     newNoteTemplate: normalizeNewNoteTemplate(data.newNoteTemplate),
     previewLines: normalizePreviewLines(data.previewLines),
+    searchPreviewSnippetCount: normalizeSearchPreviewSnippetCount(data.searchPreviewSnippetCount),
     cardImageMode: isCardImageMode(data.cardImageMode) ? data.cardImageMode : DEFAULT_SETTINGS.cardImageMode,
     cardImageFit: isCardImageFit(data.cardImageFit) ? data.cardImageFit : DEFAULT_SETTINGS.cardImageFit,
     lastFolderPath: normalizeLastFolderPath(data.lastFolderPath, data.lastViewMode),

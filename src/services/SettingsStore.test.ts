@@ -111,6 +111,22 @@ describe("SettingsStore", () => {
     expect(store.getFlat()).toMatchObject({ lastFolderPath: "notes", previewLines: 6 });
   });
 
+  it("persists the independent snippet limit immediately and requests rehydration", async () => {
+    const { store, save, documents } = createStore({ load: async () => ({ previewLines: 3 }) });
+    await store.init();
+    expect(store.getFlat().searchPreviewSnippetCount).toBe(2);
+    const pending = store.updateFlat({ searchPreviewSnippetCount: 5 });
+    expect(store.getFlat().searchPreviewSnippetCount).toBe(5);
+    expect(await pending).toBe("rehydrate");
+    expect(save).toHaveBeenCalledOnce();
+    expect(documents[0]).toMatchObject({
+      schemaVersion: 2, preferences: { previewLines: 3, searchPreviewSnippetCount: 5 },
+    });
+    expect(migrateSettings(documents[0]).searchPreviewSnippetCount).toBe(5);
+    expect(await store.updateFlat({ searchPreviewSnippetCount: 9 })).toBeNull();
+    expect(save).toHaveBeenCalledOnce();
+  });
+
   it("persists section drag insertion immediately as a preference with patch intent", async () => {
     const { store, save, documents } = createStore({
       load: async () => ({ schemaVersion: 2, preferences: { dragInsertAction: "embed" } }),
@@ -631,6 +647,7 @@ describe("SettingsStore — layer manifest classification (C4)", () => {
     ["cardCornerRadius", { cardCornerRadius: "compact" }],
     ["newNoteTemplate", { newNoteTemplate: "blank" }],
     ["previewLines", { previewLines: 8 }],
+    ["searchPreviewSnippetCount", { searchPreviewSnippetCount: 5 }],
     ["cardImageMode", { cardImageMode: "inline" }],
     ["cardImageFit", { cardImageFit: "cover" }],
     ["showNavItemCounts", { showNavItemCounts: true }],
