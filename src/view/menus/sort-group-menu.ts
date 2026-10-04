@@ -69,7 +69,7 @@ export function buildSortGroupMenu(
 
   addHeadingItem(menu, strings.sortFieldHeading, "arrow-up-narrow-wide");
   if (state.supportsReferenceCount) addOptionItem(menu, {
-    title: strings.fieldReferenceCount, icon: "links", checked: state.sortField === "reference-count", disabled: false,
+    title: strings.fieldReferenceCount, icon: "quote", checked: state.sortField === "reference-count", disabled: false,
     onSelect: () => deps.onSelectSort("reference-count"),
   });
   addOptionItem(menu, {
