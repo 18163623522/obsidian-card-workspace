@@ -1600,10 +1600,35 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 }
 
 .folder-card-view .fce-search-snippet-text {
+  flex: 1 1 auto;
+  min-inline-size: 0;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+.folder-card-view .fce-search-snippet-layout {
+  display: flex;
+  gap: 0.35em;
+  align-items: flex-start;
+}
+
+.folder-card-view .fce-search-snippet-layout > .fce-preview-list-marker {
+  max-inline-size: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.folder-card-view .fce-search-snippet-text.is-code {
+  white-space: pre-wrap;
+  background: var(--fce-surface-alt);
+  border-radius: var(--radius-s);
+}
+
+.folder-card-view .fce-search-snippet-text.is-code code {
+  padding: 0;
+  background: transparent;
 }
 
 .folder-card-view .fce-excerpt.is-empty,

@@ -2,6 +2,7 @@ import { iterateSearchIndexTerms, shouldUsePrefixSearch, tokenizeSearchQuery } f
 import { runSearchTask, type SearchTaskDiagnostics } from "./cooperative-task";
 import { SEARCH_MARKDOWN_MAX_LENGTH } from "./document-preparation";
 import { mapMarkdownSearchText } from "./mapped-search-text";
+import { buildSearchSnippetPresentation, type SearchSnippetPresentation } from "./snippet-presentation";
 
 export interface SearchTextRange { start: number; end: number }
 export interface SearchSourcePosition { line: number; ch: number }
@@ -19,6 +20,7 @@ export interface SearchPreviewSnippet {
   text: string;
   highlights: SearchTextRange[];
   location: SearchSnippetLocation;
+  presentation?: SearchSnippetPresentation;
 }
 export interface SearchPreview {
   query: string;
@@ -149,6 +151,7 @@ function* collectSnippets(markdown: string, options: SearchPreviewExtractionOpti
   const matchedTime = performance.now();
   phases.budgetedMatchingMs = matchedTime - preparedTime;
   const snippets: SearchPreviewSnippet[] = [];
+  let formattingMs = 0;
   let previousEnd = 0;
   for (let hitIndex = 0; hitIndex < merged.length && snippets.length < limit; hitIndex += 1) {
     const first = merged[hitIndex];
@@ -201,7 +204,7 @@ function* collectSnippets(markdown: string, options: SearchPreviewExtractionOpti
     }
     const targetEnd = displayOffsets[Math.min(end, first.end) - 1] + 1;
     const endLine = findLine(starts, targetEnd);
-    snippets.push({
+    const snippet: SearchPreviewSnippet = {
       id: `${options.idPrefix}:${line}:${offset - starts[line]}`,
       text: prefix + body.slice(start, end) + suffix,
       highlights,
@@ -213,11 +216,25 @@ function* collectSnippets(markdown: string, options: SearchPreviewExtractionOpti
         before: source.slice(Math.max(0, offset - 32), offset),
         after: source.slice(targetEnd, Math.min(source.length, targetEnd + 32)),
       },
-    });
+    };
+    let lastOffsetIndex = end - 1;
+    while (lastOffsetIndex > start && displayOffsets[lastOffsetIndex] < 0) lastOffsetIndex -= 1;
+    const sourceEnd = displayOffsets[lastOffsetIndex];
+    const lastLine = findLine(starts, Math.max(offset, sourceEnd));
+    const contextOffsets = [-1, ...displayOffsets.slice(start, end), -1].slice(prefix ? 0 : 1, suffix ? undefined : -1);
+    const ranges = mapped.fencedRanges ?? [];
+    let low = 0, high = ranges.length;
+    while (low < high) { const mid = (low + high) >>> 1; if (ranges[mid] <= offset) low = mid + 1; else high = mid; }
+    const formatStart = performance.now();
+    snippet.presentation = yield* buildSearchSnippetPresentation(source, snippet, contextOffsets,
+      starts[line], starts[lastLine + 1] ?? source.length, low % 2 === 1);
+    formattingMs += performance.now() - formatStart;
+    snippets.push(snippet);
     previousEnd = end;
     yield;
   }
   phases.collectionMs = performance.now() - matchedTime;
+  phases.formattingMs = formattingMs;
   return snippets;
 }
 

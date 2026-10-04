@@ -15,6 +15,7 @@
   } from "./preview-html";
   import type { CardHoverLinkPayload, NoteCardRecord } from "./types";
   import CardTaskFooter from "./CardTaskFooter.svelte";
+  import { buildSearchSnippetSegments, buildSearchSnippetHtml, type SearchSnippetSegment } from "./search-snippet-layout";
 
   interface BulkSelectCardPayload {
     path: string;
@@ -97,19 +98,72 @@
       : previewHtmlSanitizer(card.previewHtml, document),
   );
   // Only display cropping depends on width; source locations stay host-owned.
+  const snippetMetrics = $state<Record<string, { width: number; fonts: Record<string, string> }>>({});
   let snippetWidth = $state(0);
-  let snippetFont = $state("");
+  let snippetFonts = $state<Record<string, string>>({});
   let textMeasure: CanvasRenderingContext2D | null = null;
-  function measureSnippet(node: HTMLButtonElement) {
+  const measuredFonts: Record<string, string> = {};
+  const snippetMeasurements = new Map<string, () => void>();
+  let snippetMeasureQueued = false;
+  function scheduleSnippetMeasures(): void {
+    if (snippetMeasureQueued) return;
+    snippetMeasureQueued = true;
+    queueMicrotask(() => {
+      snippetMeasureQueued = false;
+      for (const measure of snippetMeasurements.values()) measure();
+    });
+  }
+  const displayedSnippets = $derived(searchPreview?.status === "hits" ? searchPreview.snippets : []);
+  function measureSnippet(node: HTMLButtonElement, id: string) {
+    const content = node.querySelector<HTMLElement>(".fce-search-snippet-text")!;
     const measure = (): void => {
-      snippetWidth = node.clientWidth;
-      snippetFont = node.ownerDocument.defaultView?.getComputedStyle(node).font ?? "";
-      if (!textMeasure && snippetWidth > 0) textMeasure = node.ownerDocument.createElement("canvas").getContext("2d");
+      const width = content.clientWidth;
+      if (!width) return;
+      const win = node.ownerDocument.defaultView;
+      const font = win?.getComputedStyle(node).font ?? "";
+      if (measuredFonts.text !== font) {
+        for (const key of Object.keys(measuredFonts)) delete measuredFonts[key];
+        measuredFonts.text = font;
+      }
+      const presentation = searchPreview?.snippets.find(snippet => snippet.id === id)?.presentation;
+      const keys = new Set(presentation?.runs.map(run => run.kind === "code"
+        ? run.heading ? "code-heading" : "code" : run.heading ? "heading" : "text"));
+      for (const key of keys) {
+        if (measuredFonts[key]) continue;
+        const selector = key === "code-heading" ? "code.fce-preview-heading" : key === "code" ? "code" : ".fce-preview-heading";
+        const sample = node.querySelector<HTMLElement>(selector);
+        if (sample) measuredFonts[key] = win?.getComputedStyle(sample).font ?? font;
+      }
+      const fonts = { ...measuredFonts };
+      if (!textMeasure) textMeasure = node.ownerDocument.createElement("canvas").getContext("2d");
+      const snippet = searchPreview?.snippets.find(value => value.id === id);
+      if (snippet && textMeasure) {
+        const segments = buildSearchSnippetSegments(snippet, width, (value, kind, heading) => {
+          textMeasure!.font = fonts[kind === "code" ? heading ? "code-heading" : "code" : heading ? "heading" : "text"] ?? fonts.text;
+          return textMeasure!.measureText(value).width + (kind === "code" && !presentation?.codeBlock ? 6 : 0);
+        });
+        // Short contexts already fit; storing identical metrics would cause a redundant render.
+        if (content.textContent === segments.map(segment => segment.text).join("")) return;
+      }
+      if (presentation?.list) {
+        const previous = snippetMetrics[id];
+        if (previous?.width !== width || Object.keys(fonts).some(key => previous.fonts[key] !== fonts[key])) {
+          snippetMetrics[id] = { width, fonts };
+        }
+      } else {
+        snippetWidth = width;
+        if (Object.keys(fonts).some(key => snippetFonts[key] !== fonts[key])) snippetFonts = fonts;
+      }
     };
-    measure();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-    observer?.observe(node);
-    return { destroy() { observer?.disconnect(); } };
+    snippetMeasurements.set(id, measure);
+    scheduleSnippetMeasures();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(scheduleSnippetMeasures);
+    observer?.observe(content);
+    return { destroy() {
+      observer?.disconnect();
+      snippetMeasurements.delete(id);
+      delete snippetMetrics[id];
+    } };
   }
   let activeDragGhost: HTMLElement | null = null;
 
@@ -260,25 +314,12 @@
     });
   }
 
-  function snippetSegments(snippet: NonNullable<NoteCardRecord["searchPreview"]>["snippets"][number]): HighlightSegment[] {
-    const segments: HighlightSegment[] = [];
-    let cursor = 0;
-    const first = snippet.highlights[0];
-    if (first && snippetWidth > 0 && textMeasure) {
-      textMeasure.font = snippetFont;
-      const budget = snippetWidth * 0.3;
-      while (cursor < first.start && textMeasure.measureText((cursor ? "…" : "") + snippet.text.slice(cursor, first.start)).width > budget) {
-        cursor += (snippet.text.codePointAt(cursor) ?? 0) > 0xffff ? 2 : 1;
-      }
-      if (cursor) segments.push({ text: "…", highlighted: false });
-    }
-    for (const range of snippet.highlights) {
-      if (range.start > cursor) segments.push({ text: snippet.text.slice(cursor, range.start), highlighted: false });
-      segments.push({ text: snippet.text.slice(range.start, range.end), highlighted: true });
-      cursor = range.end;
-    }
-    if (cursor < snippet.text.length) segments.push({ text: snippet.text.slice(cursor), highlighted: false });
-    return segments;
+  function snippetSegments(snippet: NonNullable<NoteCardRecord["searchPreview"]>["snippets"][number]): SearchSnippetSegment[] {
+    const metrics = snippet.presentation?.list ? snippetMetrics[snippet.id] : { width: snippetWidth, fonts: snippetFonts };
+    return buildSearchSnippetSegments(snippet, metrics?.width, metrics && metrics.width > 0 && textMeasure ? (value, kind, heading) => {
+      textMeasure!.font = metrics.fonts[kind === "code" ? heading ? "code-heading" : "code" : heading ? "heading" : "text"] ?? metrics.fonts.text;
+      return textMeasure!.measureText(value).width + (kind === "code" && !snippet.presentation?.codeBlock ? 6 : 0);
+    } : undefined);
   }
 
   function onSnippetClick(event: MouseEvent, snippetId: string): void {
@@ -436,6 +477,10 @@
   }
 </script>
 
+{#snippet snippetBody(html: string, codeBlock: boolean)}
+  <span class="fce-search-snippet-text" class:is-code={codeBlock}>{@html html}</span>
+{/snippet}
+
 <div
   class="fce-card fce-card-radius-{cardCornerRadius} {selected ? 'is-selected' : ''} {bulkSelected ? 'is-bulk-selected' : ''} {isPinned ? 'is-pinned' : ''}"
   role="button"
@@ -515,20 +560,37 @@
     >
       {#if normalizedSearchQuery}
         {#if searchPreview?.status === "hits"}
-          {#each searchPreview.snippets as snippet (snippet.id)}
+          {#each displayedSnippets as snippet (snippet.id)}
+            {@const segments = snippetSegments(snippet)}
+            {@const html = snippet.presentation ? buildSearchSnippetHtml(segments) : ""}
             <button
               type="button"
               class="fce-search-snippet"
-              use:measureSnippet
+              use:measureSnippet={snippet.id}
               aria-label={snippet.text}
               onclick={(event) => onSnippetClick(event, snippet.id)}
               onkeydown={(event) => onSnippetKeydown(event, snippet.id)}
             >
-              <span class="fce-search-snippet-text">
-              {#each snippetSegments(snippet) as segment, index (index)}
-                {#if segment.highlighted}<mark class="fce-search-hit">{segment.text}</mark>{:else}<span class="fce-search-snippet-context">{segment.text}</span>{/if}
-              {/each}
-              </span>
+              {#if !snippet.presentation}
+                <span class="fce-search-snippet-text">
+                  {#each segments as segment, index (index)}
+                    {#if segment.highlighted}<mark class="fce-search-hit">{segment.text}</mark>{:else}<span class="fce-search-snippet-context">{segment.text}</span>{/if}
+                  {/each}
+                </span>
+              {:else if snippet.presentation.list}
+                {@const list = snippet.presentation.list}
+                <span class="fce-search-snippet-layout">
+                  {#if list.marker}<span class="fce-preview-list-marker" aria-hidden="true">{list.marker}</span>{/if}
+                  {#if list.taskKind !== "none"}
+                    <span class="fce-preview-task" class:fce-preview-task-done={list.taskKind === "done"} aria-hidden="true">
+                      {#if list.taskKind === "custom"}<span class="fce-preview-task-glyph">{list.taskGlyph}</span>{/if}
+                    </span>
+                  {/if}
+                  {@render snippetBody(html, snippet.presentation.codeBlock)}
+                </span>
+              {:else}
+                {@render snippetBody(html, snippet.presentation.codeBlock)}
+              {/if}
             </button>
           {/each}
         {:else if searchPreview?.status === "title-only"}

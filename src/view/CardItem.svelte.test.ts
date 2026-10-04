@@ -549,6 +549,23 @@ describe("CardItem.svelte", () => {
     expect(target.querySelector(".fce-search-snippet")?.textContent).toContain("Preview text");
   });
 
+  it("renders ordinary read-only task, heading, code and link cues in search snippets", async () => {
+    const source = "# needle heading\n\n2) [x] needle task\n\nneedle `code_text` [[Target|alias]]";
+    const card = await searchCard("needle", source, {}, 5, 3);
+    const captured = createCapturedCallbacks();
+    const { target } = mountCardItem({ searchQuery: "needle", card,
+      appearance: { cardCornerRadius: "compact", previewLines: 5, searchPreviewSnippetCount: 3 } }, captured.callbacks);
+    expect(Array.from(target.querySelectorAll(".fce-preview-heading"), node => node.textContent).join("")).toContain("needle heading");
+    expect(target.querySelector(".fce-preview-list-marker")?.textContent).toBe("2)");
+    expect(target.querySelector(".fce-preview-task-done")).not.toBeNull();
+    expect(target.querySelector(".fce-search-snippet code")?.textContent).toBe("code_text");
+    expect(target.querySelector(".fce-preview-link")?.textContent).toBe("alias");
+    expect(target.querySelector(".fce-search-snippet a, .fce-search-snippet input")).toBeNull();
+    (target.querySelector(".fce-preview-link") as HTMLElement).click();
+    expect(captured.openEvents).toHaveLength(1);
+    expect(captured.openEvents[0].snippetId).toBe(card.searchPreview?.snippets[2].id);
+  });
+
   it("merges overlapping Chinese hits and preserves supplementary Han characters", async () => {
     const { target } = mountCardItem({ searchQuery: "中文搜索", card: await searchCard("中文搜索", "预览中文搜索内容", { title: "开始中文搜索结束" }) });
     expect(target.querySelector("h4")?.innerHTML).toContain('<mark class="fce-search-hit">中文搜索</mark>');

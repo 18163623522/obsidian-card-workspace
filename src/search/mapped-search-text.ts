@@ -12,6 +12,8 @@ export interface MappedSearchText {
   primaryLength?: number;
   /** Presentation body preserves literal inline code; matching still uses text. */
   readable?: { text: string; offsets: number[] };
+  /** Paired source offsets for fenced bodies; no per-character presentation metadata. */
+  fencedRanges?: number[];
 }
 
 const COPY_CHUNK = 1024;
@@ -155,6 +157,7 @@ export function* mapMarkdownSearchText(markdown: string): Generator<unknown, Map
   const readable: MappedSearchText[] = [];
   let fence: ReturnType<typeof getFenceInfo> = null;
   let fenceParts: MappedSearchText[] = [];
+  const fencedRanges: number[] = [];
   function* append(part: MappedSearchText, display = part) {
     if (display.text) readable.push(display);
     if (!part.text) return;
@@ -170,11 +173,13 @@ export function* mapMarkdownSearchText(markdown: string): Generator<unknown, Map
     const line = bounded.slice(start, lineEnd);
     const trimmed = line.trim();
     if (fence && isFenceClosingLine(trimmed, fence.marker, fence.size)) {
+      fencedRanges.push(start);
       yield* append(yield* collapse(yield* join(fenceParts)));
       fence = null;
       fenceParts = [];
     } else if (!fence && getFenceInfo(trimmed)) {
       fence = getFenceInfo(trimmed);
+      fencedRanges.push(end + 1);
     } else if (fence || trimmed) {
       const offsets: number[] = [];
       for (let index = start; index < lineEnd; index += 1) {
@@ -193,9 +198,13 @@ export function* mapMarkdownSearchText(markdown: string): Generator<unknown, Map
     if (newline < 0) break;
     start = end + 1;
   }
-  if (fence) yield* append(yield* collapse(yield* join(fenceParts)));
+  if (fence) {
+    fencedRanges.push(bounded.length);
+    yield* append(yield* collapse(yield* join(fenceParts)));
+  }
   const mapped = yield* collapse(yield* join([...parts, ...expanded]));
   mapped.readable = yield* collapse(yield* join(readable));
+  mapped.fencedRanges = fencedRanges;
   mapped.primaryLength = parts.reduce((length, part) => length + part.text.length, 0) + Math.max(0, parts.length - 1);
   return mapped;
 }

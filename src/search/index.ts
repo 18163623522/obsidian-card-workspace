@@ -11,6 +11,7 @@ export {
 export { PHASE3_MINISEARCH_CONTRACT } from "./types";
 export { createSearchPreviewMatcher, extractSearchPreviewSnippets, resolveSearchSnippetLocation } from "./search-preview";
 export type { SearchPreview, SearchPreviewSnippet, SearchSnippetLocation, SearchTextRange } from "./search-preview";
+export type { SearchSnippetPresentation, SearchSnippetRun } from "./snippet-presentation";
 export type {
   SearchableDocument,
   SearchExecutionMode,

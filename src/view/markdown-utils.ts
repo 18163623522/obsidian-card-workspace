@@ -1,3 +1,4 @@
+import { parsePreviewListItem, readPreviewLink, type PreviewListItem } from "../markdown-preview-cues";
 import {
   DEFAULT_PREVIEW_LINES,
   PREVIEW_LINES_MAX,
@@ -30,18 +31,6 @@ interface InlineRenderResult {
   consumedChars: number;
   truncated: boolean;
 }
-
-interface PreviewListItem {
-  marker: string;
-  body: string;
-  isTask: boolean;
-  /** Open and done share one CSS box; custom keeps the source character inside it. */
-  taskKind: "none" | "open" | "done" | "custom";
-  taskGlyph: string;
-}
-
-const WIKI_LINK_PATTERN = /\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|([^\]]+))?]]/y;
-const MARKDOWN_LINK_PATTERN = /\[([^\]]+)]\([^)]+\)/y;
 
 export function buildLightPreview(
   markdown: string | PreviewTextSource,
@@ -200,31 +189,6 @@ export function buildLightPreview(
 
 function isBlockStarter(line: string): boolean {
   return isImageOnlyLine(line) || /^#{1,6}\s+/.test(line) || !!parsePreviewListItem(line) || /^>\s?/.test(line) || !!getFenceInfo(line);
-}
-
-function parsePreviewListItem(line: string): PreviewListItem | null {
-  const unordered = line.match(/^[-*+]\s+(.*)$/);
-  const ordered = unordered ? null : line.match(/^(\d+[.)])\s+(.*)$/);
-  if (!unordered && !ordered) {
-    return null;
-  }
-
-  const sourceMarker = ordered?.[1] ?? "•";
-  const sourceBody = ordered?.[2] ?? unordered?.[1] ?? "";
-  const task = sourceBody.match(/^\[([^\]\r\n])\](?:\s+(.*)|\s*)$/);
-  if (!task) {
-    return { marker: sourceMarker, body: sourceBody, isTask: false, taskKind: "none", taskGlyph: "" };
-  }
-
-  const state = task[1];
-  const taskKind = state === " " ? "open" : state === "x" || state === "X" ? "done" : "custom";
-  return {
-    marker: ordered ? sourceMarker : "",
-    body: task[2] ?? "",
-    isTask: true,
-    taskKind,
-    taskGlyph: taskKind === "custom" ? state : "",
-  };
 }
 
 function renderPreviewListItem(item: PreviewListItem, bodyHtml: string): string {
@@ -445,14 +409,8 @@ function startsInlineMarker(source: string, index: number): boolean {
 }
 
 function readInlineLink(source: string, index: number): { display: string; length: number } | null {
-  WIKI_LINK_PATTERN.lastIndex = index;
-  const wiki = WIKI_LINK_PATTERN.exec(source);
-  if (wiki) {
-    return { display: plainInlineText(wiki[2] ?? wiki[1]), length: wiki[0].length };
-  }
-  MARKDOWN_LINK_PATTERN.lastIndex = index;
-  const markdown = MARKDOWN_LINK_PATTERN.exec(source);
-  return markdown ? { display: plainInlineText(markdown[1]), length: markdown[0].length } : null;
+  const link = readPreviewLink(source, index);
+  return link ? { display: plainInlineText(link.body), length: link.length } : null;
 }
 
 function plainInlineText(source: string): string {
