@@ -5,9 +5,9 @@
 **Card Workspace** (also "Folder Card Explorer") is a desktop-only Obsidian plugin that renders a folder's or card box's notes as a virtualized card stream in the **left sidebar**. It provides indexed full-text search, tag filtering, pin reordering, bulk operations, favorites, nav/card context menus, card-to-editor drag insert, and its own two-column navigation pane for folders, tags, properties, and boxes.
 
 - **Plugin ID**: `card-workspace`
-- **Version**: `1.3.5` (source of truth: `manifest.json`)
+- **Version**: `1.3.6` (source of truth: `manifest.json`)
 - **License**: MIT
-- **Min Obsidian**: `1.13.0` (setting groups, `ConfirmationModal`, declarative settings; do not use APIs tagged `@since 1.13.1` or later)
+- **Min Obsidian**: `1.11.4` (`SettingGroup` is available; confirmation dialogs and declarative settings use capability-checked 1.13+ APIs with legacy fallbacks; do not use APIs tagged `@since 1.13.1` or later)
 - **Runtime dependency**: `minisearch` ^7.2.0 (bundled)
 - **Desktop only**: `manifest.json` declares `isDesktopOnly: true`
 
@@ -150,6 +150,10 @@ CI already runs this chain with lint first.
 - **Debouncing**: `debounce(..., 250, false)` for vault changes; `120ms` for search query changes
 
 ### Obsidian-specific rules
+
+- Keep settings definitions shared between legacy `display()` and native `getSettingDefinitions()`; guard `refreshDomState()` and update legacy visibility in place.
+- Business dialogs use `src/view/modals/compat-modal.ts`, never a runtime import of `ConfirmationModal` / `ConfirmationButton`. Use public `Setting.settingEl` for custom group content; do not access `SettingGroup.listEl`.
+- Single file/folder deletion awaits host `fileManager.promptForDeletion()` only. The host deletes; its return value differs by version. Batch deletion keeps plugin confirmation plus preference-aware helpers.
 
 - Prefer `app.vault`, `cachedRead()`, and FileManager/Vault APIs over lower-level adapter access
 - Keep `onload()` light; expensive vault/watcher work belongs behind `workspace.onLayoutReady()`

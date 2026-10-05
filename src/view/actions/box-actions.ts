@@ -1,4 +1,5 @@
-import { ConfirmationModal, Menu, TFile, TFolder } from "obsidian";
+import { Menu, TFile, TFolder } from "obsidian";
+import { CompatConfirmationModal } from "../modals/compat-modal";
 import type { UiStrings } from "../../i18n";
 import { normalizePropertyFilterClauses } from "../../property-filter-settings";
 import {
@@ -283,7 +284,7 @@ export class BoxActions {
       return;
     }
     const strings = this.strings.box;
-    const modal = new ConfirmationModal(this.deps.context.getApp());
+    const modal = new CompatConfirmationModal(this.deps.context.getApp());
     modal.setTitle(strings.deleteConfirmTitle);
     modal.setContent(strings.deleteConfirmBody(box.name));
     modal.addButton((button) => {
@@ -520,7 +521,7 @@ export class BoxActions {
     }
 
     const strings = this.strings.box;
-    const modal = new ConfirmationModal(this.deps.context.getApp());
+    const modal = new CompatConfirmationModal(this.deps.context.getApp());
     modal.addClass("mod-scrollable-content");
     modal.setTitle(strings.bulkAddToBoxTitle);
     const group = createModalGroup(modal.contentEl, { compact: true });

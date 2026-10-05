@@ -82,7 +82,7 @@ Card Workspace restores the last **folder** you browsed. If it was the vault roo
 
 - **Desktop only.** Card Workspace does not run on mobile.
 - **Left sidebar.** Open it from the ribbon icon or the command palette.
-- **Obsidian version.** Requires Obsidian 1.13.0 or later, because the settings page and the plugin dialogs use the setting groups, confirmation dialog, and declarative settings APIs introduced by 1.11 and 1.13. Behavior and compatibility follow what is declared in `manifest.json`. Earlier Obsidian versions keep receiving the last compatible release (1.3.4).
+- **Obsidian version.** Requires Obsidian 1.11.4 or later. Obsidian 1.13+ uses native confirmation dialogs and declarative settings with settings search; 1.11.4–1.12 use compatible dialogs and the same settings through the legacy renderer. Behavior and compatibility follow `manifest.json`. Earlier Obsidian versions keep receiving the last compatible release (1.3.4).
 - **Supported files.** Markdown (`.md`) cards receive full previews and full-text search. Bases (`.base`), Canvas (`.canvas`), and Excalidraw (`.excalidraw` and `.excalidraw.md`) use a title and placeholder and are searched by title.
 
 ## Privacy
@@ -125,10 +125,10 @@ This repo creates draft GitHub Releases from bare semver tags through `.github/w
    npm run release:prepare -- "$TAG"
    ```
 
-   To also raise the minimum supported Obsidian version, pass it as the second argument:
+   To also set the minimum supported Obsidian version, pass it as the second argument:
 
    ```bash
-   npm run release:prepare -- "$TAG" 1.13.0
+   npm run release:prepare -- "$TAG" 1.11.4
    ```
 
 3. Run the normal checks plus release validation:

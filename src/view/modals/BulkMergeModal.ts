@@ -3,7 +3,7 @@ import { FolderPickerModal } from "../../FolderPickerModal";
 import type { UiStrings } from "../../i18n";
 import { buildMergedNoteContent } from "../note-ops";
 import { FormModal } from "./FormModal";
-import { createModalGroup } from "./modal-layout";
+import { createModalGroup, createModalPreview } from "./modal-layout";
 
 export type MergeCleanupMode = "keep" | "trash";
 
@@ -72,7 +72,7 @@ export class BulkMergeModal extends FormModal {
 
   override onOpen(): void {
     this.closed = false;
-    this.render();
+    super.onOpen();
     void this.refreshPreview();
   }
 
@@ -172,7 +172,7 @@ export class BulkMergeModal extends FormModal {
     });
 
     const previewGroup = createModalGroup(this.contentEl, { heading: strings.preview });
-    this.previewEl = previewGroup.listEl.createDiv({ cls: "fce-modal-preview" });
+    this.previewEl = createModalPreview(previewGroup);
     this.applyPreview();
   }
 

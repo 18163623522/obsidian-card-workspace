@@ -225,84 +225,57 @@ describe("FileActions card copy/move/rename/delete", () => {
     expect(app.fileManager.renameFile).toHaveBeenCalledWith(liveFile, "notes/renamed.md");
   });
 
-  it("delete prompts before using the preference-aware delete helper and move failures use file-neutral notices", async () => {
+  it("delegates deletion to the host and move failures use file-neutral notices", async () => {
     const { view, file, app } = createViewWithFile("notes/delete-me.md", {
       promptForDeletion: async () => false,
     });
-
-    await (view as any).modules
-      .cardMenu.routeAction("delete", file.path);
-    expect(app.fileManager.promptForDeletion).toHaveBeenCalledTimes(1);
+    await (view as any).modules.cardMenu.routeAction("delete", file.path);
     expect(app.fileManager.promptForDeletion).toHaveBeenCalledWith(file);
     expect(deleteFileUsingObsidianPreference).not.toHaveBeenCalled();
-    expect(app.fileManager.trashFile).not.toHaveBeenCalled();
-
-    app.fileManager.promptForDeletion = vi.fn(async () => true);
-    await (view as any).modules.cardMenu.routeAction("delete", file.path);
-    expect(app.fileManager.promptForDeletion).toHaveBeenCalledTimes(1);
-    expect(deleteFileUsingObsidianPreference).toHaveBeenCalledTimes(1);
-    expect(deleteFileUsingObsidianPreference).toHaveBeenCalledWith(app, file);
     expect(app.fileManager.trashFile).not.toHaveBeenCalled();
 
     const destination = createFolder("archive");
-    vi.mocked(moveFile).mockResolvedValueOnce({
-      ok: false,
-      error: "permission denied",
-      path: file.path,
-    });
-
+    vi.mocked(moveFile).mockResolvedValueOnce({ ok: false, error: "permission denied", path: file.path });
     (view as any).modules.fileActions.moveCardNote(file.path);
-    const picker = mockState.folderPickerInstances.at(-1);
-    await picker?.onChoose(destination);
-
+    await mockState.folderPickerInstances.at(-1)?.onChoose(destination);
     expect(mockState.noticeMessages).toContain("Failed to move file: permission denied");
   });
 
-  it("delete skips the trash helper when the prompt already removed the file", async () => {
-    const { view, file, app } = createViewWithFile("notes/already-removed.md");
-    app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
-      if (requestedPath !== file.path) {
-        return null;
-      }
-
-      if (vi.mocked(app.fileManager.promptForDeletion).mock.calls.length > 0) {
-        return null;
-      }
-
-      return file;
+  it.each([undefined, true])("host deletion returning %s removes the file exactly once", async (result) => {
+    const { view, file, app } = createViewWithFile("notes/delete-me.md");
+    let live = file as typeof file | null;
+    app.vault.getAbstractFileByPath = vi.fn(() => live);
+    app.fileManager.trashFile.mockImplementation(async () => { live = null; });
+    app.fileManager.promptForDeletion = vi.fn(async () => {
+      await app.fileManager.trashFile(file);
+      return result;
     });
-
-    await (view as any).modules.cardMenu.routeAction("delete", file.path);
-
+    await (view as any).modules.fileActions.deleteCardFile(file.path);
+    expect(live).toBeNull();
+    expect(app.fileManager.trashFile).toHaveBeenCalledTimes(1);
     expect(app.fileManager.promptForDeletion).toHaveBeenCalledTimes(1);
-    expect(app.fileManager.promptForDeletion).toHaveBeenCalledWith(file);
-    expect(app.vault.getAbstractFileByPath).toHaveBeenCalledTimes(2);
     expect(deleteFileUsingObsidianPreference).not.toHaveBeenCalled();
-    expect(app.fileManager.trashFile).not.toHaveBeenCalled();
     expect(mockState.noticeMessages).toEqual([]);
   });
 
-  it("delete uses the post-prompt live file when it remains available", async () => {
-    const { view, file, app } = createViewWithFile("notes/live-after-prompt.md");
-    const liveFile = createMarkdownFile("notes/live-after-prompt.md");
-    app.vault.getAbstractFileByPath = vi.fn((requestedPath: string) => {
-      if (requestedPath !== file.path) {
-        return null;
-      }
-
-      if (vi.mocked(app.fileManager.promptForDeletion).mock.calls.length > 0) {
-        return liveFile;
-      }
-
-      return file;
+  it.each([undefined, false, true])("does not delete a remaining or replacement file after a host result of %s", async (result) => {
+    const { view, file, app } = createViewWithFile("notes/remaining.md");
+    const replacement = createMarkdownFile(file.path);
+    app.fileManager.promptForDeletion = vi.fn(async () => {
+      app.vault.getAbstractFileByPath = vi.fn(() => replacement);
+      return result;
     });
+    await (view as any).modules.fileActions.deleteCardFile(file.path);
+    expect(app.vault.getAbstractFileByPath(file.path)).toBe(replacement);
+    expect(deleteFileUsingObsidianPreference).not.toHaveBeenCalled();
+    expect(app.fileManager.trashFile).not.toHaveBeenCalled();
+  });
 
-    await (view as any).modules
-      .cardMenu.routeAction("delete", file.path);
-
-    expect(app.fileManager.promptForDeletion).toHaveBeenCalledTimes(1);
-    expect(app.fileManager.promptForDeletion).toHaveBeenCalledWith(file);
-    expect(deleteFileUsingObsidianPreference).toHaveBeenCalledTimes(1);
-    expect(deleteFileUsingObsidianPreference).toHaveBeenCalledWith(app, liveFile);
+  it("reports host deletion failures", async () => {
+    const { view, file, app } = createViewWithFile();
+    app.fileManager.promptForDeletion = vi.fn(async () => { throw new Error("permission denied"); });
+    await (view as any).modules.fileActions.deleteCardFile(file.path);
+    expect(mockState.noticeMessages).toEqual(["Failed to delete file: Error: permission denied"]);
+    expect(deleteFileUsingObsidianPreference).not.toHaveBeenCalled();
   });
 });

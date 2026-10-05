@@ -1,4 +1,5 @@
-import { ConfirmationModal, type App } from "obsidian";
+import type { App } from "obsidian";
+import { CompatConfirmationModal } from "./compat-modal";
 
 export interface BulkActionConfirmModalOptions {
   title: string;
@@ -7,7 +8,7 @@ export interface BulkActionConfirmModalOptions {
   confirmButtonText: string;
 }
 
-export class BulkActionConfirmModal extends ConfirmationModal {
+export class BulkActionConfirmModal extends CompatConfirmationModal {
   private readonly onDecision: (confirmed: boolean) => void;
   private resolved = false;
 

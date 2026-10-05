@@ -1,4 +1,5 @@
-import { ConfirmationModal, type App, type ConfirmationButton } from "obsidian";
+import type { App } from "obsidian";
+import { CompatConfirmationModal, type CompatConfirmationButton } from "./compat-modal";
 
 export interface FormModalLabels {
   cancel: string;
@@ -7,15 +8,16 @@ export interface FormModalLabels {
 }
 
 /**
- * Draft-and-submit dialog on top of the native `ConfirmationModal` footer.
+ * Draft-and-submit dialog on top of the native or compatible confirmation footer.
  *
  * The footer is built once; submit state is patched onto the existing button,
  * so typing in the body is never interrupted by a re-render. Subclasses own
  * `renderBody()` and call `render()` only when the body itself must change.
  */
-export abstract class FormModal extends ConfirmationModal {
+export abstract class FormModal extends CompatConfirmationModal {
   private submitting = false;
-  private submitButton: ConfirmationButton | null = null;
+  private lifecycleRevision = 0;
+  private submitButton: CompatConfirmationButton | null = null;
 
   protected constructor(app: App, private readonly labels: FormModalLabels) {
     super(app);
@@ -26,7 +28,9 @@ export abstract class FormModal extends ConfirmationModal {
         .setCta()
         .setButtonText(labels.submit)
         .onClick(() => {
-          void this.submit();
+          void this.submit().catch((error) => {
+            console.warn("Card Workspace: form submission failed", error);
+          });
           // Truthy keeps the dialog open; `submit()` closes it once the work succeeds.
           return true;
         });
@@ -45,7 +49,7 @@ export abstract class FormModal extends ConfirmationModal {
     return false;
   }
 
-  /** Tall dialogs opt in to the native scrolling body with a pinned footer. */
+  /** Tall dialogs opt in to the scrolling body with a pinned footer. */
   protected useScrollableLayout(): void {
     this.addClass("mod-scrollable-content");
   }
@@ -69,35 +73,44 @@ export abstract class FormModal extends ConfirmationModal {
     inputEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && !event.isComposing) {
         event.preventDefault();
-        void this.submit();
+        void this.submit().catch((error) => {
+          console.warn("Card Workspace: form submission failed", error);
+        });
       }
     });
   }
 
   onOpen(): void {
+    this.lifecycleRevision += 1;
+    this.submitting = false;
     this.render();
   }
 
   onClose(): void {
+    this.lifecycleRevision += 1;
+    this.submitting = false;
     super.onClose();
     this.contentEl.empty();
   }
 
   protected async submit(): Promise<void> {
-    if (this.submitting || this.isSubmitDisabled()) {
+    if (this.submitting || this.isSubmitDisabled() || !this.contentEl.isConnected) {
       return;
     }
 
     this.submitting = true;
+    const revision = this.lifecycleRevision;
     this.refreshFooter();
     try {
-      if (await this.handleSubmit()) {
+      if (await this.handleSubmit() && revision === this.lifecycleRevision && this.contentEl.isConnected) {
         this.close();
       }
     } finally {
-      this.submitting = false;
-      if (this.contentEl.isConnected) {
-        this.refreshFooter();
+      if (revision === this.lifecycleRevision) {
+        this.submitting = false;
+        if (this.contentEl.isConnected) {
+          this.refreshFooter();
+        }
       }
     }
   }

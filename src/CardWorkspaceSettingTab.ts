@@ -1,4 +1,8 @@
-import { PluginSettingTab, type App, type SettingDefinitionItem } from "obsidian";
+import {
+  PluginSettingTab, SettingGroup, type App, type SettingDefinition,
+  type SettingDefinitionGroup, type SettingDropdownControl, type SettingSliderControl,
+  type SettingToggleControl,
+} from "obsidian";
 import {
   getCardCornerRadiusOptions,
   getDefaultCardOpenBehaviorOptions,
@@ -20,6 +24,15 @@ import {
   type PartialPluginSettings,
 } from "./settings";
 import type CardWorkspacePlugin from "./main";
+
+// Both host entry points consume this same, intentionally small control vocabulary.
+type WorkspaceSettingDefinition = SettingDefinition & {
+  control: SettingDropdownControl | SettingToggleControl | SettingSliderControl;
+};
+type WorkspaceSettingGroup = Omit<SettingDefinitionGroup, "items"> & {
+  type: "group";
+  items: WorkspaceSettingDefinition[];
+};
 
 function optionRecord(options: readonly { value: string; label: string }[]): Record<string, string> {
   return Object.fromEntries(options.map((option) => [option.value, option.label]));
@@ -77,6 +90,7 @@ function declarativeSettingPatch(key: string, value: unknown): PartialPluginSett
 
 export class CardWorkspaceSettingTab extends PluginSettingTab {
   private plugin: CardWorkspacePlugin;
+  private readonly legacyVisibility = new Map<HTMLElement, () => boolean>();
 
   constructor(app: App, plugin: CardWorkspacePlugin) {
     super(app, plugin);
@@ -122,11 +136,67 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
   async setControlValue(key: string, value: unknown): Promise<void> {
     await this.saveDeclarativeSetting(key, value);
     if (key === "cardImageMode") {
-      this.refreshDomState();
+      if (typeof this.refreshDomState === "function") {
+        this.refreshDomState();
+      }
+      this.refreshLegacyVisibility();
     }
   }
 
-  getSettingDefinitions(): SettingDefinitionItem[] {
+  /** Obsidian 1.13+ renders definitions directly and skips this legacy entry point. */
+  display(): void {
+    this.containerEl.empty();
+    this.legacyVisibility.clear();
+    for (const definition of this.getSettingDefinitions()) {
+      const group = new SettingGroup(this.containerEl);
+      if (definition.heading) {
+        group.setHeading(definition.heading);
+      }
+      for (const row of definition.items) {
+        group.addSetting((setting) => {
+          setting.setName(row.name);
+          if (row.desc) {
+            setting.setDesc(row.desc);
+          }
+          if (row.visible !== undefined) {
+            const visible = row.visible;
+            this.legacyVisibility.set(setting.settingEl, () => typeof visible === "function" ? visible() : visible);
+          }
+          const control = row.control;
+          const value = this.getControlValue(control.key);
+          switch (control.type) {
+            case "dropdown":
+              setting.addDropdown((dropdown) => {
+                for (const [key, label] of Object.entries(control.options)) {
+                  dropdown.addOption(key, label);
+                }
+                dropdown.setValue(String(value)).onChange((next) => this.setControlValue(control.key, next));
+              });
+              break;
+            case "toggle":
+              setting.addToggle((toggle) => toggle.setValue(Boolean(value)).onChange((next) => this.setControlValue(control.key, next)));
+              break;
+            case "slider":
+              setting.addSlider((slider) => slider
+                .setLimits(control.min, control.max, control.step)
+                .setValue(Number(value))
+                .setDynamicTooltip()
+                .onChange((next) => this.setControlValue(control.key, next)));
+              break;
+          }
+        });
+      }
+    }
+    this.refreshLegacyVisibility();
+  }
+
+  private refreshLegacyVisibility(): void {
+    for (const [element, visible] of this.legacyVisibility) {
+      element.style.display = visible() ? "" : "none";
+    }
+  }
+
+  getSettingDefinitions(): WorkspaceSettingGroup[] {
     const language = this.plugin.getUiLanguage();
     const strings = getSettingTabStrings(language);
 

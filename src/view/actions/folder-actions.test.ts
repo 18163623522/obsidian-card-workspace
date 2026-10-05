@@ -5,7 +5,8 @@ import {
   createViewWithFile,
   registerFolderCardView,
 } from "../../__mocks__/folder-card-view-harness";
-import { createBoxScope, createLinksScope } from "../scope";
+import { createBoxScope, createLinksScope, createFolderScope, type CardScope } from "../scope";
+import { getUiStrings } from "../../i18n";
 import { FolderActions } from "./folder-actions";
 import { FolderCardView } from "../FolderCardView";
 
@@ -30,6 +31,125 @@ describe("FolderActions", () => {
     await (actions as any).refreshFolderScopeAfterFolderRename("notes", "renamed");
 
     expect(moveScopeToFolder).not.toHaveBeenCalled();
+  });
+});
+
+describe("host folder deletion", () => {
+  function harness(initialScope: CardScope = createFolderScope("notes/child", true)) {
+    const folder = new mockState.MockTFolder("notes");
+    const root = new mockState.MockTFolder("");
+    const files = new Map([["notes", folder]]);
+    let scope = initialScope;
+    let selectionVersion = 0;
+    const app = {
+      vault: {
+        getRoot: () => root,
+        getAbstractFileByPath: (path: string) => files.get(path) ?? null,
+      },
+      fileManager: {
+        trashFile: vi.fn(async () => { files.delete("notes"); }),
+        promptForDeletion: vi.fn(async (): Promise<unknown> => undefined),
+      },
+    };
+    const notify = vi.fn(), moveScopeToFolder = vi.fn(), refreshFolderTreeState = vi.fn();
+    const actions = new FolderActions({
+      context: { getApp: () => app, getUiStrings: () => getUiStrings("en"), store: { getScope: () => scope }, notify },
+      moveScopeToFolder, refreshFolderTreeState, getActiveSelectionVersion: () => selectionVersion,
+    } as never);
+    return { actions, app, folder, files, notify, moveScopeToFolder, refreshFolderTreeState,
+      beginSelection: () => { selectionVersion += 1; },
+      setScope: (next: CardScope) => { scope = next; selectionVersion += 1; } };
+  }
+
+  it.each([undefined, true])("returns to root after a host deletion returning %s, with one deletion", async (result) => {
+    const h = harness();
+    h.app.fileManager.promptForDeletion.mockImplementation(async () => {
+      await h.app.fileManager.trashFile();
+      return result;
+    });
+    await h.actions.deleteFolder("notes");
+    expect(h.app.fileManager.trashFile).toHaveBeenCalledTimes(1);
+    expect(h.moveScopeToFolder).toHaveBeenCalledExactlyOnceWith("");
+    expect(h.refreshFolderTreeState).toHaveBeenCalledTimes(1);
+    expect(h.notify).not.toHaveBeenCalled();
+  });
+
+  it.each([undefined, false, true])("does not treat result %s as proof of deletion", async (result) => {
+    const h = harness();
+    h.app.fileManager.promptForDeletion.mockResolvedValue(result);
+    await h.actions.deleteFolder("notes");
+    expect(h.files.get("notes")).toBe(h.folder);
+    expect(h.app.fileManager.trashFile).not.toHaveBeenCalled();
+    expect(h.moveScopeToFolder).not.toHaveBeenCalled();
+    expect(h.refreshFolderTreeState).not.toHaveBeenCalled();
+  });
+
+  it("does not mistake a renamed target for a deleted folder", async () => {
+    const h = harness();
+    h.app.fileManager.promptForDeletion.mockImplementation(async () => {
+      h.files.delete("notes");
+      h.folder.path = "renamed";
+      h.files.set("renamed", h.folder);
+    });
+    await h.actions.deleteFolder("notes");
+    expect(h.moveScopeToFolder).not.toHaveBeenCalled();
+    expect(h.app.fileManager.trashFile).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    createFolderScope("other", true), createBoxScope("box"), createLinksScope("notes/A.md", "backlinks"),
+  ])("preserves a scope selected while the deletion prompt is open: %j", async (next) => {
+    const h = harness();
+    let finish!: () => void;
+    h.app.fileManager.promptForDeletion.mockImplementation(async () => {
+      await new Promise<void>((resolve) => { finish = resolve; });
+      await h.app.fileManager.trashFile();
+    });
+    const pending = h.actions.deleteFolder("notes");
+    h.setScope(next);
+    finish();
+    await pending;
+    expect(h.moveScopeToFolder).not.toHaveBeenCalled();
+    expect(h.app.fileManager.trashFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fall back when a replacement occupies the original path", async () => {
+    const h = harness();
+    h.app.fileManager.promptForDeletion.mockImplementation(async () => {
+      await h.app.fileManager.trashFile();
+      h.files.set("notes", new mockState.MockTFolder("notes"));
+      return true;
+    });
+    await h.actions.deleteFolder("notes");
+    expect(h.moveScopeToFolder).not.toHaveBeenCalled();
+  });
+
+  it("preserves a pending selection whose new scope has not committed yet", async () => {
+    const h = harness();
+    h.app.fileManager.promptForDeletion.mockImplementation(async () => {
+      h.beginSelection();
+      await h.app.fileManager.trashFile();
+    });
+    await h.actions.deleteFolder("notes");
+    expect(h.moveScopeToFolder).not.toHaveBeenCalled();
+  });
+
+  it("reports a failure and never requests deletion of vault root", async () => {
+    const h = harness();
+    h.app.fileManager.promptForDeletion.mockRejectedValue(new Error("permission denied"));
+    await h.actions.deleteFolder("notes");
+    expect(h.notify).toHaveBeenCalledTimes(1);
+    expect(h.notify.mock.calls[0]?.[0]).toContain("permission denied");
+    expect(h.moveScopeToFolder).not.toHaveBeenCalled();
+    await h.actions.deleteFolder("/");
+    expect(h.app.fileManager.promptForDeletion).toHaveBeenCalledTimes(1);
+  });
+
+  it("also protects host root folders whose path is slash", async () => {
+    const h = harness();
+    h.app.vault.getRoot().path = "/";
+    await h.actions.deleteFolder("/");
+    expect(h.app.fileManager.promptForDeletion).not.toHaveBeenCalled();
   });
 });
 

@@ -372,6 +372,7 @@ const mockState = vi.hoisted(() => {
     private readonly text: string | null;
     private readonly tag: string;
     checked = false;
+    empty(): void {}
     private changeHandler: (() => void) | null = null;
 
     constructor(modal: MockModal, tag: string, text: string | null = null) {
@@ -570,11 +571,13 @@ const mockState = vi.hoisted(() => {
   }
 
   class MockSetting {
+    readonly settingEl: MockModalElement;
     private modal: MockModal | null;
 
     constructor(containerEl: unknown) {
       const owner = (containerEl as { __ownerModal?: MockModal } | null)?.__ownerModal;
       this.modal = owner ?? null;
+      this.settingEl = new MockModalElement(owner as MockModal, "div");
     }
 
     private currentName = "";

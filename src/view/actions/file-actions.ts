@@ -5,7 +5,6 @@ import {
   copyContentToClipboard,
   copyTitleAndContentToClipboard,
   copyTitleToClipboard,
-  deleteFileUsingObsidianPreference,
   duplicateFile,
   moveFile,
 } from "../note-ops";
@@ -141,20 +140,8 @@ export class FileActions {
     }
 
     try {
-      const confirmed = await this.deps.context.getApp().fileManager.promptForDeletion(file);
-      if (!confirmed) {
-        return;
-      }
-
-      const liveFile = this.deps.context.getApp().vault.getAbstractFileByPath(notePath);
-      if (!(liveFile instanceof TFile)) {
-        return;
-      }
-
-      const result = await deleteFileUsingObsidianPreference(this.deps.context.getApp(), liveFile);
-      if (!result.ok) {
-        this.deps.context.notify(this.strings.app.failedToDeleteFile(result.error));
-      }
+      // The host performs the deletion itself; older versions resolve with void.
+      await this.deps.context.getApp().fileManager.promptForDeletion(file);
     } catch (error) {
       this.deps.context.notify(this.strings.app.failedToDeleteFile(String(error)));
     }

@@ -2448,26 +2448,24 @@ describe("FolderCardView host contract", () => {
     expect(refreshSpy).toHaveBeenCalledWith("archive/projects");
   });
 
-  it("deletes the active folder scope back to root via prompt live re-fetch and skips root deletion", async () => {
+  it("follows host folder deletion back to root and skips root deletion", async () => {
     const { view } = createHarness();
-    const initialClientA = createFolder("projects/client-a");
-    const liveClientA = createFolder("projects/client-a");
+    const folder = createFolder("projects/client-a");
     const root = createFolder("");
     const moveSpy = vi.spyOn((view as any).modules.scopeController, "moveScopeToFolder").mockResolvedValue({ action: "started", scope: createFolderScope("", true) });
-
-    (view as any).cardScope = createFolderScope("projects/client-a", true);
+    let live: typeof folder | null = folder;
+    (view as any).cardScope = createFolderScope(folder.path, true);
     (view.app.vault.getRoot as ReturnType<typeof vi.fn>).mockReturnValue(root);
-    (view.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>)
-      .mockImplementationOnce((path: string) => path === "projects/client-a" ? initialClientA : null)
-      .mockImplementationOnce((path: string) => path === "projects/client-a" ? liveClientA : null)
-      .mockImplementation((path: string) => path === "projects/client-a" ? initialClientA : null);
-
-    await (view as any).modules.folderActions.deleteFolder("projects/client-a");
+    (view.app.vault.getAbstractFileByPath as ReturnType<typeof vi.fn>).mockImplementation(() => live);
+    vi.mocked(view.app.fileManager.promptForDeletion).mockImplementation(async () => {
+      await view.app.fileManager.trashFile(folder as never);
+      live = null;
+      return true;
+    });
+    await (view as any).modules.folderActions.deleteFolder(folder.path);
     await (view as any).modules.folderActions.deleteFolder("/");
-
     expect(view.app.fileManager.promptForDeletion).toHaveBeenCalledTimes(1);
-    expect(view.app.fileManager.promptForDeletion).toHaveBeenCalledWith(initialClientA);
-    expect(view.app.fileManager.trashFile).toHaveBeenCalledWith(liveClientA);
+    expect(view.app.fileManager.trashFile).toHaveBeenCalledTimes(1);
     expect(moveSpy).toHaveBeenCalledWith("");
   });
 

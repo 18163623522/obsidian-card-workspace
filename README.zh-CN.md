@@ -82,7 +82,7 @@ Card Workspace 会恢复上次浏览的**文件夹**；如果是库根目录，�
 
 - **仅支持桌面端。** Card Workspace 不在移动端运行。
 - **左侧边栏。** 从 ribbon 图标或命令面板打开。
-- **Obsidian 版本要求。** 需要 Obsidian 1.13.0 或更高版本，因为设置页和插件弹窗使用了 1.11 与 1.13 引入的设置分组、确认弹窗和声明式设置接口。实际行为和兼容性以 `manifest.json` 中声明的内容为准。更早的 Obsidian 版本会继续收到最后一个兼容的发行版（1.3.4）。
+- **Obsidian 版本要求。** 需要 Obsidian 1.11.4 或更高版本。1.13 及以上使用原生确认弹窗、声明式设置并接入设置搜索；1.11.4–1.12 使用兼容弹窗和共用定义的旧版设置渲染入口。实际行为和兼容性以 `manifest.json` 为准。更早的 Obsidian 版本会继续收到最后一个兼容的发行版（1.3.4）。
 - **受支持的文件。** Markdown（`.md`）卡片有完整预览和全文索引。Bases（`.base`）、Canvas（`.canvas`）和 Excalidraw（`.excalidraw` 与 `.excalidraw.md`）使用标题和占位内容，只按标题搜索。
 
 ## 隐私
@@ -125,10 +125,10 @@ npm test
    npm run release:prepare -- "$TAG"
    ```
 
-   如果还需要同时提升最低支持的 Obsidian 版本，可将它作为第二个参数传入：
+   如果还需要同时调整最低支持的 Obsidian 版本，可将它作为第二个参数传入：
 
    ```bash
-   npm run release:prepare -- "$TAG" 1.13.0
+   npm run release:prepare -- "$TAG" 1.11.4
    ```
 
 3. 运行常规检查以及发布校验：

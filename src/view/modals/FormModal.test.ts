@@ -1,9 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { asMock, type MockEl } from "../../__mocks__/obsidian-modal-mock";
 
-vi.mock("obsidian", async () => await import("../../__mocks__/obsidian-modal-mock"));
-
-const { FormModal } = await import("./FormModal");
 
 interface Deferred {
   promise: Promise<boolean>;
@@ -18,48 +15,59 @@ function createDeferred(): Deferred {
   return { promise, resolve };
 }
 
-class TestFormModal extends FormModal {
-  renderBodyCount = 0;
-  handleSubmitCount = 0;
-  pending: Deferred | null = null;
-  submitDisabled = false;
-  error: unknown = null;
-  inputEl: MockEl | null = null;
+function createTestFormClass(FormModal: typeof import("./FormModal").FormModal, legacy: boolean) {
+  return class TestFormModal extends FormModal {
+    renderBodyCount = 0;
+    handleSubmitCount = 0;
+    pending: Deferred | null = null;
+    submitDisabled = false;
+    error: unknown = null;
+    inputEl: MockEl | null = null;
 
-  constructor(private result: boolean | "pending") {
-    super({} as never, { cancel: "Cancel", submit: "Save", submitting: "Saving" });
-  }
-
-  protected renderBody(): void {
-    this.renderBodyCount += 1;
-    this.inputEl = (this.contentEl as unknown as MockEl).createEl("input");
-    this.submitOnEnter(this.inputEl as unknown as HTMLInputElement);
-  }
-
-  protected override isSubmitDisabled(): boolean {
-    return this.submitDisabled;
-  }
-
-  protected async handleSubmit(): Promise<boolean> {
-    this.handleSubmitCount += 1;
-    if (this.error !== null) {
-      throw this.error;
+    constructor(private result: boolean | "pending") {
+      super({} as never, { cancel: "Cancel", submit: "Save", submitting: "Saving" });
+      if (legacy) {
+        Object.defineProperty(this, "buttons", {
+          get: () => (this.modalEl as unknown as MockEl).nodes
+            .filter((node): node is MockEl => "hasClass" in node && node.hasClass("fce-compat-modal__footer"))
+            .flatMap((node) => node.buttons),
+        });
+      }
     }
-    if (this.result === "pending") {
-      this.pending = createDeferred();
-      return await this.pending.promise;
+
+    protected renderBody(): void {
+      this.renderBodyCount += 1;
+      this.inputEl = (this.contentEl as unknown as MockEl).createEl("input");
+      this.submitOnEnter(this.inputEl as unknown as HTMLInputElement);
     }
-    return this.result;
-  }
 
-  triggerSubmit(): Promise<void> {
-    return this.submit();
-  }
+    protected override isSubmitDisabled(): boolean {
+      return this.submitDisabled;
+    }
 
-  refresh(): void {
-    this.refreshFooter();
-  }
+    protected async handleSubmit(): Promise<boolean> {
+      this.handleSubmitCount += 1;
+      if (this.error !== null) {
+        throw this.error;
+      }
+      if (this.result === "pending") {
+        this.pending = createDeferred();
+        return await this.pending.promise;
+      }
+      return this.result;
+    }
+
+    triggerSubmit(): Promise<void> {
+      return this.submit();
+    }
+
+    refresh(): void {
+      this.refreshFooter();
+    }
+  };
 }
+
+type TestFormModal = InstanceType<ReturnType<typeof createTestFormClass>>;
 
 function submitButton(modal: TestFormModal) {
   const button = asMock(modal).buttons.find((candidate) => candidate.cta);
@@ -78,15 +86,26 @@ async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-describe("FormModal", () => {
-  it("builds the native footer once: primary action first, cancel last", () => {
+describe.each(["native", "legacy"])("FormModal (%s host)", (runtime) => {
+  let TestFormModal: ReturnType<typeof createTestFormClass>;
+  beforeAll(async () => {
+    vi.resetModules();
+    vi.doMock("obsidian", async () => {
+      const exports = await import("../../__mocks__/obsidian-modal-mock");
+      return runtime === "native" ? exports : Object.fromEntries(Object.entries(exports)
+        .filter(([key]) => key !== "ConfirmationModal" && key !== "ConfirmationButton"));
+    });
+    const { FormModal } = await import("./FormModal");
+    TestFormModal = createTestFormClass(FormModal, runtime === "legacy");
+  });
+  it("builds the footer once: primary action first, cancel last", () => {
     const modal = new TestFormModal(true);
     modal.open();
     modal.open();
 
     expect(asMock(modal).buttons.map((button) => button.text)).toEqual(["Save", "Cancel"]);
     expect(asMock(modal).buttons[0]?.cta).toBe(true);
-    expect(asMock(modal).buttons[1]?.cancel).toBe(true);
+    expect(asMock(modal).modalEl.hasClass("fce-compat-modal")).toBe(runtime === "legacy");
     expect(asMock(modal).modalEl.hasClass("fce-modal")).toBe(true);
   });
 
@@ -151,7 +170,7 @@ describe("FormModal", () => {
     const modal = new TestFormModal(true);
     modal.open();
 
-    await asMock(modal).buttons.find((button) => button.cancel)?.click();
+    await asMock(modal).buttons.find((button) => button.text === "Cancel")?.click();
     expect(asMock(modal).closeCount).toBe(1);
     expect(modal.handleSubmitCount).toBe(0);
   });
@@ -182,6 +201,40 @@ describe("FormModal", () => {
     modal.pending?.resolve(false);
     await flight;
     expect(button.text).toBe("untouched");
+  });
+
+  it("drops a successful submission after external close, including after reopen", async () => {
+    const modal = new TestFormModal("pending");
+    modal.open();
+    const flight = modal.triggerSubmit();
+    modal.close();
+    modal.open();
+    const button = submitButton(modal);
+    button.setButtonText("untouched");
+    modal.pending?.resolve(true);
+    await flight;
+    expect(asMock(modal).closeCount).toBe(1);
+    expect(button.text).toBe("untouched");
+  });
+
+  it("does not let an old submission reset a new submission after reopen", async () => {
+    const modal = new TestFormModal("pending");
+    modal.open();
+    const first = modal.triggerSubmit(), firstPending = modal.pending;
+    modal.close();
+    modal.open();
+    expect(submitButton(modal).disabled).toBe(false);
+    const second = modal.triggerSubmit();
+    firstPending?.resolve(true);
+    await first;
+    expect(submitButton(modal).text).toBe("Saving");
+    expect(submitButton(modal).disabled).toBe(true);
+    expect(asMock(modal).closeCount).toBe(1);
+    await modal.triggerSubmit();
+    expect(modal.handleSubmitCount).toBe(2);
+    modal.pending?.resolve(false);
+    await second;
+    expect(submitButton(modal).disabled).toBe(false);
   });
 
   it("disables the primary action while the subclass reports it unavailable", async () => {

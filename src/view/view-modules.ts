@@ -222,6 +222,7 @@ export function createViewModules(context: ViewContext, host: ViewModuleHost): V
   const folderActions: FolderActions = new FolderActions({
     context,
     getScope: () => context.store.getScope(),
+    getActiveSelectionVersion: () => scopeController.getActiveSelectionVersion(),
     selectFolderFromNav: (path) => host.selectFolderFromNav(path),
     moveScopeToFolder: (path) => host.moveScopeToFolder(path),
     resetSearchQuery: () => {

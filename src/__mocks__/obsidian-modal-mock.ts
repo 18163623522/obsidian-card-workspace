@@ -13,6 +13,8 @@ type Listener = (event: unknown) => void;
 export type MockNode = MockEl | Setting | SettingGroup;
 
 export class MockEl {
+  readonly style = { display: "" };
+  readonly buttons: MockButton[] = [];
   isConnected = true;
   tag = "div";
   text = "";
@@ -136,6 +138,16 @@ export class MockButton {
   }
 }
 
+export class ButtonComponent extends MockButton {
+  readonly buttonEl = { get disabled() { return false; } };
+
+  constructor(containerEl: MockEl) {
+    super();
+    Object.defineProperty(this.buttonEl, "disabled", { get: () => this.disabled });
+    containerEl.buttons.push(this);
+  }
+}
+
 export class MockText {
   value = "";
   placeholder = "";
@@ -213,7 +225,42 @@ export class MockDropdown {
   }
 }
 
+export class MockSlider {
+  value = 0;
+  min = 0;
+  max = 0;
+  step = 0;
+  dynamicTooltip = false;
+  private handler: ((value: number) => unknown) | null = null;
+
+  setLimits(min: number, max: number, step: number): this {
+    Object.assign(this, { min, max, step });
+    return this;
+  }
+
+  setValue(value: number): this {
+    this.value = value;
+    return this;
+  }
+
+  setDynamicTooltip(): this {
+    this.dynamicTooltip = true;
+    return this;
+  }
+
+  onChange(handler: (value: number) => unknown): this {
+    this.handler = handler;
+    return this;
+  }
+
+  async slide(value: number): Promise<void> {
+    this.value = value;
+    await this.handler?.(value);
+  }
+}
+
 export class Setting {
+  readonly settingEl = new MockEl();
   name = "";
   desc = "";
   readonly classes: string[] = [];
@@ -221,6 +268,7 @@ export class Setting {
   readonly searches: MockText[] = [];
   readonly toggles: MockToggle[] = [];
   readonly dropdowns: MockDropdown[] = [];
+  readonly sliders: MockSlider[] = [];
   readonly buttons: MockButton[] = [];
   readonly extraButtons: MockButton[] = [];
 
@@ -268,6 +316,13 @@ export class Setting {
     const dropdown = new MockDropdown();
     configure(dropdown);
     this.dropdowns.push(dropdown);
+    return this;
+  }
+
+  addSlider(configure: (slider: MockSlider) => unknown): this {
+    const slider = new MockSlider();
+    configure(slider);
+    this.sliders.push(slider);
     return this;
   }
 
@@ -479,6 +534,8 @@ export function elementsIn(root: MockEl, predicate: (el: MockEl) => boolean): Mo
         found.push(node);
       }
       found.push(...elementsIn(node, predicate));
+    } else if (node instanceof Setting) {
+      found.push(...elementsIn(node.settingEl, predicate));
     } else if (node instanceof SettingGroup) {
       found.push(...elementsIn(node.listEl, predicate));
     }

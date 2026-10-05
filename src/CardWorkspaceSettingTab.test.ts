@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SettingDefinition, SettingDefinitionGroup, SettingDefinitionItem } from "obsidian";
+import { MockEl, groupsIn, settingsIn } from "./__mocks__/obsidian-modal-mock";
 
 const mockState = vi.hoisted(() => {
   class MockPluginSettingTab {
     app: unknown;
     plugin: unknown;
     refreshDomState = vi.fn();
+    containerEl = new MockEl();
 
     constructor(app: unknown, plugin: unknown) {
       this.app = app;
@@ -16,16 +18,17 @@ const mockState = vi.hoisted(() => {
   return { MockPluginSettingTab };
 });
 
-vi.mock("obsidian", () => ({
+vi.mock("obsidian", async () => ({
+  ...await import("./__mocks__/obsidian-modal-mock"),
   PluginSettingTab: mockState.MockPluginSettingTab,
 }));
 
 import { CardWorkspaceSettingTab } from "./CardWorkspaceSettingTab";
 
 interface PluginStub {
-  getSettings: ReturnType<typeof vi.fn>;
-  saveSettings: ReturnType<typeof vi.fn>;
-  getUiLanguage: ReturnType<typeof vi.fn>;
+  getSettings: ReturnType<typeof vi.fn<() => Record<string, unknown>>>;
+  saveSettings: ReturnType<typeof vi.fn<(patch: Record<string, unknown>) => Promise<unknown>>>;
+  getUiLanguage: ReturnType<typeof vi.fn<() => string>>;
 }
 
 function createPlugin(
@@ -231,8 +234,59 @@ describe("CardWorkspaceSettingTab", () => {
     });
   });
 
-  it("does not implement the deprecated imperative display fallback", () => {
-    expect("display" in createTab()).toBe(false);
+  it.each(["en", "zh"])("renders identical legacy groups, order, controls and ranges in %s", (language) => {
+    const tab = createTab(createPlugin({}, language));
+    tab.display();
+    const container = tab.containerEl as unknown as MockEl;
+    const definitions = tab.getSettingDefinitions();
+    const groups = groupsIn(container);
+    expect(groups.map((group) => group.heading)).toEqual(definitions.map((group) => group.heading));
+    definitions.forEach((definition, groupIndex) => {
+      const settings = groups[groupIndex]!.settings;
+      expect(settings.map((row) => row.name)).toEqual(definition.items.map((row) => row.name));
+      expect(settings.map((row) => row.desc)).toEqual(definition.items.map((row) => row.desc));
+      definition.items.forEach((row, index) => {
+        const setting = settings[index]!, control = row.control;
+        if (control.type === "dropdown") {
+          expect(setting.dropdowns[0]?.options).toEqual(Object.entries(control.options).map(([value, label]) => ({ value, label })));
+          expect(setting.dropdowns[0]?.value).toBe(tab.getControlValue(control.key));
+        } else if (control.type === "slider") {
+          expect(setting.sliders[0]).toMatchObject({ min: control.min, max: control.max, step: control.step, value: tab.getControlValue(control.key), dynamicTooltip: true });
+        } else {
+          expect(setting.toggles[0]?.value).toBe(tab.getControlValue(control.key));
+        }
+      });
+    });
+  });
+
+  it("updates legacy visibility without refreshDomState or rebuilding controls and reloads saved values", async () => {
+    const plugin = createPlugin();
+    const settings = plugin.getSettings();
+    plugin.getSettings.mockImplementation(() => settings);
+    plugin.saveSettings.mockImplementation(async (patch) => Object.assign(settings, patch));
+    const tab = createTab(plugin);
+    Object.defineProperty(tab, "refreshDomState", { value: undefined });
+    tab.display();
+    const container = tab.containerEl as unknown as MockEl;
+    const rows = settingsIn(container);
+    const fit = rows[10]!, mode = rows[9]!;
+    expect(fit.settingEl.style.display).toBe("none");
+    mode.dropdowns[0]!.select("inline");
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(fit.settingEl.style.display).toBe("");
+    expect(settingsIn(container)).toEqual(rows);
+    await tab.setControlValue("cardImageMode", "off");
+    expect(fit.settingEl.style.display).toBe("none");
+    await tab.setControlValue("cardImageFit", "cover");
+    await rows[6]!.sliders[0]!.slide(8);
+    await rows[6]!.sliders[0]!.slide(999);
+    expect(settings.previewLines).toBe(8);
+    const reloaded = createTab(plugin);
+    reloaded.display();
+    expect(settingsIn(reloaded.containerEl as unknown as MockEl)[10]?.dropdowns[0]?.value).toBe("cover");
+    expect(settingsIn(reloaded.containerEl as unknown as MockEl)[6]?.sliders[0]?.value).toBe(8);
   });
 
   it("reads control values from the settings store only", () => {

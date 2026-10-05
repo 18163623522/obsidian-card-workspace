@@ -4,8 +4,8 @@ import { FolderPickerModal } from "../../FolderPickerModal";
 import type { UiStrings } from "../../i18n";
 import type { OpenDestination } from "../../settings";
 import { CreateFolderModal } from "../modals/CreateFolderModal";
-import { resolveUniquePath, trashAbstractFileUsingObsidianPreference } from "../note-ops";
-import { normalizeScopePath, scopeDisplayPath, type CardScope } from "../scope";
+import { resolveUniquePath } from "../note-ops";
+import { normalizeScopePath, type CardScope } from "../scope";
 import type { SelectionResult } from "../types";
 import type { ViewContext } from "../view-context";
 import {
@@ -24,6 +24,8 @@ export interface FolderActionsDeps {
   context: ViewContext;
   /** Runtime scope of the invoking view; the source transition is exhaustive (C6). */
   getScope: () => CardScope;
+  /** Includes pending user source selections, before their card stream commits. */
+  getActiveSelectionVersion: () => number;
   selectFolderFromNav: (path: string) => Promise<void>;
   moveScopeToFolder: (path: string) => Promise<SelectionResult>;
   resetSearchQuery: () => void;
@@ -323,26 +325,24 @@ export class FolderActions {
       return;
     }
 
-    if (folder.path === "") {
+    if (normalizeScopePath(folder.path) === "") {
       return;
     }
 
     try {
-      const confirmed = await this.deps.context.getApp().fileManager.promptForDeletion(folder);
-      if (!confirmed) {
+      const app = this.deps.context.getApp();
+      const deletedPath = folder.path;
+      const selectionVersion = this.deps.getActiveSelectionVersion();
+      await app.fileManager.promptForDeletion(folder);
+      // A cancelled prompt or a rename is not a deletion, regardless of its result.
+      if (folder.path !== deletedPath || app.vault.getAbstractFileByPath(deletedPath) !== null) {
         return;
       }
-
-      const liveFolder = this.resolveFolderFromUiPath(folderPath);
-      if (!(liveFolder instanceof TFolder)) {
-        this.deps.context.notify(strings.folderNotFound);
-        return;
-      }
-
-      const currentFolderPath = scopeDisplayPath(this.deps.context.store.getScope());
-      const nextFolderPath = getFallbackFolderPathAfterFolderDeletion(currentFolderPath, liveFolder.path);
-      await trashAbstractFileUsingObsidianPreference(this.deps.context.getApp(), liveFolder);
       this.deps.refreshFolderTreeState();
+      const scope = this.deps.context.store.getScope();
+      const nextFolderPath = scope.kind === "folder" && selectionVersion === this.deps.getActiveSelectionVersion()
+        ? getFallbackFolderPathAfterFolderDeletion(scope.path, deletedPath)
+        : null;
       if (nextFolderPath !== null) {
         await this.deps.moveScopeToFolder(nextFolderPath);
       }

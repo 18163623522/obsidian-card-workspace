@@ -25,3 +25,14 @@ export function addEmptyGroupRow(group: SettingGroup, text: string, cls?: string
     }
   });
 }
+
+/** Mount custom content through the public Setting surface, not group internals. */
+export function createModalPreview(group: SettingGroup): HTMLElement {
+  let previewEl!: HTMLElement;
+  group.addSetting((setting) => {
+    setting.setClass("fce-modal-preview-row");
+    setting.settingEl.empty();
+    previewEl = setting.settingEl.createDiv({ cls: "fce-modal-preview" });
+  });
+  return previewEl;
+}
