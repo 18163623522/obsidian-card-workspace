@@ -54,6 +54,7 @@ export const SETTINGS_LAYER_BY_KEY = {
   sectionCollapsed: "workspace",
   // userData layer
   boxes: "userData",
+  folderSiblingOrders: "userData",
   favorites: "userData",
   pinnedPaths: "userData",
 } satisfies Record<keyof PluginSettings, SettingsLayer>;

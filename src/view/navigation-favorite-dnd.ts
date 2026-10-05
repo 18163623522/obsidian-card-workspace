@@ -7,6 +7,7 @@ import type { FavoriteEntry } from "./types";
  * current drop target. Pure data — the pane owns the reactive state.
  */
 export interface NavigationRowDragState {
+  dropInside?: boolean;
   draggable: boolean;
   dragging: boolean;
   dropIndicator: "before" | "after" | null;

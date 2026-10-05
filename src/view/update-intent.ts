@@ -1,3 +1,4 @@
+import { folderSiblingOrdersEqual } from "../folder-sibling-orders";
 import type { GroupSpec } from "../card-grouping-settings";
 import { propertyFilterClausesEqual } from "../property-filter-settings";
 import type { PluginSettings } from "../settings";
@@ -196,6 +197,7 @@ export function resolveSettingsUpdateIntent(
   if (!stringArraysEqual(previous.visiblePropertyKeys, next.visiblePropertyKeys)) intent = mergeIntent(intent, "patch");
   if (!stringArraysEqual(previous.expandedPropertyKeys, next.expandedPropertyKeys)) intent = mergeIntent(intent, "patch");
   if (!stringArraysEqual(previous.navSectionOrder, next.navSectionOrder)) intent = mergeIntent(intent, "patch");
+  if (!folderSiblingOrdersEqual(previous.folderSiblingOrders, next.folderSiblingOrders)) intent = mergeIntent(intent, "patch");
   if (!favoritesEqual(previous.favorites, next.favorites)) intent = mergeIntent(intent, "patch");
   if (previous.activeBoxId !== next.activeBoxId) intent = mergeIntent(intent, "patch");
   if (previous.navPaneWidth !== next.navPaneWidth) intent = mergeIntent(intent, "patch");

@@ -1949,6 +1949,7 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
  * Favorites manual drag reorder (favorites nav section only)
  * ------------------------------------------------------------------------- */
 
+.folder-card-view .fce-nav-tree .fce-tree-row.is-folder-dragging,
 .folder-card-view .fce-nav-tree .fce-tree-row.is-favorite-dragging {
   opacity: 0.45;
 }
@@ -1980,3 +1981,8 @@ body:not(.native-scrollbars) .folder-card-view .fce-list:hover::-webkit-scrollba
 .folder-card-view .fce-card-image.is-cover img { object-fit: cover; }
 .folder-card-view .fce-card-image-placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-faint); }
 .folder-card-view .fce-card-image-placeholder svg { width: 20px; height: 20px; }
+
+.folder-card-view .fce-nav-tree .fce-tree-row.is-drop-inside {
+  background: var(--background-modifier-hover);
+  box-shadow: inset 0 0 0 2px var(--fce-accent);
+}

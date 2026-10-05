@@ -202,10 +202,16 @@ export function routeNavigationIntent(input: {
    */
   selectPropertyValue?: (propertyKey: string, ref: PropertyScalarRef, additive: boolean) => void;
   selectLinksDirection?: (direction: "backlinks" | "outgoing") => void;
+  /** Shared menu/drop action re-resolves source and target after release. */
+  moveFolder?: (sourcePath: string, targetFolderPath: string) => void;
   /** Manual favorites drag reorder; carries its own payload, no row lookup. */
   reorderFavorites?: (source: FavoriteEntry, target: FavoriteEntry, position: "before" | "after") => void;
 }): void {
   const { intent, navLayout } = input;
+  if (intent.type === "move-folder") { if (navLayout.isDisposed()) return; input.moveFolder?.(intent.sourcePath, intent.targetFolderPath); return; }
+  if (intent.type === "reorder-folders") { void navLayout.reorderFolders(intent.sourcePath, intent.targetPath, intent.position); return; }
+  if (intent.type === "drag-expand-folder") { navLayout.expandFolderForDrag(intent.path); return; }
+  if (intent.type === "clear-folder-drag") { navLayout.clearFolderDrag(); return; }
   if (intent.type === "query-update") { navLayout.updateQuery(intent.query); return; }
   if (intent.type === "query-clear") { navLayout.clearQuery(); return; }
   if (intent.type === "focus") { navLayout.setFocus(intent.rowId); return; }

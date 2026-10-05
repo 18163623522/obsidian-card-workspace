@@ -1,3 +1,4 @@
+import type { FolderSiblingOrders } from "../folder-sibling-orders";
 import {
   serializePropertyScalarRef,
   type PropertyFilterClause,
@@ -27,6 +28,7 @@ export interface NavigationFocusRequest {
 }
 
 export interface NavigationExpansionLayer {
+  temporary?: readonly string[];
   manual: readonly string[];
   reveal: readonly string[];
   query: readonly string[];
@@ -76,6 +78,7 @@ export interface NavigationProjectionInput {
   selectedPath: string | null;
   favorites: readonly NavigationFavoriteSource[];
   folders: readonly FolderTreeNode[];
+  folderSiblingOrders?: FolderSiblingOrders;
   tags: readonly TagTreeNode[];
   boxes: readonly NavigationBoxSource[];
   tagCounts: Readonly<Record<string, number>>;
@@ -226,6 +229,10 @@ export const EMPTY_NAVIGATION_PROJECTION: NavigationProjection = {
 };
 
 export type NavigationIntent =
+  | { type: "move-folder"; sourcePath: string; targetFolderPath: string }
+  | { type: "reorder-folders"; sourcePath: string; targetPath: string; position: "before" | "after" }
+  | { type: "drag-expand-folder"; path: string }
+  | { type: "clear-folder-drag" }
   | { type: "query-update"; query: string }
   | { type: "query-clear"; origin: "input" | "tree" | "menu" }
   | { type: "focus"; rowId: string | null }

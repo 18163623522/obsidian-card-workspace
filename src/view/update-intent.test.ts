@@ -73,6 +73,7 @@ const EXPECTED_INTENTS: Record<keyof PluginSettings, ViewUpdateIntent> = {
   cardImageMode: "patch",
   cardImageFit: "patch",
   lastFolderPath: "patch",
+  folderSiblingOrders: "patch",
   expandedFolderPaths: "patch",
   expandedTagPaths: "patch",
   visiblePropertyKeys: "patch",
@@ -110,6 +111,7 @@ function changeSetting(settings: PluginSettings, key: keyof PluginSettings): voi
     case "previewLines": settings.previewLines += 1; break;
     case "searchPreviewSnippetCount": settings.searchPreviewSnippetCount += 1; break;
     case "lastFolderPath": settings.lastFolderPath = "changed"; break;
+    case "folderSiblingOrders": settings.folderSiblingOrders = { "": ["changed"] }; break;
     case "expandedFolderPaths": settings.expandedFolderPaths = ["changed"]; break;
     case "expandedTagPaths": settings.expandedTagPaths = ["changed"]; break;
     case "visiblePropertyKeys": settings.visiblePropertyKeys = ["changed"]; break;

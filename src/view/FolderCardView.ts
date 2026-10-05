@@ -502,6 +502,7 @@ export class FolderCardView extends ItemView {
       activateFavorite: (favorite) => this.modules.favoriteActions.handleFavoriteActivate({ favorite }),
       selectPropertyValue: (key, ref, additive) => void this.modules.propertyActions.applyValueFilter(key, ref, additive),
       selectLinksDirection: (direction) => this.modules.linksActions.enterOrSwitchLinks(direction),
+      moveFolder: (sourcePath, targetFolderPath) => void this.modules.folderActions.moveFolderTo(sourcePath, targetFolderPath),
       reorderFavorites: (source, target, position) => void this.modules.favoriteActions.reorderFavoriteEntries(source, target, position),
     });
   }

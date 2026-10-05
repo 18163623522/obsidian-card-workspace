@@ -42,6 +42,7 @@ function createHarness(options: {
 } = {}) {
   let settings: PluginSettings = {
     ...DEFAULT_SETTINGS,
+    ...options.settings,
     expandedFolderPaths: [...(options.settings?.expandedFolderPaths ?? [])],
     expandedTagPaths: [...(options.settings?.expandedTagPaths ?? [])],
     lastFolderPath: options.settings?.lastFolderPath ?? "",
@@ -49,6 +50,7 @@ function createHarness(options: {
   const markdownFiles = options.tags === null ? [] : [{ path: "tags.md" }];
   const app = {
     vault: {
+      getRoot: () => folder(""),
       getAbstractFileByPath: vi.fn((path: string) => options.folders?.[path] ?? null),
       getMarkdownFiles: vi.fn(() => markdownFiles),
     },
@@ -220,5 +222,52 @@ describe("NavigationWorkspaceReconciler", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(harness.saveSettings).toHaveBeenCalledOnce();
     expect(harness.saveSettings).toHaveBeenCalledWith({ expandedTagPaths: ["live"] });
+  });
+});
+
+describe("folder order reconciliation", () => {
+  it("validates only saved references on startup and retains empty manual groups", async () => {
+    const h = createHarness({ folders: { A: folder("A"), B: folder("B"), "A/x": folder("A/x") },
+      settings: { folderSiblingOrders: { "": ["B", "A", "A", "gone", "A/x"], A: ["A/x", "A/gone"], stale: [] } } });
+    await h.reconciler.reconcileInitial();
+    expect(h.getSettings().folderSiblingOrders).toEqual({ "": ["B", "A"], A: ["A/x"] });
+    expect(h.app.vault.getMarkdownFiles).not.toHaveBeenCalled();
+    expect(h.saveSettings).toHaveBeenCalledTimes(1);
+    h.reconciler.dispose();
+  });
+  it("appends new children only to manual groups and ignores duplicate create events", async () => {
+    const h = createHarness({ settings: { folderSiblingOrders: { A: [] } } });
+    await h.reconciler.handleVaultMutation(event({ isFolder: true, eventType: "create", path: "A/z" }));
+    await h.reconciler.handleVaultMutation(event({ isFolder: true, eventType: "create", path: "A/z" }));
+    await h.reconciler.handleVaultMutation(event({ isFolder: true, eventType: "create", path: "B/x" }));
+    expect(h.getSettings().folderSiblingOrders).toEqual({ A: ["A/z"] });
+    expect(h.saveSettings).toHaveBeenCalledTimes(1);
+    h.reconciler.dispose();
+  });
+  it("keeps rename position, appends a cross-parent move, rewrites subtree records, and prunes deletes", async () => {
+    const h = createHarness({ settings: { folderSiblingOrders: {
+      "": ["B", "A"], A: ["A/z", "A/x"], B: [], "A/x": ["A/x/c"], "A/x/c": [],
+    } } });
+    await h.reconciler.handleVaultMutation(event({ isFolder: true, eventType: "rename", oldPath: "A/x", path: "A/y" }));
+    expect(h.getSettings().folderSiblingOrders.A).toEqual(["A/z", "A/y"]);
+    await h.reconciler.handleVaultMutation(event({ isFolder: true, eventType: "rename", oldPath: "A/y", path: "B/y" }));
+    expect(h.getSettings().folderSiblingOrders).toEqual({ "": ["B", "A"], A: ["A/z"], B: ["B/y"],
+      "B/y": ["B/y/c"], "B/y/c": [] });
+    await h.reconciler.handleVaultMutation(event({ isFolder: true, eventType: "delete", path: "B/y" }));
+    expect(h.getSettings().folderSiblingOrders).toEqual({ "": ["B", "A"], A: ["A/z"], B: [] });
+    h.reconciler.dispose();
+  });
+});
+
+describe("unrecorded folder rename", () => {
+  it("preserves position in the name-sorted tail of a manual group", async () => {
+    const a = folder("A"), root = folder("");
+    const x = folder("A/x"), renamed = folder("A/a"), z = folder("A/z");
+    a.children = [x, renamed, z];
+    root.children = [a];
+    const h = createHarness({ folders: { A: a }, settings: { folderSiblingOrders: { A: ["A/x"] } } });
+    await h.reconciler.handleVaultMutation(event({ isFolder: true, eventType: "rename", oldPath: "A/y", path: "A/a" }));
+    expect(h.getSettings().folderSiblingOrders).toEqual({ A: ["A/x", "A/a", "A/z"] });
+    h.reconciler.dispose();
   });
 });

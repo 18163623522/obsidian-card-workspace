@@ -791,3 +791,23 @@ describe("projectNavigation — links", () => {
     ]);
   });
 });
+
+describe("manual folder order projection", () => {
+  const folders = [folder("/", "/"), folder("A", "A", [folder("x", "A/x"), folder("y", "A/y")]),
+    folder("B", "B"), folder("C", "C")];
+  it("orders before filtering and computes ARIA positions in the final visible sibling order", () => {
+    const input = buildInput({ folders, folderSiblingOrders: { "": ["C", "A", "B"], A: ["A/y", "A/x"] },
+      expansion: { folders: { manual: ["A"], reveal: [], query: [], suppressed: [] },
+        tags: { manual: [], reveal: [], query: [], suppressed: [] }, queryCollapsedSections: [] } });
+    const original = JSON.stringify(folders);
+    const all = projectNavigation(input).rows.filter((row) => row.kind === "folder");
+    expect(all.map((row) => row.folderPath)).toEqual(["", "C", "A", "A/y", "A/x", "B"]);
+    expect(all.filter((row) => row.level === 2).map((row) => [row.positionInSet, row.setSize])).toEqual([[1, 4], [2, 4], [3, 4], [4, 4]]);
+    const filtered = projectNavigation({ ...input, query: "A/" }).rows.filter((row) => row.kind === "folder");
+    expect(filtered.map((row) => row.folderPath)).toEqual(["A", "A/y", "A/x"]);
+    expect(filtered[1].positionInSet).toBe(1);
+    expect(filtered[1].setSize).toBe(2);
+    expect(JSON.stringify(folders)).toBe(original);
+    expect(all.find((row) => row.folderPath === "A")?.directCount).toBe(folders[1].directCount);
+  });
+});

@@ -1,3 +1,5 @@
+import { folderParentPath, folderSiblingOrdersEqual, hasFolderSiblingOrder, normalizeFolderSiblingOrders, orderFolderSiblings,
+  pruneFolderSiblingOrders, rewriteFolderSiblingOrders, type FolderSiblingOrders } from "../folder-sibling-orders";
 import { debounce, TFolder, type App } from "obsidian";
 
 import {
@@ -44,6 +46,30 @@ export function rewriteExpandedFoldersAfterRename(
   );
 }
 
+/** Validate only persisted references; never enumerate the vault at startup. */
+export function reconcileFolderSiblingOrders(app: App, orders: FolderSiblingOrders): FolderSiblingOrders {
+  return Object.fromEntries(Object.entries(normalizeFolderSiblingOrders(orders)).flatMap(([parent, paths]) => {
+    const folder = parent === "" ? app.vault.getRoot() : app.vault.getAbstractFileByPath(parent);
+    if (!(folder instanceof TFolder)) return [];
+    return [[parent, paths.filter((path) => app.vault.getAbstractFileByPath(path) instanceof TFolder)]];
+  }));
+}
+
+/** A folder added while the plugin was disabled may still be in the name-sorted tail.
+ * Capture that tail's pre-rename order so even an unrecorded sibling keeps its position.
+ */
+function captureUnrecordedRenameOrder(app: App, orders: FolderSiblingOrders, oldPath: string, newPath: string): FolderSiblingOrders {
+  const parent = folderParentPath(oldPath);
+  if (parent !== folderParentPath(newPath) || !hasFolderSiblingOrder(orders, parent) || orders[parent].includes(oldPath)) return orders;
+  const folder = parent === "" ? app.vault.getRoot() : app.vault.getAbstractFileByPath(parent);
+  if (!(folder instanceof TFolder)) return orders;
+  const siblings = folder.children.filter((child): child is TFolder => child instanceof TFolder).map((child) => {
+    const path = child.path === newPath ? oldPath : child.path;
+    return { path, name: path.slice(path.lastIndexOf("/") + 1) };
+  }).sort((left, right) => left.name.localeCompare(right.name));
+  return { ...orders, [parent]: orderFolderSiblings(siblings, orders, parent).map((child) => child.path) };
+}
+
 export class NavigationWorkspaceReconciler {
   private readonly getSettings: () => PluginSettings;
   private readonly saveSettings: (patch: PartialPluginSettings) => Promise<unknown>;
@@ -80,9 +106,11 @@ export class NavigationWorkspaceReconciler {
     const settings = this.getSettings();
     const folders = reconcileExpandedFolders(this.getApp(), settings.expandedFolderPaths);
     if (this.disposed || generation !== this.generation) return;
-    if (!arraysEqual(folders, settings.expandedFolderPaths)) {
-      await this.saveSettings({ expandedFolderPaths: folders });
-    }
+    const folderSiblingOrders = reconcileFolderSiblingOrders(this.getApp(), settings.folderSiblingOrders);
+    const patch: PartialPluginSettings = {};
+    if (!arraysEqual(folders, settings.expandedFolderPaths)) patch.expandedFolderPaths = folders;
+    if (!folderSiblingOrdersEqual(folderSiblingOrders, settings.folderSiblingOrders)) patch.folderSiblingOrders = folderSiblingOrders;
+    if (Object.keys(patch).length > 0) await this.saveSettings(patch);
     if (this.disposed || generation !== this.generation) return;
 
     this.cancelInitialTagIdle?.();
@@ -114,12 +142,23 @@ export class NavigationWorkspaceReconciler {
       if (!arraysEqual(expandedFolderPaths, settings.expandedFolderPaths)) {
         patch.expandedFolderPaths = expandedFolderPaths;
       }
+      const previousOrders = captureUnrecordedRenameOrder(this.getApp(), settings.folderSiblingOrders, event.oldPath, event.path);
+      const folderSiblingOrders = rewriteFolderSiblingOrders(previousOrders, event.oldPath, event.path);
+      if (!folderSiblingOrdersEqual(folderSiblingOrders, settings.folderSiblingOrders)) patch.folderSiblingOrders = folderSiblingOrders;
       if (Object.keys(patch).length > 0) persist = this.saveSettings(patch);
     } else if (event.isFolder && event.eventType === "delete") {
       const settings = this.getSettings();
       const expandedFolderPaths = reconcileExpandedFolders(this.getApp(), settings.expandedFolderPaths);
-      if (!arraysEqual(expandedFolderPaths, settings.expandedFolderPaths)) {
-        persist = this.saveSettings({ expandedFolderPaths });
+      const patch: PartialPluginSettings = {};
+      if (!arraysEqual(expandedFolderPaths, settings.expandedFolderPaths)) patch.expandedFolderPaths = expandedFolderPaths;
+      const folderSiblingOrders = pruneFolderSiblingOrders(settings.folderSiblingOrders, event.path);
+      if (!folderSiblingOrdersEqual(folderSiblingOrders, settings.folderSiblingOrders)) patch.folderSiblingOrders = folderSiblingOrders;
+      if (Object.keys(patch).length > 0) persist = this.saveSettings(patch);
+    } else if (event.isFolder && event.eventType === "create") {
+      const orders = this.getSettings().folderSiblingOrders;
+      const parent = folderParentPath(event.path);
+      if (hasFolderSiblingOrder(orders, parent) && !orders[parent].includes(event.path)) {
+        persist = this.saveSettings({ folderSiblingOrders: { ...orders, [parent]: [...orders[parent], event.path] } });
       }
     }
 

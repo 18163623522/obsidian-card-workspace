@@ -44,6 +44,7 @@ export interface FolderActionsDeps {
 
 /** Folder create/rename/move/duplicate/delete actions. */
 export class FolderActions {
+  private pendingMove = false;
   constructor(private readonly deps: FolderActionsDeps) {}
 
   private get strings(): UiStrings {
@@ -131,37 +132,41 @@ export class FolderActions {
     }
 
     const modal = new FolderPickerModal(this.deps.context.getApp(), (targetFolder: TFolder) => {
-      void this.onFolderMoveTargetChosen(folderPath, targetFolder);
+      void this.moveFolderTo(folderPath, targetFolder.path);
     }, this.strings.folderPicker.selectFolderTitle);
     modal.open();
   }
 
-  private async onFolderMoveTargetChosen(folderPath: string, targetFolder: TFolder | null): Promise<void> {
+  async moveFolderTo(sourcePath: string, targetFolderPath: string): Promise<void> {
+    if (this.pendingMove) return;
     const strings = this.getFolderManagementStrings();
-    if (!(targetFolder instanceof TFolder)) {
-      return;
-    }
-
-    const folder = this.resolveFolderFromUiPath(folderPath);
-    if (!(folder instanceof TFolder)) {
+    const folder = this.resolveFolderFromUiPath(sourcePath);
+    const targetFolder = this.resolveFolderFromUiPath(targetFolderPath);
+    if (!folder || !targetFolder) {
       this.deps.context.notify(strings.folderNotFound);
       return;
     }
-    if (folder.path === "") {
-      return;
-    }
-
-    if ((folder.parent?.path ?? "") === targetFolder.path) {
+    const source = normalizeScopePath(folder.path), target = normalizeScopePath(targetFolder.path);
+    if (source === "") return;
+    if (normalizeScopePath(folder.parent?.path ?? "") === target) {
       this.deps.context.notify(strings.sameTarget);
       return;
     }
-
-    if (targetFolder.path === folder.path || targetFolder.path.startsWith(`${folder.path}/`)) {
+    if (target === source || target.startsWith(`${source}/`)) {
       this.deps.context.notify(strings.invalidMoveTarget);
       return;
     }
-
-    await this.renameFolderTo(folder, this.buildSiblingPath(targetFolder.path, folder.name));
+    const nextPath = this.buildSiblingPath(target, folder.name);
+    if (this.deps.context.getApp().vault.getAbstractFileByPath(nextPath)) {
+      this.deps.context.notify(strings.moveConflict);
+      return;
+    }
+    this.pendingMove = true;
+    try {
+      await this.renameFolderTo(folder, nextPath);
+    } finally {
+      this.pendingMove = false;
+    }
   }
 
   /** Shared move/rename primitive: both entry points get the same scope repair. */

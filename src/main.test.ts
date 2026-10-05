@@ -976,6 +976,20 @@ describe("CardWorkspacePlugin scope dispatch and projection ownership", () => {
     }));
   });
 
+  it("fans saved folder orders out to every open view as a patch", async () => {
+    const { plugin } = createPluginHarness();
+    const first = createMockView(), second = createMockView();
+    attachViews(first, second);
+    await plugin.saveSettings({ folderSiblingOrders: { "": ["B", "A"] } });
+    expect(plugin.getSettings().folderSiblingOrders).toEqual({ "": ["B", "A"] });
+    expect(first.applyUpdateIntent).toHaveBeenCalledExactlyOnceWith("patch", "settings-change");
+    expect(second.applyUpdateIntent).toHaveBeenCalledExactlyOnceWith("patch", "settings-change");
+    await plugin.saveSettings({ folderSiblingOrders: {} });
+    expect(plugin.getSettings().folderSiblingOrders).toEqual({});
+    expect(first.applyUpdateIntent).toHaveBeenCalledTimes(2);
+    expect(second.applyUpdateIntent).toHaveBeenCalledTimes(2);
+  });
+
   it("fans expansion-only patches out synchronously to every open view", async () => {
     const { plugin } = createPluginHarness();
     const first = createMockView();

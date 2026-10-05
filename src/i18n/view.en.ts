@@ -185,6 +185,8 @@ export const viewStringsEn: ViewStrings = {
       folderNotFound: "Folder no longer exists.",
       createFailed: (reason: string) => `Failed to create folder: ${reason}`,
       sameTarget: "Folder is already in the selected location.",
+      moveConflict: "A file or folder with that name already exists in the target folder.",
+      restoreSiblingNameOrder: "Restore sibling folder name sorting",
       invalidMoveTarget: "Cannot move a folder into itself or one of its subfolders.",
       moveFailed: (reason: string) => `Failed to move folder: ${reason}`,
       deleteFailed: (reason: string) => `Failed to delete folder: ${reason}`,

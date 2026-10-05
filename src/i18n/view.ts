@@ -151,6 +151,8 @@ export interface ViewStrings {
     folderNotFound: string;
     createFailed: (reason: string) => string;
     sameTarget: string;
+    moveConflict: string;
+    restoreSiblingNameOrder: string;
     invalidMoveTarget: string;
     moveFailed: (reason: string) => string;
     deleteFailed: (reason: string) => string;

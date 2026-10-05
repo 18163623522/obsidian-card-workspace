@@ -226,3 +226,93 @@ describe("note creation targets", () => {
       expect((view as any).modules.folderActions.buildSiblingPath("notes", "Untitled.md")).toBe("notes/Untitled.md");
     });
 });
+
+describe("shared folder move action", () => {
+  function moveHarness(language: "en" | "zh" = "en") {
+    const root = new mockState.MockTFolder("/");
+    const source = new mockState.MockTFolder("a/source");
+    const a = new mockState.MockTFolder("a"), b = new mockState.MockTFolder("b");
+    Object.assign(source, { parent: a });
+    const files = new Map([["a/source", source], ["a", a], ["b", b],
+      ["a/source/child", new mockState.MockTFolder("a/source/child")]]);
+    const renameFile = vi.fn(async (_folder: unknown, _path: string): Promise<void> => undefined);
+    const app = { vault: { getRoot: () => root, getAbstractFileByPath: (path: string) => files.get(path) ?? null },
+      fileManager: { renameFile } };
+    const notify = vi.fn(), refreshFolderTreeState = vi.fn(), moveScopeToFolder = vi.fn();
+    const actions = new FolderActions({ context: { getApp: () => app, getUiStrings: () => getUiStrings(language), notify,
+      store: { getScope: () => createFolderScope("a/source/child", true) } }, refreshFolderTreeState, moveScopeToFolder,
+      rewritePathAfterRename: (path: string, old: string, next: string) => path.replace(old, next),
+    } as never);
+    return { actions, source, b, files, renameFile, notify, refreshFolderTreeState, moveScopeToFolder };
+  }
+  it("routes picker and drag moves through the same public method", () => {
+    const h = moveHarness();
+    const move = vi.spyOn(h.actions, "moveFolderTo").mockResolvedValue(undefined);
+    h.actions.openMoveFolderPickerForFolder("a/source");
+    mockState.folderPickerInstances.at(-1)?.onChoose(h.b);
+    expect(move).toHaveBeenCalledExactlyOnceWith("a/source", "b");
+  });
+  it("repairs a selected descendant after moving its ancestor and supports root targets", async () => {
+    const h = moveHarness();
+    await h.actions.moveFolderTo("a/source", "b");
+    expect(h.renameFile).toHaveBeenCalledExactlyOnceWith(h.source, "b/source");
+    expect(h.moveScopeToFolder).toHaveBeenCalledExactlyOnceWith("b/source/child");
+    expect(h.refreshFolderTreeState).toHaveBeenCalledTimes(1);
+    await h.actions.moveFolderTo("a/source", "/");
+    expect(h.renameFile).toHaveBeenLastCalledWith(h.source, "source");
+  });
+  it.each(["en", "zh"] as const)("rejects a name collision with a localized notice (%s)", async (language) => {
+    const h = moveHarness(language);
+    h.files.set("b/source", new mockState.MockTFolder("b/source"));
+    await h.actions.moveFolderTo("a/source", "b");
+    expect(h.notify).toHaveBeenCalledExactlyOnceWith(getUiStrings(language).view.folderManagement.moveConflict);
+    expect(h.renameFile).not.toHaveBeenCalled();
+  });
+  it("re-resolves both paths and rejects root, self, descendants, and current parent", async () => {
+    const h = moveHarness();
+    for (const [source, target] of [["missing", "b"], ["a/source", "gone"], ["/", "b"],
+      ["a/source", "a/source"], ["a/source", "a/source/child"], ["a/source", "a"]]) {
+      await h.actions.moveFolderTo(source, target);
+    }
+    h.files.delete("b");
+    await h.actions.moveFolderTo("a/source", "b");
+    expect(h.renameFile).not.toHaveBeenCalled();
+    expect(h.refreshFolderTreeState).not.toHaveBeenCalled();
+  });
+  it("ignores concurrent submissions and releases the guard after API failure", async () => {
+    const h = moveHarness();
+    let reject!: (error: Error) => void;
+    h.renameFile.mockImplementationOnce(() => new Promise<void>((_resolve, fail) => { reject = fail; }));
+    const pending = h.actions.moveFolderTo("a/source", "b");
+    await h.actions.moveFolderTo("a/source", "b");
+    expect(h.renameFile).toHaveBeenCalledTimes(1);
+    reject(new Error("permission denied"));
+    await pending;
+    expect(h.notify).toHaveBeenCalledExactlyOnceWith(expect.stringContaining("permission denied"));
+    expect(h.refreshFolderTreeState).not.toHaveBeenCalled();
+    await h.actions.moveFolderTo("a/source", "b");
+    expect(h.renameFile).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("folder navigation intent wiring", () => {
+  beforeEach(() => resetFolderCardViewHarness());
+  it("routes folder drag intents to actions and layout without activating a source", () => {
+    const { view } = createViewWithFile();
+    const modules = (view as any).modules;
+    const move = vi.spyOn(modules.folderActions, "moveFolderTo").mockResolvedValue(undefined);
+    const reorder = vi.spyOn(modules.navLayout, "reorderFolders").mockResolvedValue(undefined);
+    const expand = vi.spyOn(modules.navLayout, "expandFolderForDrag").mockImplementation(() => undefined);
+    const clear = vi.spyOn(modules.navLayout, "clearFolderDrag").mockImplementation(() => undefined);
+    const select = vi.spyOn(view, "selectFolderFromNav").mockResolvedValue(undefined);
+    view.handleNavigationIntent({ type: "move-folder", sourcePath: "A", targetFolderPath: "B" });
+    view.handleNavigationIntent({ type: "reorder-folders", sourcePath: "A", targetPath: "B", position: "after" });
+    view.handleNavigationIntent({ type: "drag-expand-folder", path: "B" });
+    view.handleNavigationIntent({ type: "clear-folder-drag" });
+    expect(move).toHaveBeenCalledExactlyOnceWith("A", "B");
+    expect(reorder).toHaveBeenCalledExactlyOnceWith("A", "B", "after");
+    expect(expand).toHaveBeenCalledExactlyOnceWith("B");
+    expect(clear).toHaveBeenCalledTimes(1);
+    expect(select).not.toHaveBeenCalled();
+  });
+});

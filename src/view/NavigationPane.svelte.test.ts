@@ -1153,3 +1153,155 @@ describe("NavigationPane links section", () => {
     expect(intents.filter((intent) => intent.type === "activate")).toEqual([]);
   });
 });
+
+describe("NavigationPane folder drag and drop", () => {
+  function folderNav(query = "") {
+    const base = projection();
+    const folders = base.rows.filter((r) => r.kind === "folder");
+    const template = folders.find((r) => r.id === "folder:notes")!;
+    return nav({ query, projection: { ...base, rows: [
+      ...base.rows,
+      { ...template, id: "folder:other", label: "other", fullPath: "other", folderPath: "other",
+        expanded: false, expandable: true, semanticState: "none", menuTarget: { section: "folders", scope: "item", itemId: "other" } },
+    ] } });
+  }
+  function drag(type: string, clientY = 220): MouseEvent {
+    return new MouseEvent(type, { bubbles: true, cancelable: true, clientY, clientX: 100 });
+  }
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = "";
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      const top = this.classList.contains("fce-nav-pane-sections") ? 100 : 200;
+      const height = this.classList.contains("fce-nav-pane-sections") ? 400 : 40;
+      return { top, height, bottom: top + height, left: 0, right: 240, width: 240, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+    };
+  });
+  afterEach(async () => {
+    await Promise.all(components.splice(0).map((component) => unmount(component)));
+    HTMLElement.prototype.getBoundingClientRect = originalRect;
+    document.body.innerHTML = "";
+    vi.restoreAllMocks(); vi.useRealTimers();
+  });
+  it("draws three distinct target states, ignores invalid edges, and emits only on drop", async () => {
+    const intents: NavigationIntent[] = [];
+    render({ nav: folderNav(), onIntent: (intent) => intents.push(intent) });
+    await tick();
+    expect(row("folder:").getAttribute("draggable")).toBeNull();
+    expect(row("folder:notes").getAttribute("draggable")).toBe("true");
+    row("folder:notes").dispatchEvent(drag("dragstart"));
+    for (const [y, cls] of [[201, "is-drop-before"], [220, "is-drop-inside"], [239, "is-drop-after"]] as const) {
+      row("folder:other").dispatchEvent(drag("dragover", y)); await tick();
+      expect(row("folder:other").classList.contains(cls)).toBe(true);
+    }
+    for (let i = 0; i < 20; i++) row("folder:other").dispatchEvent(drag("dragover", 239));
+    await tick();
+    expect(intents).toEqual([]);
+    row("folder:notes/child").dispatchEvent(drag("dragover", 220)); await tick();
+    expect(row("folder:other").classList.contains("is-drop-after")).toBe(false);
+    row("folder:other").dispatchEvent(drag("drop", 201)); await tick();
+    expect(intents).toEqual([{ type: "clear-folder-drag" },
+      { type: "reorder-folders", sourcePath: "notes", targetPath: "other", position: "before" }]);
+    row("folder:other").click();
+    expect(intents.some((i) => i.type === "activate")).toBe(false);
+    expect(row("folder:notes").classList.contains("is-folder-dragging")).toBe(false);
+  });
+  it("moves into the center without activating the target and treats root as inside only", async () => {
+    const intents: NavigationIntent[] = [];
+    render({ nav: folderNav(), onIntent: (intent) => intents.push(intent) });
+    await tick();
+    row("folder:notes/child").dispatchEvent(drag("dragstart"));
+    const invalid = drag("dragover", 201);
+    row("folder:other").dispatchEvent(invalid); await tick();
+    expect(invalid.defaultPrevented).toBe(false);
+    row("folder:other").dispatchEvent(drag("drop", 220)); await tick();
+    expect(intents).toContainEqual({ type: "move-folder", sourcePath: "notes/child", targetFolderPath: "other" });
+    row("folder:notes/child").dispatchEvent(drag("dragstart"));
+    row("folder:").dispatchEvent(drag("dragover", 201)); await tick();
+    expect(row("folder:").classList.contains("is-drop-inside")).toBe(true);
+    row("folder:").dispatchEvent(drag("drop", 201));
+    expect(intents).toContainEqual({ type: "move-folder", sourcePath: "notes/child", targetFolderPath: "" });
+    expect(intents.some((i) => i.type === "activate")).toBe(false);
+  });
+  it("expands after 600ms without restarting the timer for repeated over events", async () => {
+    const intents: NavigationIntent[] = [];
+    render({ nav: folderNav(), onIntent: (intent) => intents.push(intent) });
+    await tick();
+    row("folder:notes").dispatchEvent(drag("dragstart"));
+    row("folder:other").dispatchEvent(drag("dragover"));
+    vi.advanceTimersByTime(599);
+    row("folder:other").dispatchEvent(drag("dragover"));
+    expect(intents).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(intents).toEqual([{ type: "drag-expand-folder", path: "other" }]);
+    document.dispatchEvent(drag("dragend")); await tick();
+    expect(intents.at(-1)).toEqual({ type: "clear-folder-drag" });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("clears a departed target and its timer, then cleans an obsolete source", async () => {
+    const intents: NavigationIntent[] = [];
+    const initial = folderNav();
+    const component = renderHarness(initial, (intent) => intents.push(intent));
+    await tick();
+    row("folder:notes").dispatchEvent(drag("dragstart"));
+    row("folder:other").dispatchEvent(drag("dragover"));
+    document.body.dispatchEvent(drag("dragover")); await tick();
+    vi.advanceTimersByTime(600);
+    expect(intents.some((i) => i.type === "drag-expand-folder")).toBe(false);
+    expect(row("folder:other").classList.contains("is-drop-inside")).toBe(false);
+    row("folder:other").dispatchEvent(drag("dragover"));
+    component.setNav({ ...initial, projection: { ...initial.projection,
+      rows: initial.projection.rows.filter((r) => r.id !== "folder:notes") } });
+    await tick();
+    expect(intents).toContainEqual({ type: "clear-folder-drag" });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("scrolls at most once per frame, recalculates the target, and stops at a boundary or on exit", async () => {
+    const frames = new Map<number, FrameRequestCallback>();
+    let nextFrame = 0;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.set(++nextFrame, callback); return nextFrame;
+    });
+    vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => { frames.delete(id); });
+    const intents: NavigationIntent[] = [];
+    render({ nav: folderNav(), onIntent: (intent) => intents.push(intent) });
+    await tick();
+    const scroller = document.querySelector<HTMLElement>(".fce-nav-pane-sections")!;
+    Object.defineProperty(scroller, "scrollHeight", { value: 1000 });
+    Object.defineProperty(scroller, "clientHeight", { value: 400 });
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => row("folder:other") });
+    row("folder:notes").dispatchEvent(drag("dragstart"));
+    for (let i = 0; i < 20; i++) scroller.dispatchEvent(drag("dragover", 490));
+    expect(frames.size).toBe(1);
+    const runFrame = (time: number): void => {
+      const [id, callback] = [...frames][0]; frames.delete(id); callback(time);
+    };
+    runFrame(100); await tick();
+    expect(scroller.scrollTop).toBeCloseTo(5.28);
+    expect(row("folder:other").classList.contains("is-drop-after")).toBe(true);
+    expect(frames.size).toBe(1);
+    scroller.scrollTop = 600;
+    runFrame(116);
+    expect(frames.size).toBe(0);
+    scroller.scrollTop = 100;
+    scroller.dispatchEvent(drag("dragover", 490));
+    expect(frames.size).toBe(1);
+    document.body.dispatchEvent(drag("dragover", 510));
+    expect(frames.size).toBe(0);
+    expect(intents).toEqual([]);
+  });
+  it("leaves no hover timer or frame after unmount, and ignores external drags", async () => {
+    const intents: NavigationIntent[] = [];
+    const component = render({ nav: folderNav(), onIntent: (intent) => intents.push(intent) });
+    await tick();
+    row("folder:other").dispatchEvent(drag("dragover"));
+    row("folder:other").dispatchEvent(drag("drop"));
+    expect(intents).toEqual([]);
+    row("folder:notes").dispatchEvent(drag("dragstart"));
+    row("folder:other").dispatchEvent(drag("dragover"));
+    await unmount(component); components.splice(components.indexOf(component), 1);
+    vi.advanceTimersByTime(1000);
+    expect(intents).toEqual([{ type: "clear-folder-drag" }]);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

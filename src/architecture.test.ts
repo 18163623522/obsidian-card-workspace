@@ -889,6 +889,7 @@ describe("navigation projection is isolated from card search and projection", ()
     "src/view/NavigationPane.svelte",
     "src/view/navigation-host.ts",
     "src/view/navigation-projection.ts",
+    "src/view/navigation-folder-dnd.ts",
     "src/view/controllers/NavLayoutController.ts",
   ] as const;
 
@@ -897,6 +898,7 @@ describe("navigation projection is isolated from card search and projection", ()
       "src/view/NavigationPane.svelte",
       "src/view/navigation-host.ts",
       "src/view/navigation-projection.ts",
+      "src/view/navigation-folder-dnd.ts",
       "src/view/controllers/NavLayoutController.ts",
     ]);
   });

@@ -132,6 +132,7 @@ function createActions(): NavMenuActions {
     createCanvas: vi.fn(),
     createBase: vi.fn(),
     duplicateFolder: vi.fn(),
+    restoreFolderNameOrder: vi.fn(),
     moveFolder: vi.fn(),
     renameTag: vi.fn(),
     deleteTag: vi.fn(),
@@ -234,6 +235,7 @@ describe("folders header menu", () => {
       { title: "New folder in vault root", icon: "folder-plus" },
       { title: "New canvas in vault root", icon: "layout-dashboard" },
       { title: "New base in vault root", icon: "layout-list" },
+      { title: "Restore sibling folder name sorting", icon: "sort-asc" },
       "sep",
       { title: "Expand all folders", icon: "chevrons-up-down" },
       { title: "Including subfolders", icon: "folder-tree" },
@@ -326,7 +328,7 @@ describe("root folder row menu", () => {
 });
 
 describe("folder row menu", () => {
-  it("renders the full fifteen-row menu in order", () => {
+  it("renders the full folder menu in order", () => {
     const deps = createDeps();
     const { menu, result } = build(
       createPayload({ section: "folders", scope: "item", itemId: "Projects" }),
@@ -339,6 +341,7 @@ describe("folder row menu", () => {
       { title: "New folder", icon: "folder-plus" },
       { title: "New canvas", icon: "layout-dashboard" },
       { title: "New base", icon: "layout-list" },
+      { title: "Restore sibling folder name sorting", icon: "sort-asc" },
       "sep",
       { title: "Make a copy", icon: "copy" },
       { title: "Move folder", icon: "folder-input" },
@@ -1039,6 +1042,7 @@ describe("localization", () => {
       "在库根目录新建文件夹",
       "在库根目录新建白板",
       "在库根目录新建数据库",
+      "恢复同级文件夹名称排序",
       "展开全部文件夹",
       "包含子文件夹",
       "折叠此区",
@@ -1059,6 +1063,7 @@ describe("localization", () => {
       "新建文件夹",
       "新建白板",
       "新建数据库",
+      "恢复同级文件夹名称排序",
       "创建副本",
       "移动文件夹",
       "在文件夹中查找",
@@ -1150,6 +1155,7 @@ describe("nav context menu wiring", () => {
         activeBoxId: null,
         boxes: [],
         favorites: [],
+        folderSiblingOrders: {},
         visiblePropertyKeys: [],
         expandedPropertyKeys: [],
         navSectionOrder: defaultNavSectionOrder(),
@@ -1292,4 +1298,27 @@ describe("nav context menu wiring", () => {
 
       expect(selectFolderFromNav).toHaveBeenCalledWith("notes");
     });
+});
+
+describe("restore sibling folder name order menus", () => {
+  it.each(["en", "zh"] as const)("targets only the correct manual group (%s)", (language) => {
+    const deps = createDeps({ strings: getUiStrings(language), hasFolderSiblingOrder: (parent) => parent === "A" });
+    const title = deps.strings.view.folderManagement.restoreSiblingNameOrder;
+    const nested = build(createPayload({ section: "folders", scope: "item", itemId: "A/child" }), deps).menu;
+    expect(findItem(nested, title)?.disabled).toBe(false);
+    findItem(nested, title)?.clickHandler?.();
+    expect(deps.actions.restoreFolderNameOrder).toHaveBeenCalledExactlyOnceWith("A");
+    const header = build(createPayload({ section: "folders", scope: "header" }), deps).menu;
+    expect(findItem(header, title)?.disabled).toBe(true);
+    const root = build(createPayload({ section: "folders", scope: "item", itemId: "/" }), deps).menu;
+    expect(findItem(root, title)).toBeUndefined();
+  });
+  it("enables the top-level reset in the section menu for a saved empty manual order", () => {
+    const deps = createDeps({ hasFolderSiblingOrder: (parent) => parent === "" });
+    const menu = build(createPayload({ section: "folders", scope: "header" }), deps).menu;
+    const reset = findItem(menu, deps.strings.view.folderManagement.restoreSiblingNameOrder);
+    expect(reset?.disabled).toBe(false);
+    reset?.clickHandler?.();
+    expect(deps.actions.restoreFolderNameOrder).toHaveBeenCalledExactlyOnceWith("");
+  });
 });

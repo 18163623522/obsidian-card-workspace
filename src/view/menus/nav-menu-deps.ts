@@ -1,3 +1,4 @@
+import { hasFolderSiblingOrder } from "../../folder-sibling-orders";
 import type { NavMenuDeps } from "../nav-context-menu";
 import { propertyScalarRefsEqual } from "../../property-filter-settings";
 import { canResolveSystemPath } from "../desktop-shell";
@@ -35,6 +36,7 @@ export function buildNavMenuDeps(deps: NavMenuDepsHost): NavMenuDeps {
     boxExcludedCount: (boxId) => deps.modules.boxActions.getBoxExcludedCount(boxId),
     sectionCollapsed: settings.sectionCollapsed,
     sectionOrder: settings.navSectionOrder,
+    hasFolderSiblingOrder: (parent) => hasFolderSiblingOrder(settings.folderSiblingOrders, parent),
     hasExpandedFolders: deps.modules.navLayout.hasExpandedRows("folder"),
     hasExpandedTags: deps.modules.navLayout.hasExpandedRows("tag"),
     hasExpandedProperties: deps.modules.navLayout.hasExpandedRows("property"),
@@ -61,6 +63,7 @@ export function buildNavMenuDeps(deps: NavMenuDepsHost): NavMenuDeps {
       duplicateFolder: (folderUiPath) => {
         void deps.modules.folderActions.duplicateFolder(folderUiPath);
       },
+      restoreFolderNameOrder: (parent) => { void deps.modules.navLayout.restoreFolderNameOrder(parent); },
       moveFolder: (folderUiPath) => {
         deps.modules.folderActions.openMoveFolderPickerForFolder(folderUiPath);
       },

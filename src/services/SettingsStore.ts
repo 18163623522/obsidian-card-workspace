@@ -64,6 +64,7 @@ export type WorkspaceSettingsPatch = Omit<Partial<WorkspaceSettings>, "sectionCo
 };
 
 export interface UserDataSettings {
+  folderSiblingOrders: PluginSettings["folderSiblingOrders"];
   boxes: PluginSettings["boxes"];
   favorites: PluginSettings["favorites"];
   pinnedPaths: string[];
@@ -104,10 +105,12 @@ type PersistWaiter = {
 };
 
 export function hasPatchValues(patch: object): boolean {
-  for (const value of Object.values(patch) as unknown[]) {
+  for (const [key, value] of Object.entries(patch)) {
     if (value === undefined) {
       continue;
     }
+    // This map is replaced wholesale: {} explicitly restores name sorting.
+    if (key === "folderSiblingOrders") return true;
     if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       if (hasPatchValues(value)) {
         return true;
@@ -167,6 +170,7 @@ export function splitFlatPatch(patch: PartialPluginSettings): {
   }
 
   if (patch.boxes !== undefined) userData.boxes = patch.boxes;
+  if (patch.folderSiblingOrders !== undefined) userData.folderSiblingOrders = patch.folderSiblingOrders;
   if (patch.favorites !== undefined) userData.favorites = patch.favorites;
   if (patch.pinnedPaths !== undefined) userData.pinnedPaths = patch.pinnedPaths;
 
@@ -220,6 +224,7 @@ export function serializeSettings(settings: PluginSettings): PersistedSettingsV2
       sectionCollapsed: { ...settings.sectionCollapsed },
     },
     userData: {
+      folderSiblingOrders: Object.fromEntries(Object.entries(settings.folderSiblingOrders).map(([parent, paths]) => [parent, [...paths]])),
       boxes: settings.boxes,
       favorites: settings.favorites,
       pinnedPaths: [...settings.pinnedPaths],

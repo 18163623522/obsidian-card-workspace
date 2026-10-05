@@ -2421,8 +2421,8 @@ describe("FolderCardView host contract", () => {
       return path === "projects" ? projects : path === "projects/client-a" ? clientA : null;
     });
 
-    await (view as any).modules.folderActions.onFolderMoveTargetChosen("projects", createFolder(""));
-    await (view as any).modules.folderActions.onFolderMoveTargetChosen("projects", clientA);
+    await (view as any).modules.folderActions.moveFolderTo("projects", "");
+    await (view as any).modules.folderActions.moveFolderTo("projects", clientA.path);
 
     expect(view.app.fileManager.renameFile).not.toHaveBeenCalled();
     expect(testState.noticeMessages).toEqual([
@@ -2442,7 +2442,7 @@ describe("FolderCardView host contract", () => {
       return path === "projects" ? projects : path === "archive" ? archive : null;
     });
 
-    await (view as any).modules.folderActions.onFolderMoveTargetChosen("projects", archive);
+    await (view as any).modules.folderActions.moveFolderTo("projects", archive.path);
 
     expect(view.app.fileManager.renameFile).toHaveBeenCalledWith(projects, "archive/projects");
     expect(refreshSpy).toHaveBeenCalledWith("archive/projects");

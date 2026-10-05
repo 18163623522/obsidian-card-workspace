@@ -1,3 +1,5 @@
+import { TFolder } from "obsidian";
+import { folderParentPath, hasFolderSiblingOrder, orderFolderSiblings, reorderFolderSiblings } from "../../folder-sibling-orders";
 import { moveNavSection } from "../../navigation-section-order";
 import { CARD_PANE_MIN_WIDTH } from "../../settings";
 import { normalizeScopePath, type CardScope } from "../scope";
@@ -38,6 +40,7 @@ export class NavLayoutController implements DisposableController {
   private folderTreeCountsByPath = new Map<string, { direct: number; recursive: number }>();
   private folderTreeDebounceTimer: ReturnType<Window["setTimeout"]> | null = null;
   private navCountRefreshHandle: ReturnType<Window["setTimeout"]> | null = null;
+  private readonly dragExpandedFolders = new Set<string>();
   private query = "";
   private focusId: string | null = null;
   private focusEstablished = false;
@@ -53,6 +56,43 @@ export class NavLayoutController implements DisposableController {
   constructor(private readonly deps: NavLayoutControllerDeps) {}
   private get context(): ViewContext {
     return this.deps.context;
+  }
+  expandFolderForDrag(path: string): void {
+    if (this.disposed || this.dragExpandedFolders.has(path)) return;
+    const row = this.projection.rows.find((row) => row.kind === "folder" && row.folderPath === path);
+    if (!row?.expandable || row.expanded) return;
+    this.dragExpandedFolders.add(path);
+    this.pushNavLayoutState();
+  }
+  clearFolderDrag(): void {
+    if (this.dragExpandedFolders.size === 0) return;
+    this.dragExpandedFolders.clear();
+    if (!this.disposed) this.pushNavLayoutState();
+  }
+  async reorderFolders(sourcePath: string, targetPath: string, position: "before" | "after"): Promise<void> {
+    if (this.disposed || !sourcePath || !targetPath || folderParentPath(sourcePath) !== folderParentPath(targetPath)) return;
+    const vault = this.context.getApp().vault;
+    const source = vault.getAbstractFileByPath(sourcePath), target = vault.getAbstractFileByPath(targetPath);
+    if (!(source instanceof TFolder) || !(target instanceof TFolder)) return;
+    const parent = folderParentPath(sourcePath);
+    // A drop uses all actual siblings, including rows hidden by a navigation query.
+    const parentFolder = parent === "" ? vault.getRoot() : vault.getAbstractFileByPath(parent);
+    if (!(parentFolder instanceof TFolder)) return;
+    const settings = this.context.getSettings();
+    const siblings = parentFolder.children.filter((child): child is TFolder => child instanceof TFolder)
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const fullOrder = orderFolderSiblings(siblings, settings.folderSiblingOrders, parent).map((folder) => folder.path);
+    const next = reorderFolderSiblings(fullOrder, sourcePath, targetPath, position);
+    if (next === null) return;
+    await this.context.saveSettings({ folderSiblingOrders: { ...settings.folderSiblingOrders, [parent]: next } });
+  }
+  async restoreFolderNameOrder(parent: string): Promise<void> {
+    if (this.disposed) return;
+    const orders = this.context.getSettings().folderSiblingOrders;
+    if (!hasFolderSiblingOrder(orders, parent)) return;
+    const next = { ...orders };
+    delete next[parent];
+    await this.context.saveSettings({ folderSiblingOrders: next });
   }
   getFolderTree(): FolderTreeNode[] {
     return this.folderTree;
@@ -244,9 +284,11 @@ export class NavLayoutController implements DisposableController {
     this.projection = projectNavigation({
       ...input,
       sectionCollapsed,
+      folderSiblingOrders: settings.folderSiblingOrders,
       query: this.query,
       expansion: {
         folders: {
+          temporary: [...this.dragExpandedFolders],
           manual: settings.expandedFolderPaths ?? [], reveal: [...this.expansion.revealFolders],
           query: [...this.expansion.queryFolders],
           suppressed: querying ? [...this.expansion.querySuppressedFolders] : [...this.expansion.suppressedFolders],
@@ -393,6 +435,7 @@ export class NavLayoutController implements DisposableController {
     this.query = "";
     this.focusId = null; this.focusEstablished = false;
     this.projection = { normalizedQuery: "", querying: false, sections: [], rows: [], noResults: false };
+    this.dragExpandedFolders.clear();
     clearNavigationExpansionState(this.expansion);
     this.queryCollapsedSections.clear();
     this.queryBaseline = null;

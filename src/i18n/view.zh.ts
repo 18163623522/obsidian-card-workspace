@@ -181,6 +181,8 @@ export const viewStringsZh: ViewStrings = {
       folderNotFound: "文件夹已不存在。",
       createFailed: (reason: string) => `创建文件夹失败：${reason}`,
       sameTarget: "文件夹已在所选位置中。",
+      moveConflict: "目标目录中已存在同名文件或文件夹，无法移动。",
+      restoreSiblingNameOrder: "恢复同级文件夹名称排序",
       invalidMoveTarget: "不能将文件夹移动到其自身或其子文件夹中。",
       moveFailed: (reason: string) => `移动文件夹失败：${reason}`,
       deleteFailed: (reason: string) => `删除文件夹失败：${reason}`,

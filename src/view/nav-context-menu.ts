@@ -1,3 +1,4 @@
+import { folderParentPath } from "../folder-sibling-orders";
 import type { Menu } from "obsidian";
 import type { UiStrings } from "../i18n";
 import { findCardBox } from "./card-boxes";
@@ -25,6 +26,7 @@ export interface NavMenuActions {
   createCanvas: (folderUiPath: string) => void;
   createBase: (folderUiPath: string) => void;
   duplicateFolder: (folderUiPath: string) => void;
+  restoreFolderNameOrder?: (parentPath: string) => void;
   moveFolder: (folderUiPath: string) => void;
   renameFolder: (folderUiPath: string) => void;
   deleteFolder: (folderUiPath: string) => void;
@@ -78,6 +80,7 @@ export interface NavMenuDeps {
   boxExcludedCount: (boxId: string) => number;
   sectionCollapsed: Record<NavSectionId, boolean>;
   sectionOrder: readonly NavSectionId[];
+  hasFolderSiblingOrder?: (parentPath: string) => boolean;
   hasExpandedFolders: boolean;
   hasExpandedTags: boolean;
   hasExpandedProperties: boolean;
@@ -133,9 +136,16 @@ function appendCopyPathItem(menu: Menu, deps: NavMenuDeps, ref: string): void {
   );
 }
 
+function appendRestoreFolderOrder(menu: Menu, deps: NavMenuDeps, parent: string): void {
+  addItem(menu, deps.strings.view.folderManagement.restoreSiblingNameOrder, "sort-asc",
+    () => deps.actions.restoreFolderNameOrder?.(parent),
+    (item) => item.setDisabled(!deps.hasFolderSiblingOrder?.(parent)));
+}
+
 function buildFoldersHeaderMenu(menu: Menu, payload: NavContextMenuPayload, deps: NavMenuDeps): boolean {
   const navMenu = deps.strings.view.navMenu;
   appendCreateItems(menu, deps, "/", true);
+  appendRestoreFolderOrder(menu, deps, "");
   menu.addSeparator();
 
   const expanded = deps.hasExpandedFolders;
@@ -180,6 +190,7 @@ function buildFolderItemMenu(menu: Menu, deps: NavMenuDeps, itemId: string): boo
   const folderMenu = deps.strings.toolbar.folderMenu;
 
   appendCreateItems(menu, deps, itemId, false);
+  appendRestoreFolderOrder(menu, deps, folderParentPath(itemId));
   menu.addSeparator();
 
   addItem(menu, navMenu.duplicateFolder, "copy", () => deps.actions.duplicateFolder(itemId));

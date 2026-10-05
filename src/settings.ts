@@ -1,3 +1,4 @@
+import { normalizeFolderSiblingOrders, type FolderSiblingOrders } from "./folder-sibling-orders";
 import { DEFAULT_GROUP_SPEC, normalizeGroupSpec, normalizeVisibleGroupSpec, type GroupSpec } from "./card-grouping-settings";
 import { normalizeExpandedFolderPaths, normalizeExpandedTagPaths } from "./navigation-expansion-settings";
 import { defaultNavSectionOrder, normalizeNavSectionOrder } from "./navigation-section-order";
@@ -156,6 +157,7 @@ export interface PluginSettings {
   cardImageMode: CardImageMode;
   cardImageFit: CardImageFit;
   lastFolderPath: string;
+  folderSiblingOrders: FolderSiblingOrders;
   expandedFolderPaths: string[];
   expandedTagPaths: string[];
   visiblePropertyKeys: string[];
@@ -199,6 +201,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
   cardImageMode: "right",
   cardImageFit: "cover",
   lastFolderPath: "",
+  folderSiblingOrders: {},
   expandedFolderPaths: [], expandedTagPaths: [],
   visiblePropertyKeys: [], expandedPropertyKeys: [],
   boxes: [],
@@ -512,6 +515,7 @@ function flattenV2(raw: Record<string, unknown>): Record<string, unknown> {
     navPaneCollapsed: workspace.navPaneCollapsed,
     sectionCollapsed: workspace.sectionCollapsed,
     boxes: userData.boxes,
+    folderSiblingOrders: userData.folderSiblingOrders,
     favorites: userData.favorites,
     pinnedPaths: userData.pinnedPaths,
   };
@@ -581,6 +585,7 @@ function normalizeFlatSettings(raw: unknown): PluginSettings {
     visiblePropertyKeys,
     expandedPropertyKeys: normalizeExpandedPropertyKeys(data.expandedPropertyKeys, visiblePropertyKeySet),
     boxes: boxes.map((box) => ({ ...box, group: normalizeVisibleGroupSpec(box.group, visiblePropertyKeySet) })),
+    folderSiblingOrders: normalizeFolderSiblingOrders(data.folderSiblingOrders),
     favorites: normalizeFavorites(data.favorites),
     activeBoxId: normalizeActiveBoxId(data.activeBoxId, boxes),
     navPaneWidth: normalizeNavPaneWidth(data.navPaneWidth),

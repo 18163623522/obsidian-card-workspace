@@ -13,6 +13,8 @@
     resolveFavoriteDropPosition,
     type FavoriteDragState,
   } from "./navigation-favorite-dnd";
+  import { folderRowDragState, resolveFolderDrop, folderDragScrollSpeed,
+    type FolderDragState, type FolderDropTarget } from "./navigation-folder-dnd";
   import NavigationTreeRow from "./NavigationTreeRow.svelte";
   import type { FolderActionPayload, NavContextMenuPayload } from "./types";
   interface Props {
@@ -58,6 +60,13 @@
   let filterEl: HTMLInputElement | null = $state(null);
   let hoveredRowIds = $state<ReadonlySet<string>>(new Set());
   let favoriteDrag = $state<FavoriteDragState>({ source: null, target: null });
+  let folderDrag = $state<FolderDragState>({ source: null, target: null });
+  const rowsById = $derived(new Map(rows.map((row) => [row.id, row])));
+  let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+  let scrollFrame: number | null = null;
+  let scrollTime = 0;
+  let pointerX = 0, pointerY = 0;
+  let suppressClickUntil = 0;
   let previousRowIds: string[] = [];
   let rowElements = new Map<string, HTMLElement>();
   let consumedRevealToken = 0;
@@ -87,7 +96,11 @@
   });
   $effect(() => { const request = nav.focusRequest; if (request && request.token > consumedFocusReturnToken && nav.visible)
     void consumeFocusReturnAfterRender(request.token, request.rowId); });
-  $effect(() => () => { disposed = true; rowElements.clear(); });
+  $effect(() => {
+    if (folderDrag.source !== null && (!nav.visible || !rowsById.has(`folder:${folderDrag.source}`))) clearFolderDrag();
+    else if (folderDrag.target !== null && !rowsById.has(`folder:${folderDrag.target.path}`)) updateFolderTarget(null);
+  });
+  $effect(() => () => { disposed = true; clearFolderDrag(); rowElements.clear(); });
   function icon(node: HTMLElement, name: string): { update: (next: string) => void } {
     setIcon(node, name);
     return { update: (next) => setIcon(node, next) };
@@ -110,7 +123,7 @@
     else void tick().then(() => rowElements.get(rowId)?.focus());
   }
   function activate(event: MouseEvent, row: NavigationRow): void {
-    if (row.disabled) return;
+    if (row.disabled || performance.now() < suppressClickUntil) { event.preventDefault(); return; }
     focusRow(row.id);
     const additive = (row.kind === "tag" || row.kind === "property-value" || (row.kind === "favorite" && row.favorite.kind === "tag"))
       && (event.ctrlKey || event.metaKey);
@@ -118,6 +131,7 @@
   }
   function toggleExpansion(event: MouseEvent, row: NavigationRow): void {
     event.preventDefault(); event.stopPropagation();
+    if (performance.now() < suppressClickUntil) return;
     emitIntent({ type: "focus", rowId: row.id });
     (event.currentTarget as HTMLElement).closest<HTMLElement>("[role=treeitem]")?.focus({ preventScroll: true });
     emitIntent({ type: "set-expanded", rowId: row.id, expanded: !row.expanded });
@@ -136,6 +150,122 @@
   function menuPayload(row: NavigationRow, trigger: NavContextMenuPayload["trigger"]): NavContextMenuPayload {
     return Object.freeze({ ...row.menuTarget, originId: row.id, trigger: Object.freeze(trigger) });
   }
+
+  // Folder drag state is presentation-only; durable decisions go through host intents.
+  function stopScroll(): void {
+    if (scrollFrame !== null) scrollerEl?.ownerDocument.defaultView?.cancelAnimationFrame(scrollFrame);
+    scrollFrame = null; scrollTime = 0;
+  }
+  function updateFolderTarget(target: FolderDropTarget | null): void {
+    const previous = folderDrag.target;
+    if (previous?.path === target?.path && previous?.operation === target?.operation) return;
+    if (hoverTimer !== null) { clearTimeout(hoverTimer); hoverTimer = null; }
+    folderDrag = { ...folderDrag, target };
+    if (target?.operation === "inside") {
+      const row = rowsById.get(`folder:${target.path}`);
+      if (row?.expandable && !row.expanded) {
+        hoverTimer = setTimeout(() => {
+          hoverTimer = null;
+          if (folderDrag.source !== null && folderDrag.target?.path === target.path
+            && folderDrag.target.operation === "inside") emitIntent({ type: "drag-expand-folder", path: target.path });
+        }, 600);
+      }
+    }
+  }
+  function clearFolderDrag(): void {
+    const hadSource = folderDrag.source !== null;
+    stopScroll(); updateFolderTarget(null);
+    if (hoverTimer !== null) { clearTimeout(hoverTimer); hoverTimer = null; }
+    if (hadSource) {
+      folderDrag = { source: null, target: null };
+      suppressClickUntil = performance.now() + 300;
+      emitIntent({ type: "clear-folder-drag" });
+    }
+  }
+  function folderTargetAt(element: Element | null): void {
+    const node = element?.closest<HTMLElement>("[data-nav-row-id]");
+    const row = node && scrollerEl?.contains(node) ? rowsById.get(node.dataset.navRowId ?? "") : null;
+    updateFolderTarget(row?.kind === "folder" && node
+      ? resolveFolderDrop(folderDrag.source, row.folderPath, pointerY, node.getBoundingClientRect()) : null);
+  }
+  function scrollDragFrame(time: number): void {
+    scrollFrame = null;
+    if (folderDrag.source === null || !scrollerEl) return;
+    const speed = folderDragScrollSpeed(pointerY, scrollerEl.getBoundingClientRect());
+    if (speed === 0) { scrollTime = 0; return; }
+    const elapsed = scrollTime ? Math.min(time - scrollTime, 50) : 16;
+    scrollTime = time;
+    const previous = scrollerEl.scrollTop;
+    scrollerEl.scrollTop = Math.max(0, Math.min(scrollerEl.scrollHeight - scrollerEl.clientHeight,
+      previous + speed * elapsed / 1000));
+    if (scrollerEl.scrollTop === previous) { scrollTime = 0; return; }
+    folderTargetAt(scrollerEl.ownerDocument.elementFromPoint(pointerX, pointerY));
+    if ((speed < 0 && scrollerEl.scrollTop === 0)
+      || (speed > 0 && scrollerEl.scrollTop >= scrollerEl.scrollHeight - scrollerEl.clientHeight)) {
+      scrollTime = 0; return;
+    }
+    scrollFrame = scrollerEl.ownerDocument.defaultView?.requestAnimationFrame(scrollDragFrame) ?? null;
+  }
+  function folderDragSurface(node: HTMLElement): { destroy: () => void } {
+    const doc = node.ownerDocument;
+    const over = (event: DragEvent): void => {
+      if (folderDrag.source === null) return;
+      pointerX = event.clientX; pointerY = event.clientY;
+      folderTargetAt((event.target as Node | null)?.nodeType === 1 ? event.target as Element : null);
+      if (folderDrag.target !== null) {
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+      }
+      if (folderDragScrollSpeed(pointerY, node.getBoundingClientRect()) !== 0) {
+        if (scrollFrame === null) scrollFrame = doc.defaultView?.requestAnimationFrame(scrollDragFrame) ?? null;
+      } else stopScroll();
+    };
+    const leave = (event: DragEvent): void => {
+      const related = event.relatedTarget as Node | null;
+      if (related?.nodeType && node.contains(related)) return;
+      if (event.target !== node && related === null) return;
+      stopScroll(); updateFolderTarget(null);
+    };
+    const outside = (event: DragEvent): void => {
+      if (folderDrag.source !== null && (!(event.target as Node | null)?.nodeType || !node.contains(event.target as Node))) {
+        stopScroll(); updateFolderTarget(null);
+      }
+    };
+    const drop = (): void => { clearFolderDrag(); };
+    node.addEventListener("dragover", over);
+    node.addEventListener("dragleave", leave);
+    node.addEventListener("drop", drop);
+    doc.addEventListener("dragover", outside);
+    doc.addEventListener("dragend", drop);
+    doc.defaultView?.addEventListener("blur", drop);
+    return { destroy: () => {
+      clearFolderDrag();
+      node.removeEventListener("dragover", over); node.removeEventListener("dragleave", leave);
+      node.removeEventListener("drop", drop); doc.removeEventListener("dragover", outside);
+      doc.removeEventListener("dragend", drop); doc.defaultView?.removeEventListener("blur", drop);
+    } };
+  }
+  function onRowDragStart(event: DragEvent, row: NavigationRow): void {
+    if (row.kind !== "folder") { clearFolderDrag(); onFavoriteDragStart(event, row); return; }
+    clearFavoriteDrag(); clearFolderDrag();
+    if (!row.folderPath) { event.preventDefault(); return; }
+    folderDrag = { source: row.folderPath, target: null };
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("application/x-card-workspace-folder", row.folderPath);
+    }
+  }
+  function onRowDrop(event: DragEvent, row: NavigationRow): void {
+    if (folderDrag.source === null) { onFavoriteDrop(event, row); return; }
+    const sourcePath = folderDrag.source;
+    const target = row.kind === "folder"
+      ? resolveFolderDrop(sourcePath, row.folderPath, event.clientY, (event.currentTarget as HTMLElement).getBoundingClientRect()) : null;
+    event.preventDefault(); clearFolderDrag();
+    if (!target) return;
+    if (target.operation === "inside") emitIntent({ type: "move-folder", sourcePath, targetFolderPath: target.path });
+    else emitIntent({ type: "reorder-folders", sourcePath, targetPath: target.path, position: target.operation });
+  }
+  function onRowDragEnd(): void { clearFavoriteDrag(); clearFolderDrag(); }
 
   // -- Favorites manual drag reorder (favorites section only) ----------------
 
@@ -181,9 +311,6 @@
     emitIntent({ type: "reorder-favorites", source, target, position });
   }
 
-  function onFavoriteDragEnd(): void {
-    clearFavoriteDrag();
-  }
   function pointerMenu(event: MouseEvent, row: NavigationRow): void {
     event.preventDefault(); event.stopPropagation();
     onNavContextMenu?.(menuPayload(row, { kind: "pointer", mouseEvent: event }));
@@ -206,7 +333,7 @@
     event.preventDefault(); clearFilter("input");
   }
   function actionClick(event: MouseEvent, action: () => void): void {
-    event.preventDefault(); event.stopPropagation(); action();
+    event.preventDefault(); event.stopPropagation(); if (performance.now() < suppressClickUntil) return; action();
   }
   async function consumeRevealAfterRender(token: number, rowId: string): Promise<void> {
     await tick();
@@ -279,7 +406,7 @@
       {/if}
     </div>
   </div>
-  <div class="fce-nav-pane-sections" bind:this={scrollerEl}>
+  <div class="fce-nav-pane-sections" bind:this={scrollerEl} use:folderDragSurface>
     {#if nav.projection.noResults}
       <div class="fce-tree-empty fce-nav-no-results">{labels.noResults}</div>
     {:else}
@@ -292,11 +419,11 @@
             subtreeHovered={hoveredRowIds.has(row.id)} {strings} {activeFilterTags}
             activePropertyFilterCount={nav.propertyFilterCount}
             showItemCounts={nav.showItemCounts} tooltipSide={nav.tooltipSide}
-            dragState={favoriteRowDragState(row, favoriteDrag)}
+            dragState={folderRowDragState(row, folderDrag) ?? favoriteRowDragState(row, favoriteDrag)}
             rowRef={bindRow} onFocus={(id) => emitIntent({ type: "focus", rowId: id })}
             onActivate={activate} onToggleExpansion={toggleExpansion} onKeydown={keydown} onContextMenu={pointerMenu}
-            onRowDragStart={onFavoriteDragStart} onRowDragOver={onFavoriteDragOver}
-            onRowDrop={onFavoriteDrop} onRowDragEnd={onFavoriteDragEnd}>
+            onRowDragStart={onRowDragStart} onRowDragOver={onFavoriteDragOver}
+            onRowDrop={onRowDrop} onRowDragEnd={onRowDragEnd}>
             {#snippet actions()}
               {#if row.kind === "section" && row.section === "folders"}
                 <button type="button" tabindex="-1" class="clickable-icon fce-nav-section-create" aria-label={labels.createFolder}

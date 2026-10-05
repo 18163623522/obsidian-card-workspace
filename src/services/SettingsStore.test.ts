@@ -674,6 +674,7 @@ describe("SettingsStore — layer manifest classification (C4)", () => {
       sort: { field: "mtime", direction: "desc" },
       group: DEFAULT_GROUP_SPEC,
     }] }],
+    ["folderSiblingOrders", { folderSiblingOrders: { "": ["B", "A"] } }],
     ["favorites", { favorites: [{ kind: "folder", ref: "Projects" }] }],
     ["pinnedPaths", { pinnedPaths: ["Projects/a.md"] }],
   ];

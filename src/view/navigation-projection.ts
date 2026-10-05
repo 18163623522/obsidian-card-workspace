@@ -1,3 +1,4 @@
+import { orderFolderSiblings, type FolderSiblingOrders } from "../folder-sibling-orders";
 import { PLAIN_FOLDER_ICON } from "../icons";
 import { normalizeNavSectionOrder } from "../navigation-section-order";
 import { isCurrentBoxId, isCurrentFolderPath, normalizeScopePath } from "./scope";
@@ -55,6 +56,7 @@ function buildExpansionSet(layer: NavigationExpansionLayer, querying: boolean): 
     for (const value of layer.query) expanded.add(value);
   }
   for (const value of layer.suppressed) expanded.delete(value);
+  for (const value of layer.temporary ?? []) expanded.add(value);
   return expanded;
 }
 
@@ -84,12 +86,14 @@ function filterFolderTree(
   nodes: readonly FolderTreeNode[],
   needle: string,
   rootFolderLabel: string,
+  orders: FolderSiblingOrders = {},
+  parent: string = "",
 ): MatchedTreeNode<FolderTreeNode>[] {
   const result: MatchedTreeNode<FolderTreeNode>[] = [];
-  for (const node of nodes) {
+  for (const node of orderFolderSiblings(nodes, orders, parent)) {
     if (!validString(node?.path, true) || !validString(node?.name, true)) continue;
-    const children = filterFolderTree(Array.isArray(node.children) ? node.children : [], needle, rootFolderLabel);
     const canonicalPath = normalizeScopePath(node.path);
+    const children = filterFolderTree(Array.isArray(node.children) ? node.children : [], needle, rootFolderLabel, orders, canonicalPath);
     const selfMatches = matches(needle, node.name || "/", canonicalPath || "/", canonicalPath === "" ? rootFolderLabel : "");
     if (selfMatches || children.length > 0) result.push({ source: node, children, selfMatches });
   }
@@ -115,9 +119,10 @@ function projectFolders(
 ): NavigationFolderRow[] {
   if (!sectionExpanded) return [];
   const querying = needle.length > 0;
+  const orders = input.folderSiblingOrders ?? {};
   const matched = querying
-    ? filterFolderTree(input.folders, needle, input.rootFolderLabel)
-    : input.folders
+    ? filterFolderTree(input.folders, needle, input.rootFolderLabel, orders)
+    : orderFolderSiblings(input.folders, orders, "")
         .filter((node) => validString(node?.path, true) && validString(node?.name, true))
         .map((source) => ({ source, children: [], selfMatches: true }));
   const expandedPaths = buildExpansionSet(input.expansion.folders, querying);
@@ -134,11 +139,11 @@ function projectFolders(
       const id = navigationFolderId(canonicalPath);
       const sourceChildren = Array.isArray(node.children) ? node.children : [];
       const matchedChildren = "children" in matchedNode ? matchedNode.children : [];
-      const children = querying ? matchedChildren : sourceChildren.map((source) => ({ source }));
+      const children = querying ? matchedChildren : orderFolderSiblings(sourceChildren, orders, canonicalPath).map((source) => ({ source }));
       const expandable = sourceChildren.length > 0;
       const autoExpanded = querying && matchedChildren.length > 0;
       const expanded = expandable
-        && !isSuppressed(input.expansion.folders, canonicalPath)
+        && (!isSuppressed(input.expansion.folders, canonicalPath) || Boolean(input.expansion.folders.temporary?.includes(canonicalPath)))
         && (expandedPaths.has(canonicalPath) || autoExpanded);
       rows.push({
         id,

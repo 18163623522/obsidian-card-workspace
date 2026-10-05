@@ -579,3 +579,48 @@ describe("NavLayoutController", () => {
     expect(controller.getProjection().rows).toEqual([]);
   });
 });
+
+describe("folder drag navigation state", () => {
+  it("uses all siblings under a query, ignores original-position drops, and resets only one group", async () => {
+    const a = folder("a"), b = folder("b"), c = folder("c"), root = folder("", [a, b, c]);
+    const h = createHarness(root);
+    vi.spyOn(h.context, "getApp").mockReturnValue({ vault: {
+      getRoot: () => root,
+      getAbstractFileByPath: vi.fn((path: string) => [a, b, c].find((f) => f.path === path) ?? null),
+    } } as never);
+    h.settings.folderSiblingOrders = { a: [] };
+    h.controller.updateQuery("b");
+    h.publishGroups.mockClear();
+    await h.controller.reorderFolders("a", "b", "before");
+    expect(h.saveSettings).not.toHaveBeenCalled();
+    expect(h.settings.folderSiblingOrders).toEqual({ a: [] });
+    await h.controller.reorderFolders("c", "a", "before");
+    expect(h.settings.folderSiblingOrders).toEqual({ a: [], "": ["c", "a", "b"] });
+    expect(h.saveSettings).toHaveBeenCalledTimes(1);
+    expect(h.onNavCountsInvalidated).not.toHaveBeenCalled();
+    expect(h.context.requestUpdate).not.toHaveBeenCalled();
+    await h.controller.restoreFolderNameOrder("");
+    expect(h.settings.folderSiblingOrders).toEqual({ a: [] });
+    await h.controller.restoreFolderNameOrder("");
+    expect(h.saveSettings).toHaveBeenCalledTimes(2);
+  });
+  it("temporary expansion publishes only nav, ignores repeated requests, and clears without a write", () => {
+    const h = createHarness();
+    const input = projectionInput(createFolderScope("", true));
+    h.controller.project(input);
+    h.publishGroups.mockClear();
+    h.controller.expandFolderForDrag("a");
+    h.controller.expandFolderForDrag("a");
+    expect(h.publishGroups).toHaveBeenCalledExactlyOnceWith("nav");
+    expect(h.controller.project(input).rows.find((r) => r.id === "folder:a")?.expanded).toBe(true);
+    h.controller.clearFolderDrag();
+    expect(h.controller.project(input).rows.find((r) => r.id === "folder:a")?.expanded).toBe(false);
+    expect(h.settings.expandedFolderPaths).toEqual([]);
+    expect(h.saveSettings).not.toHaveBeenCalled();
+    expect(h.onNavCountsInvalidated).not.toHaveBeenCalled();
+    h.controller.dispose();
+    h.publishGroups.mockClear();
+    h.controller.expandFolderForDrag("a");
+    expect(h.publishGroups).not.toHaveBeenCalled();
+  });
+});
