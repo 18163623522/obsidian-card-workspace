@@ -971,6 +971,7 @@ vi.mock("obsidian", () => {
     ItemView: mockState.MockItemView,
     Menu: mockState.MockMenu,
     ConfirmationModal: mockState.MockConfirmationModal,
+    requireApiVersion: () => true,
     Modal: mockState.MockModal,
     Notice: mockState.MockNotice,
     Setting: mockState.MockSetting,

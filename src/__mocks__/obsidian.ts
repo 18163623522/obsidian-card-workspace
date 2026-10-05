@@ -1,3 +1,7 @@
+export function requireApiVersion(_version: string): boolean {
+  return true;
+}
+
 export function debounce<T extends unknown[]>(
   callback: (...args: T) => void,
   timeout = 0,

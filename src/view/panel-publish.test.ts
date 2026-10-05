@@ -12,6 +12,7 @@ vi.mock("obsidian", () => ({
     }
   },
   ConfirmationModal: class {},
+  requireApiVersion: () => true,
   FuzzySuggestModal: class {},
   Menu: class {},
   Modal: class {},

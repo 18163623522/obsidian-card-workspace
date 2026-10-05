@@ -1,5 +1,5 @@
 import * as obsidian from "obsidian";
-import { ButtonComponent, Modal, type App } from "obsidian";
+import { ButtonComponent, Modal, requireApiVersion, type App } from "obsidian";
 
 /** The shared surface used by plugin dialogs; no newer runtime exports are required. */
 export interface CompatConfirmationButton {
@@ -71,9 +71,9 @@ class LegacyConfirmationModal extends Modal implements CompatConfirmationModal {
   }
 }
 
-// Check the namespace before accessing it: older hosts omit the export entirely.
+// Use an explicit version guard for review tooling, then check the export itself.
 // Native dialogs (and their focus/keyboard behavior) remain untouched on 1.13+.
 export const CompatConfirmationModal: new (app: App) => CompatConfirmationModal =
-  "ConfirmationModal" in obsidian && typeof obsidian.ConfirmationModal === "function"
+  requireApiVersion("1.13.0") && "ConfirmationModal" in obsidian && typeof obsidian.ConfirmationModal === "function"
     ? obsidian.ConfirmationModal
     : LegacyConfirmationModal;

@@ -1,7 +1,12 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { asMock, MockEl, SettingGroup, type MockButton } from "../../__mocks__/obsidian-modal-mock";
 
-describe.each(["native", "legacy"])("confirmation compatibility (%s host)", (runtime) => {
+describe.each([
+  { runtime: "native", supportsNativeApi: true, hasNativeExport: true },
+  { runtime: "legacy", supportsNativeApi: false, hasNativeExport: false },
+  { runtime: "legacy", supportsNativeApi: false, hasNativeExport: true },
+  { runtime: "legacy", supportsNativeApi: true, hasNativeExport: false },
+])("confirmation compatibility ($runtime, 1.13 API: $supportsNativeApi, export: $hasNativeExport)", ({ runtime, supportsNativeApi, hasNativeExport }) => {
   let Modal: typeof import("./compat-modal").CompatConfirmationModal;
   let BulkModal: typeof import("./BulkActionConfirmModal").BulkActionConfirmModal;
   let createModalPreview: typeof import("./modal-layout").createModalPreview;
@@ -10,8 +15,14 @@ describe.each(["native", "legacy"])("confirmation compatibility (%s host)", (run
     vi.resetModules();
     vi.doMock("obsidian", async () => {
       const exports = await import("../../__mocks__/obsidian-modal-mock");
-      return runtime === "native" ? exports : Object.fromEntries(Object.entries(exports)
-        .filter(([key]) => key !== "ConfirmationModal" && key !== "ConfirmationButton"));
+      return {
+        ...(hasNativeExport ? exports : Object.fromEntries(Object.entries(exports)
+          .filter(([key]) => key !== "ConfirmationModal" && key !== "ConfirmationButton"))),
+        requireApiVersion: (version: string) => {
+          expect(version).toBe("1.13.0");
+          return supportsNativeApi;
+        },
+      };
     });
     Modal = (await import("./compat-modal")).CompatConfirmationModal;
     BulkModal = (await import("./BulkActionConfirmModal")).BulkActionConfirmModal;

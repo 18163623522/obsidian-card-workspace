@@ -1,7 +1,5 @@
 import {
-  PluginSettingTab, SettingGroup, type App, type SettingDefinition,
-  type SettingDefinitionGroup, type SettingDropdownControl, type SettingSliderControl,
-  type SettingToggleControl,
+  PluginSettingTab, SettingGroup, requireApiVersion, type App,
 } from "obsidian";
 import {
   getCardCornerRadiusOptions,
@@ -25,12 +23,21 @@ import {
 } from "./settings";
 import type CardWorkspacePlugin from "./main";
 
-// Both host entry points consume this same, intentionally small control vocabulary.
-type WorkspaceSettingDefinition = SettingDefinition & {
-  control: SettingDropdownControl | SettingToggleControl | SettingSliderControl;
+// These are plugin-owned data shared by both renderers, not newer host APIs.
+// The getSettingDefinitions override also checks compatibility with native types.
+type WorkspaceSettingControl =
+  | { type: "dropdown"; key: string; options: Record<string, string> }
+  | { type: "toggle"; key: string }
+  | { type: "slider"; key: string; min: number; max: number; step: number };
+type WorkspaceSettingDefinition = {
+  name: string;
+  desc?: string;
+  visible?: boolean | (() => boolean);
+  control: WorkspaceSettingControl;
 };
-type WorkspaceSettingGroup = Omit<SettingDefinitionGroup, "items"> & {
+type WorkspaceSettingGroup = {
   type: "group";
+  heading?: string;
   items: WorkspaceSettingDefinition[];
 };
 
@@ -136,8 +143,10 @@ export class CardWorkspaceSettingTab extends PluginSettingTab {
   async setControlValue(key: string, value: unknown): Promise<void> {
     await this.saveDeclarativeSetting(key, value);
     if (key === "cardImageMode") {
-      if (typeof this.refreshDomState === "function") {
-        this.refreshDomState();
+      if (requireApiVersion("1.13.0")) {
+        if (typeof this.refreshDomState === "function") {
+          this.refreshDomState();
+        }
       }
       this.refreshLegacyVisibility();
     }

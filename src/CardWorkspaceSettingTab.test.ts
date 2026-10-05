@@ -15,12 +15,13 @@ const mockState = vi.hoisted(() => {
     }
   }
 
-  return { MockPluginSettingTab };
+  return { MockPluginSettingTab, requireApiVersion: vi.fn(() => true) };
 });
 
 vi.mock("obsidian", async () => ({
   ...await import("./__mocks__/obsidian-modal-mock"),
   PluginSettingTab: mockState.MockPluginSettingTab,
+  requireApiVersion: mockState.requireApiVersion,
 }));
 
 import { CardWorkspaceSettingTab } from "./CardWorkspaceSettingTab";
@@ -77,6 +78,7 @@ function controlOf(row: SettingDefinition | undefined) {
 describe("CardWorkspaceSettingTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockState.requireApiVersion.mockReturnValue(true);
   });
 
   it("describes the settings as two declarative groups with native controls", () => {
@@ -259,7 +261,8 @@ describe("CardWorkspaceSettingTab", () => {
     });
   });
 
-  it("updates legacy visibility without refreshDomState or rebuilding controls and reloads saved values", async () => {
+  it.each([false, true])("updates legacy visibility without refreshDomState or rebuilding controls (1.13 API: %s)", async (supportsNativeApi) => {
+    mockState.requireApiVersion.mockReturnValue(supportsNativeApi);
     const plugin = createPlugin();
     const settings = plugin.getSettings();
     plugin.getSettings.mockImplementation(() => settings);
@@ -366,5 +369,21 @@ describe("CardWorkspaceSettingTab", () => {
     await tab.setControlValue("cardImageMode", "right");
     expect(plugin.saveSettings).toHaveBeenLastCalledWith({ cardImageMode: "right" });
     expect(tab.refreshDomState).toHaveBeenCalledTimes(1);
+    expect(mockState.requireApiVersion).toHaveBeenCalledWith("1.13.0");
+  });
+
+  it("skips native refresh on older hosts even when the method exists", async () => {
+    mockState.requireApiVersion.mockReturnValue(false);
+    const plugin = createPlugin();
+    const tab = createTab(plugin) as unknown as {
+      refreshDomState: ReturnType<typeof vi.fn>;
+      setControlValue: (key: string, value: unknown) => Promise<void>;
+    };
+
+    await tab.setControlValue("cardImageMode", "right");
+
+    expect(plugin.saveSettings).toHaveBeenCalledWith({ cardImageMode: "right" });
+    expect(mockState.requireApiVersion).toHaveBeenCalledWith("1.13.0");
+    expect(tab.refreshDomState).not.toHaveBeenCalled();
   });
 });

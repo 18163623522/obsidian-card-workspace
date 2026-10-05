@@ -10,6 +10,10 @@
 
 type Listener = (event: unknown) => void;
 
+export function requireApiVersion(_version: string): boolean {
+  return true;
+}
+
 export type MockNode = MockEl | Setting | SettingGroup;
 
 export class MockEl {

@@ -213,6 +213,7 @@ vi.mock("obsidian", () => {
     PluginSettingTab: class {},
     MarkdownView: class {},
     ConfirmationModal: testState.TestModal,
+    requireApiVersion: () => true,
     ItemView: testState.TestItemView,
     Menu: testState.TestMenu,
     Modal: testState.TestModal,
